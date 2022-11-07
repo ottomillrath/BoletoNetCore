@@ -12,6 +12,7 @@ namespace BoletoNetCore
         Itau = 341,
         Safra = 422,
         Sicredi = 748,
-        Sicoob = 756
+        Sicoob = 756,
+        Cresol = 133,
     }
 }

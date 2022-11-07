@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 
 namespace BoletoNetCore
 {
-    partial class BancoSicredi : IBancoOnlineRest
+    partial class BancoCresol : IBancoOnlineRest
     {
         public bool Homologacao { get; set; } = true;
         
@@ -20,7 +20,7 @@ namespace BoletoNetCore
                 if (this._httpClient == null)
                 {
                     this._httpClient = new HttpClient();
-                    this._httpClient.BaseAddress = new Uri("https://cobrancaonline.sicredi.com.br/sicredi-cobranca-ws-ecomm-api/ecomm/v1/boleto/");
+                    this._httpClient.BaseAddress = new Uri("https://cobrancaonline.Cresol.com.br/Cresol-cobranca-ws-ecomm-api/ecomm/v1/boleto/");
                 }
 
                 return this._httpClient;
@@ -30,11 +30,11 @@ namespace BoletoNetCore
 
         #region Chaves de Acesso Api
 
-        // Chave Master que deve ser gerada pelo portal do sicredi
+        // Chave Master que deve ser gerada pelo portal do Cresol
         // Menu Cobrança, Sub Menu Lateral Código de Acesso / Gerar
         public string ChaveApi { get; set; }
 
-        // Não utilizada para o Sicredi
+        // Não utilizada para o Cresol
         public string SecretApi { get; set; }
 
         // Chave de Transação valida por 24 horas
@@ -51,14 +51,14 @@ namespace BoletoNetCore
 
             var response = await this.httpClient.SendAsync(request);
             await this.CheckHttpResponseError(response);
-            var ret = await response.Content.ReadFromJsonAsync<ChaveTransacaoSicrediApi>();
+            var ret = await response.Content.ReadFromJsonAsync<ChaveTransacaoCresolApi>();
             this.Token = ret.ChaveTransacao;
             return ret.ChaveTransacao;
         }
 
         public async Task RegistrarBoleto(Boleto boleto)
         {
-            var emissao = new EmissaoBoletoSicrediApi();
+            var emissao = new EmissaoBoletoCresolApi();
             emissao.Agencia = boleto.Banco.Beneficiario.ContaBancaria.Agencia;
             emissao.Posto = boleto.Banco.Beneficiario.ContaBancaria.DigitoAgencia;
             emissao.Cedente = boleto.Banco.Beneficiario.Codigo;
@@ -78,7 +78,7 @@ namespace BoletoNetCore
             emissao.Telefone = boleto.Pagador.Telefone;
 
             emissao.Email = "";
-            emissao.EspecieDocumento = this.EspecieDocumentoSicrediCNAB400(boleto.EspecieDocumento);
+            emissao.EspecieDocumento = this.EspecieDocumentoCresolCNAB400(boleto.EspecieDocumento);
             emissao.SeuNumero = boleto.NumeroDocumento;
             emissao.DataVencimento = boleto.DataVencimento.ToString("dd/MM/yyyy");
             emissao.Valor = boleto.ValorTitulo;
@@ -104,8 +104,8 @@ namespace BoletoNetCore
             var response = await this.httpClient.SendAsync(request);
             await this.CheckHttpResponseError(response);
 
-            // todo: verificar a necessidade de preencher dados do boleto com o retorno do sicredi
-            var boletoEmitido = await response.Content.ReadFromJsonAsync<BoletoEmitidoSicrediApi>();
+            // todo: verificar a necessidade de preencher dados do boleto com o retorno do Cresol
+            var boletoEmitido = await response.Content.ReadFromJsonAsync<BoletoEmitidoCresolApi>();
             boletoEmitido.LinhaDigitável.ToString();
             boletoEmitido.CodigoBarra.ToString();
         }
@@ -117,7 +117,7 @@ namespace BoletoNetCore
 
             if (response.StatusCode == HttpStatusCode.BadRequest || (response.StatusCode == HttpStatusCode.NotFound && response.Content.Headers.ContentType.MediaType == "application/json"))
             {
-                var bad = await response.Content.ReadFromJsonAsync<BadRequestSicrediApi>();
+                var bad = await response.Content.ReadFromJsonAsync<BadRequestCresolApi>();
                 throw new Exception(string.Format("{0} {1}", bad.Parametro, bad.Mensagem).Trim());
             }
             else
@@ -138,16 +138,16 @@ namespace BoletoNetCore
             request.Headers.Add("token", this.Token);
             var response = await this.httpClient.SendAsync(request);
             await this.CheckHttpResponseError(response);
-            var ret = await response.Content.ReadFromJsonAsync<RetornoConsultaBoletoSicrediApi[]>();
+            var ret = await response.Content.ReadFromJsonAsync<RetornoConsultaBoletoCresolApi[]>();
 
             // todo: verificar quais dados necessarios para preencher boleto
             ret[0].Situacao.ToString();
         }
     }
 
-    #region Classes Auxiliares (json) Sicredi
+    #region Classes Auxiliares (json) Cresol
 
-    class InstrucaoSicrediApi
+    class InstrucaoCresolApi
     {
         public string Agencia { get; set; }
         public string Posto { get; set; }
@@ -178,20 +178,20 @@ namespace BoletoNetCore
         public string ComplementoInstrucao { get; set; }
     }
 
-    class BadRequestSicrediApi
+    class BadRequestCresolApi
     {
         public string Codigo { get; set; }
         public string Mensagem { get; set; }
         public string Parametro { get; set; }
     }
 
-    class ChaveTransacaoSicrediApi
+    class ChaveTransacaoCresolApi
     {
         public string ChaveTransacao { get; set; }
         public DateTime dataExpiracao { get; set; }
     }
 
-    class RetornoConsultaBoletoSicrediApi
+    class RetornoConsultaBoletoCresolApi
     {
         public string SeuNumero { get; set; }
         public string NossoNumero { get; set; }
@@ -204,7 +204,7 @@ namespace BoletoNetCore
         public string Situacao { get; set; }
     }
 
-    class BoletoEmitidoSicrediApi
+    class BoletoEmitidoCresolApi
     {
         public string LinhaDigitável { get; set; }
         public string CodigoBanco { get; set; }
@@ -234,7 +234,7 @@ namespace BoletoNetCore
         public string CodigoBarra { get; set; }
     }
 
-    class EmissaoBoletoSicrediApi
+    class EmissaoBoletoCresolApi
     {
         public string Agencia { get; set; }
         public string Posto { get; set; }

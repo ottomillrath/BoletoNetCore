@@ -1,5 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Net;
+using System.Net.Http;
+using System.Net.Http.Json;
+using System.Text.Json.Serialization;
 using System.Threading.Tasks;
 using BoletoNetCore.Exceptions;
 using static System.String;
@@ -8,7 +12,35 @@ namespace BoletoNetCore
 {
     partial class BancoItau : IBancoOnlineRest
     {
+        public bool Homologacao { get; set; } = true;
+        #region HttpClient
+        private HttpClient _httpClient;
+        private HttpClient httpClient
+        {
+            get
+            {
+                if (this._httpClient == null)
+                {
+                    this._httpClient = new HttpClient();
+                    if (Homologacao)
+                    {
+                        this._httpClient.BaseAddress = new Uri("https://devportal.itau.com.br/sandboxapi/cash_management_ext_v2/v2/");
+                    }
+                    else
+                    {
+                        this._httpClient.BaseAddress = new Uri("https://api.itau.com.br/cash_management/v2/");
+                    }
+                }
+
+                return this._httpClient;
+            }
+        }
+        #endregion
+
         public string ChaveApi { get; set; }
+
+        public string SecretApi { get; set; }
+
         public string Token { get; set; }
 
         public Task ConsultarStatus(Boleto boleto)
@@ -20,16 +52,369 @@ namespace BoletoNetCore
         /// TODO: Necessário verificar quais os métodos necessários
         /// </summary>
         /// <returns></returns>
-        public Task<string> GerarToken()
+        public async Task<string> GerarToken()
         {
-            throw new NotImplementedException();
+            var request = new HttpRequestMessage(HttpMethod.Post, "https://devportal.itau.com.br/api/jwt");
+            var body = new AutenticacaoItauRequest()
+            {
+                ClientId = ChaveApi,
+                ClientSecret = SecretApi,
+            };
+            request.Content = JsonContent.Create(body);
+            var response = await this.httpClient.SendAsync(request);
+            await this.CheckHttpResponseError(response);
+            var ret = await response.Content.ReadFromJsonAsync<AutenticacaoItauResponse>();
+            this.Token = ret.AccessToken;
+            return ret.AccessToken;
         }
 
-        public Task RegistrarBoleto(Boleto boleto)
+        public async Task RegistrarBoleto(Boleto boleto)
         {
-            throw new NotImplementedException();
+            var emissao = new EmissaoBoletoItauApi()
+            {
+                Beneficiario = new BeneficiarioItauApi()
+                {
+                    NomeCobranca = boleto.Banco.Beneficiario.Nome,
+                    Endereco = new EnderecoItauApi()
+                    {
+                        NomeBairro = boleto.Banco.Beneficiario.Endereco.Bairro,
+                        NomeCidade = boleto.Banco.Beneficiario.Endereco.Cidade,
+                        NomeLogradouro = boleto.Banco.Beneficiario.Endereco.LogradouroEndereco,
+                        NumeroCEP = boleto.Banco.Beneficiario.Endereco.CEP,
+                        SiglaUF = boleto.Banco.Beneficiario.Endereco.UF,
+                    },
+                    IdBeneficiario = boleto.Banco.Beneficiario.Codigo,
+                    TipoPessoa = new()
+                    {
+                        CodigoTipoPessoa = boleto.Banco.Beneficiario.TipoCPFCNPJ("A"),
+                        NumeroCadastroNacionalPessoaJuridica = boleto.Banco.Beneficiario.TipoCPFCNPJ("A") == "J" ? boleto.Banco.Beneficiario.CPFCNPJ : "",
+                        NumeroCadastroPessoaFisica = boleto.Banco.Beneficiario.TipoCPFCNPJ("A") == "F" ? boleto.Banco.Beneficiario.CPFCNPJ : "",
+                    },
+                },
+                CodigoCanalOperacao = "BKL",
+                CodigoOperador = "889911348", // TODO
+                DadoBoleto = new()
+                {
+                    CodigoCarteira = boleto.Carteira,
+                    CodigoEspecie = AjustaEspecieCnab400(boleto.EspecieDocumento),
+                    CodigoTipoVencimento = 3, // TODO
+                    DadosIndividuaisBoleto = new(),
+                    DataEmissao = boleto.DataEmissao.ToString("{0:yyyy-MM-dd"),
+                    DescontoExpresso = true,
+                    DescricaoInstrumentoCobranca = "boleto", // TODO
+                    FormaEnvio = "impressao",
+                    //TODO ListaMensagemCobranca
+                    Pagador = new()
+                    {
+                        Pessoa = new()
+                        {
+                            NomeFantasia = boleto.Pagador.Nome,
+                            NomePessoa = boleto.Pagador.Nome,
+                            TipoPessoa = new()
+                            {
+                                CodigoTipoPessoa = boleto.Pagador.TipoCPFCNPJ("A"),
+                                NumeroCadastroNacionalPessoaJuridica = boleto.Pagador.TipoCPFCNPJ("A") == "J" ? boleto.Pagador.CPFCNPJ : "",
+                                NumeroCadastroPessoaFisica = boleto.Pagador.TipoCPFCNPJ("A") == "F" ? boleto.Pagador.CPFCNPJ : "",
+                            },
+                        },
+                        Endereco = new()
+                        {
+                            NomeBairro = boleto.Pagador.Endereco.Bairro,
+                            NomeCidade = boleto.Pagador.Endereco.Cidade,
+                            NomeLogradouro = boleto.Pagador.Endereco.LogradouroEndereco,
+                            NumeroCEP = boleto.Pagador.Endereco.CEP,
+                            SiglaUF = boleto.Pagador.Endereco.UF,
+                        }
+                    },
+                    PagamentoParcial = false, // TODO
+                    QuantidadeMaximoParcial = "0", // TODO
+                    RecebimentoDivergente = new() // TODO
+                    {
+                        CodigoTipoAutorizacao = "03",
+                        CodigoTipoRecebimento = "P",
+                        PercentualMaximo = "00000000000000000",
+                        PercentualMinimo = "00000000000000000",
+                    },
+                    TipoBoleto = "a vista",
+                    ValorTotalTitulo = string.Format("{0:f2}", boleto.ValorTitulo).Replace(",", "").Replace(".", "").Trim().PadLeft(17, '0'),
+                },
+                EtapaProcessoBoleto = "efetivacao",
+            };
+            var dib = new DadosIndividuaisBoletoItauApi()
+            {
+                CodigoBarras = boleto.CodigoBarra.CodigoDeBarras,
+                DacTitulo = boleto.NossoNumeroDV,
+                NumeroNossoNumero = boleto.NossoNumero,
+                DataVencimento = boleto.DataVencimento.ToString("{0:yyyy-MM-dd"),
+                NumeroLinhaDigitavel = boleto.CodigoBarra.LinhaDigitavel,
+                DataLimitePagamento = "2031-06-01",
+                IdBoletoIndividual = System.Guid.NewGuid().ToString(),
+                ValorTitulo = string.Format("{0:f2}", boleto.ValorTitulo).Replace(",", "").Replace(".", "").Trim().PadLeft(17, '0'),
+            };
+            emissao.DadoBoleto.DadosIndividuaisBoleto.Add(dib);
+
+            if (boleto.Avalista != null)
+            {
+                emissao.DadoBoleto.SacadorAvalista = new()
+                {
+                    Pessoa = new()
+                    {
+                        NomeFantasia = boleto.Avalista.Nome,
+                        NomePessoa = boleto.Avalista.Nome,
+                        TipoPessoa = new()
+                        {
+                            CodigoTipoPessoa = boleto.Avalista.TipoCPFCNPJ("A"),
+                            NumeroCadastroNacionalPessoaJuridica = boleto.Avalista.TipoCPFCNPJ("A") == "J" ? boleto.Avalista.CPFCNPJ : "",
+                            NumeroCadastroPessoaFisica = boleto.Avalista.TipoCPFCNPJ("A") == "F" ? boleto.Avalista.CPFCNPJ : "",
+                        },
+                    },
+                    Endereco = new()
+                    {
+                        NomeBairro = boleto.Avalista.Endereco.Bairro,
+                        NomeCidade = boleto.Avalista.Endereco.Cidade,
+                        NomeLogradouro = boleto.Avalista.Endereco.LogradouroEndereco,
+                        NumeroCEP = boleto.Avalista.Endereco.CEP,
+                        SiglaUF = boleto.Avalista.Endereco.UF,
+                    }
+                };
+            }
+
+            var request = new HttpRequestMessage(HttpMethod.Post, "boletos");
+            request.Headers.Add("x-itau-apikey", this.Token);
+            request.Headers.Add("x-itau-correlationID", "123");
+            request.Content = JsonContent.Create(emissao);
+            var response = await this.httpClient.SendAsync(request);
+            await this.CheckHttpResponseError(response);
+            var boletoEmitido = await response.Content.ReadFromJsonAsync<BoletoEmitidoSicrediApi>();
+        }
+
+        private async Task CheckHttpResponseError(HttpResponseMessage response)
+        {
+            if (response.IsSuccessStatusCode)
+                return;
+
+            if (response.StatusCode == HttpStatusCode.BadRequest || (response.StatusCode == HttpStatusCode.NotFound && response.Content.Headers.ContentType.MediaType == "application/json"))
+            {
+                var bad = await response.Content.ReadFromJsonAsync<BadRequestSicrediApi>();
+                throw new Exception(string.Format("{0} {1}", bad.Parametro, bad.Mensagem).Trim());
+            }
+            else
+                throw new Exception(string.Format("Erro desconhecido: {0}", response.StatusCode));
         }
     }
+
+    #region "online classes"
+    class AutenticacaoItauRequest
+    {
+        public string ClientId { get; set; }
+        public string ClientSecret { get; set; }
+    }
+    class AutenticacaoItauResponse
+    {
+        public string AccessToken { get; set; }
+    }
+    class BeneficiarioItauApi
+    {
+        [JsonPropertyName("id_beneficiario")]
+        public string IdBeneficiario { get; set; }
+
+        [JsonPropertyName("nome_cobranca")]
+        public string NomeCobranca { get; set; }
+
+        [JsonPropertyName("tipo_pessoa")]
+        public TipoPessoaItauApi TipoPessoa { get; set; }
+
+        [JsonPropertyName("endereco")]
+        public EnderecoItauApi Endereco { get; set; }
+    }
+
+    class DadoBoletoItauApi
+    {
+        [JsonPropertyName("descricao_instrumento_cobranca")]
+        public string DescricaoInstrumentoCobranca { get; set; }
+
+        [JsonPropertyName("forma_envio")]
+        public string FormaEnvio { get; set; }
+
+        [JsonPropertyName("tipo_boleto")]
+        public string TipoBoleto { get; set; }
+
+        [JsonPropertyName("pagador")]
+        public PagadorItauApi Pagador { get; set; }
+
+        [JsonPropertyName("sacador_avalista")]
+        public SacadorAvalistaItauApi SacadorAvalista { get; set; }
+
+        [JsonPropertyName("codigo_carteira")]
+        public string CodigoCarteira { get; set; }
+
+        [JsonPropertyName("codigo_tipo_vencimento")]
+        public int CodigoTipoVencimento { get; set; }
+
+        [JsonPropertyName("valor_total_titulo")]
+        public string ValorTotalTitulo { get; set; }
+
+        [JsonPropertyName("dados_individuais_boleto")]
+        public List<DadosIndividuaisBoletoItauApi> DadosIndividuaisBoleto { get; set; }
+
+        [JsonPropertyName("codigo_especie")]
+        public string CodigoEspecie { get; set; }
+
+        [JsonPropertyName("data_emissao")]
+        public string DataEmissao { get; set; }
+
+        [JsonPropertyName("pagamento_parcial")]
+        public bool PagamentoParcial { get; set; }
+
+        [JsonPropertyName("quantidade_maximo_parcial")]
+        public string QuantidadeMaximoParcial { get; set; }
+
+        [JsonPropertyName("lista_mensagem_cobranca")]
+        public List<ListaMensagemCobrancaItauApi> ListaMensagemCobranca { get; set; }
+
+        [JsonPropertyName("recebimento_divergente")]
+        public RecebimentoDivergenteItauApi RecebimentoDivergente { get; set; }
+
+        [JsonPropertyName("desconto_expresso")]
+        public bool DescontoExpresso { get; set; }
+    }
+
+    class DadosIndividuaisBoletoItauApi
+    {
+        [JsonPropertyName("id_boleto_individual")]
+        public string IdBoletoIndividual { get; set; }
+
+        [JsonPropertyName("numero_nosso_numero")]
+        public string NumeroNossoNumero { get; set; }
+
+        [JsonPropertyName("dac_titulo")]
+        public string DacTitulo { get; set; }
+
+        [JsonPropertyName("data_vencimento")]
+        public string DataVencimento { get; set; }
+
+        [JsonPropertyName("valor_titulo")]
+        public string ValorTitulo { get; set; }
+
+        [JsonPropertyName("codigo_barras")]
+        public string CodigoBarras { get; set; }
+
+        [JsonPropertyName("numero_linha_digitavel")]
+        public string NumeroLinhaDigitavel { get; set; }
+
+        [JsonPropertyName("data_limite_pagamento")]
+        public string DataLimitePagamento { get; set; }
+
+        [JsonPropertyName("lista_mensagens_cobranca")]
+        public List<object> ListaMensagensCobranca { get; set; }
+    }
+
+    class EnderecoItauApi
+    {
+        [JsonPropertyName("nome_logradouro")]
+        public string NomeLogradouro { get; set; }
+
+        [JsonPropertyName("nome_bairro")]
+        public string NomeBairro { get; set; }
+
+        [JsonPropertyName("nome_cidade")]
+        public string NomeCidade { get; set; }
+
+        [JsonPropertyName("sigla_UF")]
+        public string SiglaUF { get; set; }
+
+        [JsonPropertyName("numero_CEP")]
+        public string NumeroCEP { get; set; }
+    }
+
+    class ListaMensagemCobrancaItauApi
+    {
+        [JsonPropertyName("mensagem")]
+        public string Mensagem { get; set; }
+    }
+
+    class PagadorItauApi
+    {
+        [JsonPropertyName("pessoa")]
+        public PessoaItauApi Pessoa { get; set; }
+
+        [JsonPropertyName("endereco")]
+        public EnderecoItauApi Endereco { get; set; }
+
+        [JsonPropertyName("pagador_eletronico_DDA")]
+        public bool PagadorEletronicoDDA { get; set; }
+
+        [JsonPropertyName("praca_protesto")]
+        public bool PracaProtesto { get; set; }
+    }
+
+    class PessoaItauApi
+    {
+        [JsonPropertyName("nome_pessoa")]
+        public string NomePessoa { get; set; }
+
+        [JsonPropertyName("tipo_pessoa")]
+        public TipoPessoaItauApi TipoPessoa { get; set; }
+
+        [JsonPropertyName("nome_fantasia")]
+        public string NomeFantasia { get; set; }
+    }
+
+    class RecebimentoDivergenteItauApi
+    {
+        [JsonPropertyName("codigo_tipo_autorizacao")]
+        public string CodigoTipoAutorizacao { get; set; }
+
+        [JsonPropertyName("codigo_tipo_recebimento")]
+        public string CodigoTipoRecebimento { get; set; }
+
+        [JsonPropertyName("percentual_minimo")]
+        public string PercentualMinimo { get; set; }
+
+        [JsonPropertyName("percentual_maximo")]
+        public string PercentualMaximo { get; set; }
+    }
+
+    class EmissaoBoletoItauApi
+    {
+        [JsonPropertyName("codigo_canal_operacao")]
+        public string CodigoCanalOperacao { get; set; }
+
+        [JsonPropertyName("codigo_operador")]
+        public string CodigoOperador { get; set; }
+
+        [JsonPropertyName("etapa_processo_boleto")]
+        public string EtapaProcessoBoleto { get; set; }
+
+        [JsonPropertyName("beneficiario")]
+        public BeneficiarioItauApi Beneficiario { get; set; }
+
+        [JsonPropertyName("dado_boleto")]
+        public DadoBoletoItauApi DadoBoleto { get; set; }
+    }
+
+    class SacadorAvalistaItauApi
+    {
+        [JsonPropertyName("pessoa")]
+        public PessoaItauApi Pessoa { get; set; }
+
+        [JsonPropertyName("endereco")]
+        public EnderecoItauApi Endereco { get; set; }
+    }
+
+    class TipoPessoaItauApi
+    {
+        [JsonPropertyName("codigo_tipo_pessoa")]
+        public string CodigoTipoPessoa { get; set; }
+
+        [JsonPropertyName("numero_cadastro_nacional_pessoa_juridica")]
+        public string NumeroCadastroNacionalPessoaJuridica { get; set; }
+
+        [JsonPropertyName("numero_cadastro_pessoa_fisica")]
+        public string NumeroCadastroPessoaFisica { get; set; }
+    }
+
+    #endregion
 }
 
 

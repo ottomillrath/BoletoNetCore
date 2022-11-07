@@ -33,7 +33,6 @@ namespace BoletoNetCore
         {
             return $"{DateTime.Now.ToString("ddMMyy")}{numeroSequencial.ToString().PadLeft(9, '0').Right(2)}.rem"; ;
         }
-                
     }
 }
 

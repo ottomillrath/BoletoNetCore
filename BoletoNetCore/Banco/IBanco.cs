@@ -159,10 +159,20 @@ namespace BoletoNetCore
         string ChaveApi { get; set; }
 
         /// <summary>
+        /// Secret para casos de Client Id e Client Secret (Itaú)
+        /// </summary>
+        string SecretApi { get; set; }
+
+        /// <summary>
         /// Token de autenticacao com validade temporaria
         /// No caso do sicredi por exemplo, a nomenclatura utilizada é Chave de Transação
         /// </summary>
         string Token { get; set; }
+
+        /// <summary>
+        /// Identifica se a emissão é em homologação
+        /// </summary>
+        public bool Homologacao { get; set; }
 
         Task<string> GerarToken();
         Task RegistrarBoleto(Boleto boleto);

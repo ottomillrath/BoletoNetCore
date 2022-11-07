@@ -3,7 +3,7 @@ using BoletoNetCore.Util;
 
 namespace BoletoNetCore
 {
-    partial class BancoSicredi : IBancoCNAB240
+    partial class BancoCresol : IBancoCNAB240
     {
         public string GerarDetalheRemessaCNAB240(Boleto boleto, ref int registro)
         {
@@ -17,8 +17,8 @@ namespace BoletoNetCore
         {
             registro++;
             var reg = new TRegistroEDI();
-            reg.Adicionar(TTiposDadoEDI.ediAlphaAliEsquerda_____, 0001, 003, 0, "748", ' '); // 001 a 003 - Código do banco na compensação "748" SCIREDI
-            reg.Adicionar(TTiposDadoEDI.ediAlphaAliEsquerda_____, 0004, 004, 0, "0001", '0'); // 004 a 007 - Lote de serviço "0001"
+            reg.Adicionar(TTiposDadoEDI.ediAlphaAliEsquerda_____, 0001, 003, 0, "133", ' '); // 001 a 003 - Código do banco na compensação "133" CRESOL
+            reg.Adicionar(TTiposDadoEDI.ediAlphaAliEsquerda_____, 0004, 004, 0, "0000", '0'); // 004 a 007 - Lote de serviço "0000"
             reg.Adicionar(TTiposDadoEDI.ediAlphaAliEsquerda_____, 0008, 001, 0, "3", '0');    // 008 a 008 - Tipo de registro = "3" DETALHE
             reg.Adicionar(TTiposDadoEDI.ediAlphaAliDireita______, 0009, 005, 0, registro, '0'); // 009 a 013 - Nº sequencial do registro do lote
             reg.Adicionar(TTiposDadoEDI.ediAlphaAliEsquerda_____, 0014, 001, 0, "R", ' '); // 014 a 014 - Cód. segmento do registro detalhe
@@ -67,7 +67,7 @@ namespace BoletoNetCore
 
             registro++;
             var reg = new TRegistroEDI();
-            reg.Adicionar(TTiposDadoEDI.ediAlphaAliEsquerda_____, 0001, 003, 0, "748", ' '); // 001 a 003 - Código do banco na compensação "748" SCIREDI
+            reg.Adicionar(TTiposDadoEDI.ediAlphaAliEsquerda_____, 0001, 003, 0, "133", ' '); // 001 a 003 - Código do banco na compensação "133" SCIREDI
             reg.Adicionar(TTiposDadoEDI.ediAlphaAliEsquerda_____, 0004, 004, 0, "0001", '0'); // 004 a 007 - Lote de serviço "0001"
             reg.Adicionar(TTiposDadoEDI.ediAlphaAliEsquerda_____, 0008, 001, 0, "3", '0');    // 008 a 008 - Tipo de registro = "3" DETALHE
             reg.Adicionar(TTiposDadoEDI.ediAlphaAliDireita______, 0009, 005, 0, registro, '0'); // 009 a 013 - Nº sequencial do registro do lote
@@ -96,7 +96,7 @@ namespace BoletoNetCore
         {
             registro++;
             var reg = new TRegistroEDI();
-            reg.Adicionar(TTiposDadoEDI.ediAlphaAliEsquerda_____, 0001, 003, 0, "748", ' '); // 001 a 003 - Código do banco na compensação "748" SCIREDI
+            reg.Adicionar(TTiposDadoEDI.ediAlphaAliEsquerda_____, 0001, 003, 0, "133", ' '); // 001 a 003 - Código do banco na compensação "133" SCIREDI
             reg.Adicionar(TTiposDadoEDI.ediAlphaAliEsquerda_____, 0004, 004, 0, "0001", '0'); // 004 a 007 - Lote de serviço "0001"
             reg.Adicionar(TTiposDadoEDI.ediAlphaAliEsquerda_____, 0008, 001, 0, "3", '0');    // 008 a 008 - Tipo de registro = "3" DETALHE
             reg.Adicionar(TTiposDadoEDI.ediAlphaAliDireita______, 0009, 005, 0, registro, '0'); // 009 a 013 - Nº sequencial do registro do lote
@@ -228,7 +228,7 @@ namespace BoletoNetCore
         public string GerarHeaderLoteRemessaCNAB240(ref int numeroArquivoRemessa, ref int numeroRegistro)
         {
             var reg = new TRegistroEDI();
-            reg.CamposEDI.Add(new TCampoRegistroEDI(TTiposDadoEDI.ediAlphaAliEsquerda_____, 0001, 003, 0, "748", ' ')); // 001 a 003 - Código do banco na compensação "748" SCIREDI
+            reg.CamposEDI.Add(new TCampoRegistroEDI(TTiposDadoEDI.ediAlphaAliEsquerda_____, 0001, 003, 0, "133", ' ')); // 001 a 003 - Código do banco na compensação "133" SCIREDI
             reg.CamposEDI.Add(new TCampoRegistroEDI(TTiposDadoEDI.ediAlphaAliEsquerda_____, 0004, 004, 0, "0001", '0')); // 004 a 007 - Lote de serviço "0001"
             reg.CamposEDI.Add(new TCampoRegistroEDI(TTiposDadoEDI.ediAlphaAliEsquerda_____, 0008, 001, 0, "1", '0'));    // 008 a 008 - Tipo de registro = "1" HEADER LOTE
             reg.CamposEDI.Add(new TCampoRegistroEDI(TTiposDadoEDI.ediAlphaAliEsquerda_____, 0009, 001, 0, "R", ' ')); // 009 a 009 - Tipo de operação = "R" Arquivo de Remessa
@@ -258,27 +258,27 @@ namespace BoletoNetCore
         public string GerarHeaderRemessaCNAB240(ref int numeroArquivoRemessa, ref int numeroRegistro)
         {
             var reg = new TRegistroEDI();
-            reg.CamposEDI.Add(new TCampoRegistroEDI(TTiposDadoEDI.ediAlphaAliDireita______, 0001, 003, 0, "748", '0')); // 001 a 003 - Código do banco na compensação "748" SCIREDI
+            reg.CamposEDI.Add(new TCampoRegistroEDI(TTiposDadoEDI.ediAlphaAliDireita______, 0001, 003, 0, "133", '0')); // 001 a 003 - Código do banco na compensação "133" SCIREDI
             reg.CamposEDI.Add(new TCampoRegistroEDI(TTiposDadoEDI.ediAlphaAliEsquerda_____, 0004, 004, 0, "0000", '0')); // 004 a 007 - Lote de serviço "0000"
             reg.CamposEDI.Add(new TCampoRegistroEDI(TTiposDadoEDI.ediAlphaAliEsquerda_____, 0008, 001, 0, "0", '1'));    // 008 a 008 - Tipo de registro = "0" HEADER ARQUIVO
             reg.CamposEDI.Add(new TCampoRegistroEDI(TTiposDadoEDI.ediAlphaAliEsquerda_____, 0009, 009, 0, "", ' ')); // 009 a 017 - Uso exclusivo FEBRABAN/CNAB            
             reg.CamposEDI.Add(new TCampoRegistroEDI(TTiposDadoEDI.ediAlphaAliEsquerda_____, 0018, 001, 0, this.Beneficiario.TipoCPFCNPJ("0"), ' ')); // 018 a 018 - Tipo de inscrição da empresa = "1" Pessoa Física "2" Pessoa Jurídica
             reg.CamposEDI.Add(new TCampoRegistroEDI(TTiposDadoEDI.ediAlphaAliDireita______, 0019, 014, 0, this.Beneficiario.CPFCNPJ.OnlyNumber(), '0'));  // 019 a 032 - Número de inscrição da empresa
-            reg.CamposEDI.Add(new TCampoRegistroEDI(TTiposDadoEDI.ediAlphaAliEsquerda_____, 0033, 020, 0, "", ' ')); // 033 a 052 - Código do convênio no banco (O SICREDI não valida este campo; cfe Manual Agosto 2010 pág. 35)
+            reg.CamposEDI.Add(new TCampoRegistroEDI(TTiposDadoEDI.ediAlphaAliDireita______, 0033, 020, 0, this.Beneficiario.ContaBancaria.Conta.OnlyNumber(), '0')); // 033 a 052 - Número da Conta do Cooperado 
             reg.CamposEDI.Add(new TCampoRegistroEDI(TTiposDadoEDI.ediAlphaAliDireita______, 0053, 005, 0, this.Beneficiario.ContaBancaria.Agencia.OnlyNumber(), '0')); // 053 a 057 - Agência mantenedora da conta
             reg.CamposEDI.Add(new TCampoRegistroEDI(TTiposDadoEDI.ediAlphaAliEsquerda_____, 0058, 001, 0, "", ' ')); // 058 a 058 - Dígito verificador da agência
             reg.CamposEDI.Add(new TCampoRegistroEDI(TTiposDadoEDI.ediAlphaAliDireita______, 0059, 012, 0, this.Beneficiario.ContaBancaria.Conta.OnlyNumber(), '0')); // 059 a 070 - Número da Conta
             reg.CamposEDI.Add(new TCampoRegistroEDI(TTiposDadoEDI.ediAlphaAliDireita______, 0071, 001, 0, this.Beneficiario.ContaBancaria.DigitoConta.OnlyNumber(), '0')); // 071 a 071 - DV Conta
             reg.CamposEDI.Add(new TCampoRegistroEDI(TTiposDadoEDI.ediAlphaAliEsquerda_____, 0072, 001, 0, "", '0')); // 072 a 072 - Dígito verificador da ag / conta
             reg.CamposEDI.Add(new TCampoRegistroEDI(TTiposDadoEDI.ediAlphaAliEsquerda_____, 0073, 030, 0, this.Beneficiario.Nome, ' ')); // 073 a 102 - Nome da empresa
-            reg.CamposEDI.Add(new TCampoRegistroEDI(TTiposDadoEDI.ediAlphaAliEsquerda_____, 0103, 030, 0, "SICREDI", ' ')); // 103 a 132 - Nome do banco = "SICREDI"
+            reg.CamposEDI.Add(new TCampoRegistroEDI(TTiposDadoEDI.ediAlphaAliEsquerda_____, 0103, 030, 0, "Cresol", ' ')); // 103 a 132 - Nome do banco = "CRESOL"
             reg.CamposEDI.Add(new TCampoRegistroEDI(TTiposDadoEDI.ediAlphaAliEsquerda_____, 0133, 010, 0, "", ' ')); // 133 a 142 - Uso exclusivo FEBRABAN/CNAB
             reg.CamposEDI.Add(new TCampoRegistroEDI(TTiposDadoEDI.ediAlphaAliEsquerda_____, 0143, 001, 0, "1", ' ')); // 143 a 143 - Código Remessa/Retorno = "1" Remessa "2" Retorno
             reg.CamposEDI.Add(new TCampoRegistroEDI(TTiposDadoEDI.ediDataDDMMAAAA_________, 0144, 008, 0, DateTime.Today, '0'));  // 144 a 151 - Data de geração do arquivo
             reg.CamposEDI.Add(new TCampoRegistroEDI(TTiposDadoEDI.ediHoraHHMMSS___________, 0144, 008, 0, DateTime.Now, '0')); // 152 a 157 - Hora de geração do arquivo
             reg.CamposEDI.Add(new TCampoRegistroEDI(TTiposDadoEDI.ediAlphaAliDireita______, 0158, 006, 0, numeroArquivoRemessa, '0')); // 158 a 163 - Número sequencial do arquivo
-            reg.CamposEDI.Add(new TCampoRegistroEDI(TTiposDadoEDI.ediAlphaAliDireita______, 0164, 003, 0, "081", '0')); // 164 a 166 - Nº da versão do leiaute do arquivo = "081"
-            reg.CamposEDI.Add(new TCampoRegistroEDI(TTiposDadoEDI.ediAlphaAliDireita______, 0167, 005, 0, "01600", '0')); // 167 a 171 - Densidade de gravação do arquivo = "01600"
+            reg.CamposEDI.Add(new TCampoRegistroEDI(TTiposDadoEDI.ediAlphaAliDireita______, 0164, 003, 0, "084", '0')); // 164 a 166 - Nº da versão do leiaute do arquivo = "081"
+            reg.CamposEDI.Add(new TCampoRegistroEDI(TTiposDadoEDI.ediAlphaAliDireita______, 0167, 005, 0, "00000", '0')); // 167 a 171 - Densidade de gravação do arquivo = "01600"
             reg.CamposEDI.Add(new TCampoRegistroEDI(TTiposDadoEDI.ediAlphaAliEsquerda_____, 0172, 020, 0, "", ' ')); // 172 a 191 - Para uso reservado do banco
             reg.CamposEDI.Add(new TCampoRegistroEDI(TTiposDadoEDI.ediAlphaAliEsquerda_____, 0192, 020, 0, "", ' ')); // 192 a 211 - Para uso reservado da empresa
             reg.CamposEDI.Add(new TCampoRegistroEDI(TTiposDadoEDI.ediAlphaAliEsquerda_____, 0212, 029, 0, "", ' ')); // 212 a 240 - Uso exclusivo FEBRABAN/CNAB
@@ -291,7 +291,7 @@ namespace BoletoNetCore
             // O número de registros no lote é igual ao número de registros gerados + 2 (header e trailler do lote)
             var numeroRegistrosNoLote = numeroRegistroGeral + 2;
             var reg = new TRegistroEDI();
-            reg.Adicionar(TTiposDadoEDI.ediAlphaAliDireita______, 0001, 003, 0, "748", '0'); // 001 a 003 - Código do banco na compensação "748" SCIREDI
+            reg.Adicionar(TTiposDadoEDI.ediAlphaAliDireita______, 0001, 003, 0, "133", '0'); // 001 a 003 - Código do banco na compensação "133" SCIREDI
             reg.Adicionar(TTiposDadoEDI.ediAlphaAliEsquerda_____, 0004, 004, 0, "0001", '0'); // 004 a 007 - Lote de serviço "0000"
             reg.Adicionar(TTiposDadoEDI.ediAlphaAliDireita______, 0008, 001, 0, "5", '0');    // 008 a 008 - Tipo do registro = "5" TRAILLER LOTE
             reg.Adicionar(TTiposDadoEDI.ediAlphaAliEsquerda_____, 0009, 009, 0, "", ' '); // 009 a 017 - Uso exclusivo FEBRABAN/CNAB
@@ -318,7 +318,7 @@ namespace BoletoNetCore
             var numeroRegistrosNoArquivo = numeroRegistroGeral + 4;
             var qtLotes = 1;
             var reg = new TRegistroEDI();
-            reg.Adicionar(TTiposDadoEDI.ediNumericoSemSeparador_, 0001, 003, 0, "748", '0'); // 001 a 003 - Código do banco na compensação
+            reg.Adicionar(TTiposDadoEDI.ediNumericoSemSeparador_, 0001, 003, 0, "133", '0'); // 001 a 003 - Código do banco na compensação
             reg.Adicionar(TTiposDadoEDI.ediNumericoSemSeparador_, 0004, 004, 0, "9999", '0'); // 004 a 007 - Lote de serviço = "9999"
             reg.Adicionar(TTiposDadoEDI.ediNumericoSemSeparador_, 0008, 001, 0, "9", '0'); // 008 a 008 - Tipo do registro = "9" TRAILLER ARQUIVO
             reg.Adicionar(TTiposDadoEDI.ediAlphaAliEsquerda_____, 0009, 009, 0, "", ' '); // 009 a 017 - Uso exclusivo FEBRABAN/CNAB
@@ -337,8 +337,8 @@ namespace BoletoNetCore
                 // pega os dados da classe base BancoFebraban.CNAB240
                 base.LerDetalheRetornoCNAB240SegmentoT(ref boleto, registro);
 
-                // o manual do sicredi preve o nosso numero da posicao 38 ate 57 (20 caracteres)
-                // contudo, o retorno CNAB240 do sicredi retorna assim: "7480001300005T 0600720 0000000427179 212332573           1DOC1234"
+                // o manual do cresol preve o nosso numero da posicao 38 ate 57 (20 caracteres)
+                // contudo, o retorno CNAB240 do cresol retorna assim: "7480001300005T 0600720 0000000427179 212332573           1DOC1234"
                 // sendo que o valor na possicao do nosso numero seria "212332883           "
                 // há um espacamento em branco no retorno, e a classe base tem feito substring a partir da posicao 8 
                 // assim, está pegando apenas o ultimo digito e o restante espacos em branco
@@ -356,7 +356,7 @@ namespace BoletoNetCore
             }
             catch (Exception ex)
             {
-                throw new Exception("Erro ao ler detalhe do arquivo de RETORNO SICREDI / CNAB 240 / T.", ex);
+                throw new Exception("Erro ao ler detalhe do arquivo de RETORNO CRESOL / CNAB 240 / T.", ex);
             }
         }
     }
