@@ -1,6 +1,8 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using BoletoNetCore.Exceptions;
-using System;
+using BoletoNetCore.Extensions;
+using static System.String;
 
 namespace BoletoNetCore
 {
@@ -22,29 +24,14 @@ namespace BoletoNetCore
             if (!CarteiraFactory<BancoCresol>.CarteiraEstaImplementada(contaBancaria.CarteiraComVariacaoPadrao))
                 throw BoletoNetCoreException.CarteiraNaoImplementada(contaBancaria.CarteiraComVariacaoPadrao);
 
-            contaBancaria.FormatarDados("PAGÁVEL EM QUALQUER BANCO ATÉ O VENCIMENTO.", "", "", 9);
+            contaBancaria.FormatarDados("PAGÁVEL EM QUALQUER BANCO ATÉ O VENCIMENTO.", "", "", 7);
 
             Beneficiario.CodigoFormatado = $"{contaBancaria.Agencia}.{contaBancaria.OperacaoConta}.{Beneficiario.Codigo}";
         }
 
-        public override string FormatarNomeArquivoRemessa(int sequencial)
+        public override string FormatarNomeArquivoRemessa(int numeroSequencial)
         {
-            var agora = DateTime.Now;
-
-            var mes = agora.Month.ToString();
-            if (mes == "10") mes = "O";
-            if (mes == "11") mes = "N";
-            if (mes == "12") mes = "D";
-            var dia = agora.Day.ToString().PadLeft(2, '0');
-
-            if (sequencial < 0 || sequencial > 10)
-                throw BoletoNetCoreException.NumeroSequencialInvalido(sequencial);
-
-            if (sequencial < 1) // se 0 ou 1 é o primeiro arquivo do dia
-                return string.Format("{0}{1}{2}.{3}", Beneficiario.Codigo, mes, dia, "CRM");
-
-            //número máximos de arquivos enviados no dia são 10 
-            return string.Format("{0}{1}{2}.{3}", Beneficiario.Codigo, mes, dia, $"RM{(sequencial == 10 ? 0 : sequencial)}");
+            return $"CB{DateTime.Now.Date.Day:00}{DateTime.Now.Date.Month:00}{numeroSequencial.ToString().PadLeft(9, '0').Right(2)}.rem";
 
         }
        
