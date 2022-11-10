@@ -4,6 +4,7 @@ using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Threading.Tasks;
+using BoletoNetCore.Exceptions;
 
 namespace BoletoNetCore
 {
@@ -56,7 +57,7 @@ namespace BoletoNetCore
             return ret.ChaveTransacao;
         }
 
-        public async Task RegistrarBoleto(Boleto boleto)
+        public async Task<string> RegistrarBoleto(Boleto boleto)
         {
             var emissao = new EmissaoBoletoSicrediApi();
             emissao.Agencia = boleto.Banco.Beneficiario.ContaBancaria.Agencia;
@@ -108,6 +109,7 @@ namespace BoletoNetCore
             var boletoEmitido = await response.Content.ReadFromJsonAsync<BoletoEmitidoSicrediApi>();
             boletoEmitido.LinhaDigitável.ToString();
             boletoEmitido.CodigoBarra.ToString();
+            return boleto.Id;
         }
 
         private async Task CheckHttpResponseError(HttpResponseMessage response)
@@ -118,10 +120,10 @@ namespace BoletoNetCore
             if (response.StatusCode == HttpStatusCode.BadRequest || (response.StatusCode == HttpStatusCode.NotFound && response.Content.Headers.ContentType.MediaType == "application/json"))
             {
                 var bad = await response.Content.ReadFromJsonAsync<BadRequestSicrediApi>();
-                throw new Exception(string.Format("{0} {1}", bad.Parametro, bad.Mensagem).Trim());
+                throw BoletoNetCoreException.ErroAoRegistrarTituloOnline(new Exception(string.Format("{0} {1}", bad.Parametro, bad.Mensagem).Trim()));
             }
             else
-                throw new Exception(string.Format("Erro desconhecido: {0}", response.StatusCode));
+                throw BoletoNetCoreException.ErroAoRegistrarTituloOnline(new Exception(string.Format("Erro desconhecido: {0}", response.StatusCode)));
         }
 
         public async Task ConsultarStatus(Boleto boleto)

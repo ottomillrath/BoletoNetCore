@@ -68,7 +68,7 @@ namespace BoletoNetCore
             return ret.AccessToken;
         }
 
-        public async Task RegistrarBoleto(Boleto boleto)
+        public async Task<string> RegistrarBoleto(Boleto boleto)
         {
             var emissao = new EmissaoBoletoItauApi()
             {
@@ -99,7 +99,7 @@ namespace BoletoNetCore
                     CodigoEspecie = AjustaEspecieCnab400(boleto.EspecieDocumento),
                     CodigoTipoVencimento = 3, // TODO
                     DadosIndividuaisBoleto = new(),
-                    DataEmissao = boleto.DataEmissao.ToString("{0:yyyy-MM-dd"),
+                    DataEmissao = boleto.DataEmissao.ToString("yyyy-MM-dd"),
                     DescontoExpresso = true,
                     DescricaoInstrumentoCobranca = "boleto", // TODO
                     FormaEnvio = "impressao",
@@ -145,7 +145,7 @@ namespace BoletoNetCore
                 CodigoBarras = boleto.CodigoBarra.CodigoDeBarras,
                 DacTitulo = boleto.NossoNumeroDV,
                 NumeroNossoNumero = boleto.NossoNumero,
-                DataVencimento = boleto.DataVencimento.ToString("{0:yyyy-MM-dd"),
+                DataVencimento = boleto.DataVencimento.ToString("yyyy-MM-dd"),
                 NumeroLinhaDigitavel = boleto.CodigoBarra.LinhaDigitavel,
                 DataLimitePagamento = "2031-06-01",
                 IdBoletoIndividual = System.Guid.NewGuid().ToString(),
@@ -185,7 +185,8 @@ namespace BoletoNetCore
             request.Content = JsonContent.Create(emissao);
             var response = await this.httpClient.SendAsync(request);
             await this.CheckHttpResponseError(response);
-            var boletoEmitido = await response.Content.ReadFromJsonAsync<BoletoEmitidoSicrediApi>();
+            var boletoEmitido = await response.Content.ReadFromJsonAsync<EmissaoBoletoItauApi>();
+            return boletoEmitido.DadoBoleto.DadosIndividuaisBoleto[0].IdBoletoIndividual;
         }
 
         private async Task CheckHttpResponseError(HttpResponseMessage response)
@@ -196,10 +197,10 @@ namespace BoletoNetCore
             if (response.StatusCode == HttpStatusCode.BadRequest || (response.StatusCode == HttpStatusCode.NotFound && response.Content.Headers.ContentType.MediaType == "application/json"))
             {
                 var bad = await response.Content.ReadFromJsonAsync<BadRequestSicrediApi>();
-                throw new Exception(string.Format("{0} {1}", bad.Parametro, bad.Mensagem).Trim());
+                BoletoNetCoreException.ErroAoRegistrarTituloOnline(new Exception(string.Format("{0} {1}", bad.Parametro, bad.Mensagem).Trim()));
             }
             else
-                throw new Exception(string.Format("Erro desconhecido: {0}", response.StatusCode));
+                BoletoNetCoreException.ErroAoRegistrarTituloOnline(new Exception(string.Format("Erro desconhecido: {0}", response.StatusCode)));
         }
     }
 

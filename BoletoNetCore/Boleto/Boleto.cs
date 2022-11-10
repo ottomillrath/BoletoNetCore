@@ -24,7 +24,7 @@ namespace BoletoNetCore
         }
 
         /// <summary>
-        /// Construtor da Classe Boleto com parâmetro para viabilizar várias carteiras
+        /// Construtor da Classe Boleto com parï¿½metro para viabilizar vï¿½rias carteiras
         /// </summary>
         /// <param name="banco"></param>
         /// <param name="ignorarCarteira"></param>
@@ -39,7 +39,7 @@ namespace BoletoNetCore
                 TipoCarteira = banco.Beneficiario.ContaBancaria.TipoCarteiraPadrao;
             }
         }
-
+        public string Id { get; set; } = "";
         public int CodigoMoeda { get; set; } = 9;
         public string EspecieMoeda { get; set; } = "R$";
         public int QuantidadeMoeda { get; set; } = 0;
@@ -69,16 +69,16 @@ namespace BoletoNetCore
         public string UsoBanco { get; set; } = string.Empty;
 
         /// <summary>
-        /// Define se as mensagens de instrução passadas de forma manual devem ser impressas
+        /// Define se as mensagens de instruï¿½ï¿½o passadas de forma manual devem ser impressas
         /// </summary>
         public bool ImprimirMensagemInstrucao { get; set; } = false;
 
         // Valores do Boleto
         public decimal ValorTitulo { get; set; }
 
-        public bool ImprimirValoresAuxiliares { get; set; } = false;        
-        public decimal ValorPago { get; set; } // ValorPago deve ser preenchido com o valor que o pagador pagou. Se não existir essa informação no arquivo retorno, deixar zerada.
-        public decimal ValorPagoCredito { get; set; } // ValorPagoCredito deve ser preenchido com o valor que será creditado na conta corrente. Se não existir essa informação no arquivo retorno, deixar zerada.
+        public bool ImprimirValoresAuxiliares { get; set; } = false;
+        public decimal ValorPago { get; set; } // ValorPago deve ser preenchido com o valor que o pagador pagou. Se nï¿½o existir essa informaï¿½ï¿½o no arquivo retorno, deixar zerada.
+        public decimal ValorPagoCredito { get; set; } // ValorPagoCredito deve ser preenchido com o valor que serï¿½ creditado na conta corrente. Se nï¿½o existir essa informaï¿½ï¿½o no arquivo retorno, deixar zerada.
         public decimal ValorDesconto { get; set; }
         public decimal ValorTarifas { get; set; }
         public decimal ValorOutrasDespesas { get; set; }
@@ -88,7 +88,7 @@ namespace BoletoNetCore
 
         // Juros
         public decimal ValorJurosDia { get; set; }
-       
+
         public decimal PercentualJurosDia { get; set; }
 
         public DateTime DataJuros { get; set; }
@@ -106,17 +106,17 @@ namespace BoletoNetCore
         public DateTime DataDesconto { get; set; }
 
         /// <summary>
-        /// Identificação se emite Boleto para Debito Automatico
+        /// Identificaï¿½ï¿½o se emite Boleto para Debito Automatico
         /// </summary>
         public string EmiteBoletoDebitoAutomatico { get; set; } = "N";
 
         /// <summary>
-        /// Indicador Rateio Crédito
+        /// Indicador Rateio Crï¿½dito
         /// </summary>
         public string RateioCredito { get; set; }
 
         /// <summary>
-        /// Endereçamento para Aviso do Débito Automático em Conta Corrente
+        /// Endereï¿½amento para Aviso do Dï¿½bito Automï¿½tico em Conta Corrente
         /// </summary>
         public string AvisoDebitoAutomaticoContaCorrente { get; set; }
 
@@ -126,70 +126,70 @@ namespace BoletoNetCore
         public string QuantidadePagamentos { get; set; }
 
         /// <summary>
-        /// Banco no qual o boleto/título foi quitado/recolhido
+        /// Banco no qual o boleto/tï¿½tulo foi quitado/recolhido
         /// </summary>
         public string BancoCobradorRecebedor { get; set; }
-        
+
         /// <summary>
-        /// Agência na qual o boleto/título foi quitado/recolhido
+        /// Agï¿½ncia na qual o boleto/tï¿½tulo foi quitado/recolhido
         /// </summary>
         public string AgenciaCobradoraRecebedora { get; set; }
 
         /// <summary>
-        /// Agência na qual o boleto/título a ser debitada
+        /// Agï¿½ncia na qual o boleto/tï¿½tulo a ser debitada
         /// </summary>
         public string AgenciaDebitada { get; set; }
 
         /// <summary>
-        /// Número da Conta na qual o boleto/título a ser debitada
+        /// Nï¿½mero da Conta na qual o boleto/tï¿½tulo a ser debitada
         /// </summary>
         public string ContaDebitada { get; set; }
 
         /// <summary>
-        /// Digito Verificador da Agência / Conta na qual o boleto/título a ser debitada
+        /// Digito Verificador da Agï¿½ncia / Conta na qual o boleto/tï¿½tulo a ser debitada
         /// </summary>
         public string DigitoVerificadorAgenciaDebitada { get; set; }
 
         /// <summary>
-        /// Digito Verificador da Agência / Conta na qual o boleto/título a ser debitada
+        /// Digito Verificador da Agï¿½ncia / Conta na qual o boleto/tï¿½tulo a ser debitada
         /// </summary>
         public string DigitoVerificadorAgenciaContaDebitada { get; set; }
 
         /// <summary>
-        /// C044 - Código de Movimento Retorno
-        /// Código adotado pela FEBRABAN, para identificar o tipo de movimentação enviado nos
+        /// C044 - Cï¿½digo de Movimento Retorno
+        /// Cï¿½digo adotado pela FEBRABAN, para identificar o tipo de movimentaï¿½ï¿½o enviado nos
         /// registros do arquivo de retorno.
         /// </summary>
         public string CodigoMovimentoRetorno { get; set; } = "01";
 
         /// <summary>
-        /// C044 - Descrição do Movimento Retorno
-        /// Descrição do Código adotado pela FEBRABAN, para identificar o tipo de movimentação enviado nos
+        /// C044 - Descriï¿½ï¿½o do Movimento Retorno
+        /// Descriï¿½ï¿½o do Cï¿½digo adotado pela FEBRABAN, para identificar o tipo de movimentaï¿½ï¿½o enviado nos
         /// registros do arquivo de retorno. 
         /// </summary>
         public string DescricaoMovimentoRetorno { get; set; } = string.Empty;
 
         /// <summary>
-        /// C047 - Motivo da Ocorrência
-        /// Código adotado pela FEBRABAN para identificar as ocorrências (rejeições, tarifas,
-        /// custas, liquidação e baixas) em registros detalhe de títulos de cobrança.Poderão ser
-        /// informados até cinco ocorrências distintas, incidente sobre o título.
+        /// C047 - Motivo da Ocorrï¿½ncia
+        /// Cï¿½digo adotado pela FEBRABAN para identificar as ocorrï¿½ncias (rejeiï¿½ï¿½es, tarifas,
+        /// custas, liquidaï¿½ï¿½o e baixas) em registros detalhe de tï¿½tulos de cobranï¿½a.Poderï¿½o ser
+        /// informados atï¿½ cinco ocorrï¿½ncias distintas, incidente sobre o tï¿½tulo.
         /// </summary>
         public string CodigoMotivoOcorrencia { get; set; } = string.Empty;
 
         /// <summary>
-        /// C047 - Descrição do Motivo da Ocorrência
-        /// Descrição do Código adotado pela FEBRABAN para identificar as ocorrências (rejeições, tarifas,
-        /// custas, liquidação e baixas) em registros detalhe de títulos de cobrança.Poderão ser
-        /// informados até cinco ocorrências distintas, incidente sobre o título.
+        /// C047 - Descriï¿½ï¿½o do Motivo da Ocorrï¿½ncia
+        /// Descriï¿½ï¿½o do Cï¿½digo adotado pela FEBRABAN para identificar as ocorrï¿½ncias (rejeiï¿½ï¿½es, tarifas,
+        /// custas, liquidaï¿½ï¿½o e baixas) em registros detalhe de tï¿½tulos de cobranï¿½a.Poderï¿½o ser
+        /// informados atï¿½ cinco ocorrï¿½ncias distintas, incidente sobre o tï¿½tulo.
         /// </summary>
         public string DescricaoMotivoOcorrencia { get => string.Join(", ", ListMotivosOcorrencia.Where(x => x != string.Empty).ToArray()); }
 
         /// <summary>
-        /// C047 - Descrição do Motivo da Ocorrência
-        /// Descrição do Código adotado pela FEBRABAN para identificar as ocorrências (rejeições, tarifas,
-        /// custas, liquidação e baixas) em registros detalhe de títulos de cobrança.Poderão ser
-        /// informados até cinco ocorrências distintas, incidente sobre o título.
+        /// C047 - Descriï¿½ï¿½o do Motivo da Ocorrï¿½ncia
+        /// Descriï¿½ï¿½o do Cï¿½digo adotado pela FEBRABAN para identificar as ocorrï¿½ncias (rejeiï¿½ï¿½es, tarifas,
+        /// custas, liquidaï¿½ï¿½o e baixas) em registros detalhe de tï¿½tulos de cobranï¿½a.Poderï¿½o ser
+        /// informados atï¿½ cinco ocorrï¿½ncias distintas, incidente sobre o tï¿½tulo.
         /// </summary>
         public IEnumerable<string> ListMotivosOcorrencia { get; set; } = Enumerable.Empty<string>();
 
@@ -211,10 +211,10 @@ namespace BoletoNetCore
         public string RegistroArquivoRetorno { get; set; } = string.Empty;
 
         /// <summary>
-        /// Quantidade de dias para recebimento após o vencimento (exclusivo BB / Caixa)
-        /// Prazo permitido para recebimento do boleto após o vencimento. Após este prazo, o boleto será baixado.
-        /// (BB) Este registro deve ser utilizado somente quando o campo 21.2 (Carteira de Cobrança) – Comando – for igual a "01" - Registro de Título
-        /// (BB) Este Registro deve, obrigatoriamente, ser inserido após o Registro Detalhe Obrigatório correspondente ao título
+        /// Quantidade de dias para recebimento apï¿½s o vencimento (exclusivo BB / Caixa)
+        /// Prazo permitido para recebimento do boleto apï¿½s o vencimento. Apï¿½s este prazo, o boleto serï¿½ baixado.
+        /// (BB) Este registro deve ser utilizado somente quando o campo 21.2 (Carteira de Cobranï¿½a) ï¿½ Comando ï¿½ for igual a "01" - Registro de Tï¿½tulo
+        /// (BB) Este Registro deve, obrigatoriamente, ser inserido apï¿½s o Registro Detalhe Obrigatï¿½rio correspondente ao tï¿½tulo
         /// </summary>
         public int? DiasLimiteRecebimento { get; set; } = null;
         public int Distribuicao { get; set; } = 0;
@@ -228,27 +228,27 @@ namespace BoletoNetCore
 
         public void ValidarDados()
         {
-            // Banco Obrigatório
+            // Banco Obrigatï¿½rio
             if (Banco == null)
-                throw new Exception("Boleto não possui Banco.");
+                throw new Exception("Boleto nï¿½o possui Banco.");
 
-            // Beneficiario Obrigatório
+            // Beneficiario Obrigatï¿½rio
             if (Banco.Beneficiario == null)
-                throw new Exception("Boleto não possui beneficiário.");
+                throw new Exception("Boleto nï¿½o possui beneficiï¿½rio.");
 
-            // Conta Bancária Obrigatória
+            // Conta Bancï¿½ria Obrigatï¿½ria
             if (Banco.Beneficiario.ContaBancaria == null)
-                throw new Exception("Boleto não possui conta bancária.");
+                throw new Exception("Boleto nï¿½o possui conta bancï¿½ria.");
 
-            // Pagador Obrigatório
+            // Pagador Obrigatï¿½rio
             if (Pagador == null)
-                throw new Exception("Boleto não possui pagador.");
+                throw new Exception("Boleto nï¿½o possui pagador.");
 
-            // Verifica se data do processamento é valida
+            // Verifica se data do processamento ï¿½ valida
             if (DataProcessamento == DateTime.MinValue)
                 DataProcessamento = DateTime.Now;
 
-            // Verifica se data de emissão é valida
+            // Verifica se data de emissï¿½o ï¿½ valida
             if (DataEmissao == DateTime.MinValue)
                 DataEmissao = DateTime.Now;
 

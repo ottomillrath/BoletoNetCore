@@ -175,7 +175,10 @@ namespace BoletoNetCore
         public bool Homologacao { get; set; }
 
         Task<string> GerarToken();
-        Task RegistrarBoleto(Boleto boleto);
+        /// <summary>
+        /// REgistra Boleto no banco e Retorna o ID do boleto quando disponivel
+        /// </summary>
+        Task<string> RegistrarBoleto(Boleto boleto);
         Task ConsultarStatus(Boleto boleto);
     }
 }
