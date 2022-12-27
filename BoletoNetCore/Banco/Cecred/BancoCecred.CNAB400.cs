@@ -1,5 +1,6 @@
 ﻿using System;
 using static System.String;
+using BoletoNetCore.Extensions;
 
 namespace BoletoNetCore
 {
@@ -167,7 +168,7 @@ namespace BoletoNetCore
                 boleto.ValorPago += boleto.ValorJurosDia;
                 boleto.DataCredito = Utils.ToDateTime(Utils.ToInt32(registro.Substring(294, 6)).ToString("##-##-##"));
                 boleto.CodigoMotivoOcorrencia = registro.Substring(381, 10);
-                boleto.RegistroArquivoRetorno = boleto.RegistroArquivoRetorno + registro + Environment.NewLine;
+                boleto.RegistroArquivoRetorno = boleto.RegistroArquivoRetorno + registro + StringExtensions.NewLineCRLF;
             }
             catch (Exception ex)
             {

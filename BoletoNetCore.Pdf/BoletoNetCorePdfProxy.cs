@@ -1,6 +1,7 @@
 ﻿using System;
 using System.IO;
 using System.Text;
+using BoletoNetCore.Extensions;
 
 namespace BoletoNetCore.Pdf
 {
@@ -19,18 +20,18 @@ namespace BoletoNetCore.Pdf
                 }
                 if (string.IsNullOrWhiteSpace(nomeArquivo))
                 {
-                    mensagemErro = "Nome do arquivo não informado." + Environment.NewLine;
+                    mensagemErro = "Nome do arquivo não informado." + StringExtensions.NewLineCRLF;
                     return false;
                 }
                 if (quantidadeBoletos == 0)
                 {
-                    mensagemErro = "Nenhum boleto encontrado." + Environment.NewLine;
+                    mensagemErro = "Nenhum boleto encontrado." + StringExtensions.NewLineCRLF;
                     return false;
                 }
                 var extensaoArquivo = nomeArquivo.Substring(nomeArquivo.Length - 3).ToUpper();
                 if (extensaoArquivo != "HTM" && extensaoArquivo != "PDF")
                 {
-                    mensagemErro = "Tipo do arquivo inválido: HTM ou PDF" + Environment.NewLine;
+                    mensagemErro = "Tipo do arquivo inválido: HTM ou PDF" + StringExtensions.NewLineCRLF;
                     return false;
                 }
                 var html = new StringBuilder();
@@ -66,7 +67,7 @@ namespace BoletoNetCore.Pdf
             {
                 while (ex != null)
                 {
-                    mensagemErro += ex.Message + Environment.NewLine;
+                    mensagemErro += ex.Message + StringExtensions.NewLineCRLF;
                     ex = ex.InnerException;
                 }
                 return false;

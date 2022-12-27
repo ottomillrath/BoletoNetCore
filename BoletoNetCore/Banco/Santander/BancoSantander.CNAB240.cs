@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using BoletoNetCore.Exceptions;
 using static System.String;
+using BoletoNetCore.Extensions;
 
 namespace BoletoNetCore
 {
@@ -77,14 +78,14 @@ namespace BoletoNetCore
             var detalhe = GerarDetalheSegmentoPRemessaCNAB240(boleto, ref registro);
 
             // Segmento Q (Obrigatório)
-            detalhe += Environment.NewLine;
+            detalhe += StringExtensions.NewLineCRLF;
             detalhe += GerarDetalheSegmentoQRemessaCNAB240(boleto, ref registro);
 
             // Segmento R (Opcional)
             var strline = GerarDetalheSegmentoRRemessaCNAB240(boleto, ref registro);
             if (!IsNullOrWhiteSpace(strline))
             {
-                detalhe += Environment.NewLine;
+                detalhe += StringExtensions.NewLineCRLF;
                 detalhe += strline;
             }
 
@@ -92,7 +93,7 @@ namespace BoletoNetCore
             strline = GerarDetalheSegmentoSRemessaCNAB240(boleto, ref registro);
             if (!IsNullOrWhiteSpace(strline))
             {
-                detalhe += Environment.NewLine;
+                detalhe += StringExtensions.NewLineCRLF;
                 detalhe += strline;
             }
             return detalhe;
@@ -489,7 +490,7 @@ namespace BoletoNetCore
                 boleto.ValorTarifas = Convert.ToDecimal(registro.Substring(193, 15)) / 100;
 
                 // Registro Retorno
-                boleto.RegistroArquivoRetorno = boleto.RegistroArquivoRetorno + registro + Environment.NewLine;
+                boleto.RegistroArquivoRetorno = boleto.RegistroArquivoRetorno + registro + StringExtensions.NewLineCRLF;
             }
             catch (Exception ex)
             {
@@ -519,7 +520,7 @@ namespace BoletoNetCore
                 boleto.DataCredito = Utils.ToDateTime(Utils.ToInt32(registro.Substring(145, 8)).ToString("##-##-####"));
 
                 // Registro Retorno
-                boleto.RegistroArquivoRetorno = boleto.RegistroArquivoRetorno + registro + Environment.NewLine;
+                boleto.RegistroArquivoRetorno = boleto.RegistroArquivoRetorno + registro + StringExtensions.NewLineCRLF;
             }
             catch (Exception ex)
             {

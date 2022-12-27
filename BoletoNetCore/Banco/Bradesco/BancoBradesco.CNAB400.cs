@@ -14,7 +14,7 @@ namespace BoletoNetCore
             string strline = GerarDetalheRemessaCNAB400Registro2(boleto, ref numeroRegistro);
             if (!IsNullOrWhiteSpace(strline))
             {
-                detalhe += Environment.NewLine;
+                detalhe += StringExtensions.NewLineCRLF;
                 detalhe += strline;
             }
             return detalhe;
@@ -24,28 +24,28 @@ namespace BoletoNetCore
         {
             try
             {
-                //Nº Controle do Participante
+                //Nï¿½ Controle do Participante
                 boleto.NumeroControleParticipante = registro.Substring(37, 25);
 
                 //Carteira (no arquivo retorno, vem com 1 caracter. Ajustamos para 2 caracteres, como no manual do Bradesco.
                 boleto.Carteira = registro.Substring(107, 1).PadLeft(2, '0');
                 boleto.TipoCarteira = TipoCarteira.CarteiraCobrancaSimples;
 
-                //Identificação do Título no Banco
+                //Identificaï¿½ï¿½o do Tï¿½tulo no Banco
                 boleto.NossoNumero = registro.Substring(70, 11); //Sem o DV
                 boleto.NossoNumeroDV = registro.Substring(81, 1); //DV
                 boleto.NossoNumeroFormatado = $"{boleto.Carteira}/{boleto.NossoNumero}-{boleto.NossoNumeroDV}";
 
-                //Identificação de Ocorrência
+                //Identificaï¿½ï¿½o de Ocorrï¿½ncia
                 boleto.CodigoMovimentoRetorno = registro.Substring(108, 2);
                 boleto.DescricaoMovimentoRetorno = DescricaoOcorrenciaCnab400(boleto.CodigoMovimentoRetorno);
                 boleto.CodigoMotivoOcorrencia = registro.Substring(318, 10);
 
-                //Número do Documento
+                //Nï¿½mero do Documento
                 boleto.NumeroDocumento = registro.Substring(116, 10);
                 boleto.EspecieDocumento = AjustaEspecieCnab400(registro.Substring(173, 2));
 
-                //Valores do Título
+                //Valores do Tï¿½tulo
                 boleto.ValorTitulo = Convert.ToDecimal(registro.Substring(152, 13)) / 100;
                 boleto.ValorTarifas = Convert.ToDecimal(registro.Substring(175, 13)) / 100;
                 boleto.ValorOutrasDespesas = Convert.ToDecimal(registro.Substring(188, 13)) / 100;
@@ -56,17 +56,17 @@ namespace BoletoNetCore
                 boleto.ValorJurosDia = Convert.ToDecimal(registro.Substring(266, 13)) / 100;
                 boleto.ValorOutrosCreditos = Convert.ToDecimal(registro.Substring(279, 13)) / 100;
 
-                //Data Ocorrência no Banco
+                //Data Ocorrï¿½ncia no Banco
                 boleto.DataProcessamento = Utils.ToDateTime(Utils.ToInt32(registro.Substring(110, 6)).ToString("##-##-##"));
 
-                //Data Vencimento do Título
+                //Data Vencimento do Tï¿½tulo
                 boleto.DataVencimento = Utils.ToDateTime(Utils.ToInt32(registro.Substring(146, 6)).ToString("##-##-##"));
 
-                // Data do Crédito
+                // Data do Crï¿½dito
                 boleto.DataCredito = Utils.ToDateTime(Utils.ToInt32(registro.Substring(295, 6)).ToString("##-##-##"));
 
                 // Registro Retorno
-                boleto.RegistroArquivoRetorno = boleto.RegistroArquivoRetorno + registro + Environment.NewLine;
+                boleto.RegistroArquivoRetorno = boleto.RegistroArquivoRetorno + registro + StringExtensions.NewLineCRLF;
             }
             catch (Exception ex)
             {
@@ -192,12 +192,12 @@ namespace BoletoNetCore
                 reg.Adicionar(TTiposDadoEDI.ediNumericoSemSeparador_, 0327, 008, 0, boleto.Pagador.Endereco.CEP.Replace("-", ""), '0');
                 if (IsNullOrEmpty(boleto.Avalista.Nome))
                 {
-                    // Não tem avalista.
+                    // Nï¿½o tem avalista.
                     reg.Adicionar(TTiposDadoEDI.ediAlphaAliEsquerda_____, 0335, 060, 0, Empty, ' ');
                 }
                 else if (boleto.Avalista.TipoCPFCNPJ("A") == "F")
                 {
-                    // Avalista Pessoa Física
+                    // Avalista Pessoa Fï¿½sica
                     reg.Adicionar(TTiposDadoEDI.ediNumericoSemSeparador_, 0335, 009, 0, boleto.Avalista.CPFCNPJ.Substring(0, 9), '0');
                     reg.Adicionar(TTiposDadoEDI.ediNumericoSemSeparador_, 0344, 004, 0, "0", '0');
                     reg.Adicionar(TTiposDadoEDI.ediNumericoSemSeparador_, 0348, 002, 0, boleto.Avalista.CPFCNPJ.Substring(9, 2), '0');
@@ -267,7 +267,7 @@ namespace BoletoNetCore
             }
             catch (Exception ex)
             {
-                throw new Exception("Erro durante a geração do registro TRAILER do arquivo de REMESSA.", ex);
+                throw new Exception("Erro durante a geraï¿½ï¿½o do registro TRAILER do arquivo de REMESSA.", ex);
             }
         }
 
@@ -280,13 +280,13 @@ namespace BoletoNetCore
                 case "03":
                     return "Entrada Rejeitada";
                 case "06":
-                    return "Liquidação normal";
+                    return "Liquidaï¿½ï¿½o normal";
                 case "09":
                     return "Baixado Automaticamente via Arquivo";
                 case "10":
-                    return "Baixado conforme instruções da Agência";
+                    return "Baixado conforme instruï¿½ï¿½es da Agï¿½ncia";
                 case "11":
-                    return "Em Ser - Arquivo de Títulos pendentes";
+                    return "Em Ser - Arquivo de Tï¿½tulos pendentes";
                 case "12":
                     return "Abatimento Concedido";
                 case "13":
@@ -294,39 +294,39 @@ namespace BoletoNetCore
                 case "14":
                     return "Vencimento Alterado";
                 case "15":
-                    return "Liquidação em Cartório";
+                    return "Liquidaï¿½ï¿½o em Cartï¿½rio";
                 case "16":
-                    return "Título Pago em Cheque – Vinculado";
+                    return "Tï¿½tulo Pago em Cheque ï¿½ Vinculado";
                 case "17":
-                    return "Liquidação após baixa ou Título não registrado";
+                    return "Liquidaï¿½ï¿½o apï¿½s baixa ou Tï¿½tulo nï¿½o registrado";
                 case "18":
-                    return "Acerto de Depositária";
+                    return "Acerto de Depositï¿½ria";
                 case "19":
-                    return "Confirmação Recebimento Instrução de Protesto";
+                    return "Confirmaï¿½ï¿½o Recebimento Instruï¿½ï¿½o de Protesto";
                 case "20":
-                    return "Confirmação Recebimento Instrução Sustação de Protesto";
+                    return "Confirmaï¿½ï¿½o Recebimento Instruï¿½ï¿½o Sustaï¿½ï¿½o de Protesto";
                 case "21":
                     return "Acerto do Controle do Participante";
                 case "23":
-                    return "Entrada do Título em Cartório";
+                    return "Entrada do Tï¿½tulo em Cartï¿½rio";
                 case "24":
                     return "Entrada rejeitada por CEP Irregular";
                 case "27":
                     return "Baixa Rejeitada";
                 case "28":
-                    return "Débito de tarifas/custas";
+                    return "Dï¿½bito de tarifas/custas";
                 case "30":
-                    return "Alteração de Outros Dados Rejeitados";
+                    return "Alteraï¿½ï¿½o de Outros Dados Rejeitados";
                 case "32":
-                    return "Instrução Rejeitada";
+                    return "Instruï¿½ï¿½o Rejeitada";
                 case "33":
-                    return "Confirmação Pedido Alteração Outros Dados";
+                    return "Confirmaï¿½ï¿½o Pedido Alteraï¿½ï¿½o Outros Dados";
                 case "34":
-                    return "Retirado de Cartório e Manutenção Carteira";
+                    return "Retirado de Cartï¿½rio e Manutenï¿½ï¿½o Carteira";
                 case "35":
-                    return "Desagendamento ) débito automático";
+                    return "Desagendamento ) dï¿½bito automï¿½tico";
                 case "68":
-                    return "Acerto dos dados ) rateio de Crédito";
+                    return "Acerto dos dados ) rateio de Crï¿½dito";
                 case "69":
                     return "Cancelamento dos dados ) rateio";
                 default:

@@ -1,5 +1,6 @@
 ﻿using System;
 using static System.String;
+using BoletoNetCore.Extensions;
 
 namespace BoletoNetCore
 {
@@ -139,14 +140,14 @@ namespace BoletoNetCore
             var detalhe = GerarDetalheSegmentoPRemessaCNAB240(boleto, ref numeroRegistro);
 
             // Segmento Q (Obrigatório)
-            detalhe += Environment.NewLine;
+            detalhe += StringExtensions.NewLineCRLF;
             detalhe += GerarDetalheSegmentoQRemessaCNAB240(boleto, ref numeroRegistro);
 
             // Segmento R (Opcional)
             var strline = GerarDetalheSegmentoRRemessaCNAB240(boleto, ref numeroRegistro);
             if (!IsNullOrWhiteSpace(strline))
             {
-                detalhe += Environment.NewLine;
+                detalhe += StringExtensions.NewLineCRLF;
                 detalhe += strline;
             }
             return detalhe;
@@ -411,7 +412,7 @@ namespace BoletoNetCore
                 boleto.CodigoMotivoOcorrencia = registro.Substring(230, 10).Trim();
 
                 // Registro Retorno
-                boleto.RegistroArquivoRetorno = boleto.RegistroArquivoRetorno + registro + Environment.NewLine;
+                boleto.RegistroArquivoRetorno = boleto.RegistroArquivoRetorno + registro + StringExtensions.NewLineCRLF;
             }
             catch (Exception ex)
             {
@@ -452,7 +453,7 @@ namespace BoletoNetCore
                 boleto.DataVencimento = Utils.ToDateTime(Utils.ToInt32(registro.Substring(73, 8)).ToString("##-##-####"));
 
                 // Registro Retorno
-                boleto.RegistroArquivoRetorno = boleto.RegistroArquivoRetorno + registro + Environment.NewLine;
+                boleto.RegistroArquivoRetorno = boleto.RegistroArquivoRetorno + registro + StringExtensions.NewLineCRLF;
             }
             catch (Exception ex)
             {

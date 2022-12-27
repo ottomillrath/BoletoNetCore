@@ -50,25 +50,25 @@ namespace BoletoNetCore
         public string GerarDetalheRemessaCNAB240(Boleto boleto, ref int numeroRegistro)
         {
             string detalhe = Empty, strline = Empty;
-            // Segmento P (Obrigatório)
+            // Segmento P (Obrigatï¿½rio)
             detalhe += GerarDetalheSegmentoPRemessaCNAB240(boleto, ref numeroRegistro);
 
-            // Segmento Q (Obrigatório)
-            detalhe += Environment.NewLine;
+            // Segmento Q (Obrigatï¿½rio)
+            detalhe += StringExtensions.NewLineCRLF;
             detalhe += GerarDetalheSegmentoQRemessaCNAB240(boleto, ref numeroRegistro);
 
             // Segmento R (Opcional)
             strline = GerarDetalheSegmentoRRemessaCNAB240(boleto, ref numeroRegistro);
             if (!IsNullOrWhiteSpace(strline))
             {
-                detalhe += Environment.NewLine;
+                detalhe += StringExtensions.NewLineCRLF;
                 detalhe += strline;
             }
             // Segmento S (Opcional)
             strline = GerarDetalheSegmentoSRemessaCNAB240(boleto, ref numeroRegistro);
             if (!IsNullOrWhiteSpace(strline))
             {
-                detalhe += Environment.NewLine;
+                detalhe += StringExtensions.NewLineCRLF;
                 detalhe += strline;
             }
             return detalhe;
@@ -337,7 +337,7 @@ namespace BoletoNetCore
         {
             try
             {
-                // O número de registros no lote é igual ao número de registros gerados + 2 (header e trailler do lote)
+                // O nï¿½mero de registros no lote ï¿½ igual ao nï¿½mero de registros gerados + 2 (header e trailler do lote)
                 var numeroRegistrosNoLote = numeroRegistroGeral + 2;
                 var reg = new TRegistroEDI();
                 reg.Adicionar(TTiposDadoEDI.ediNumericoSemSeparador_, 0001, 003, 0, "237", '0');
@@ -366,7 +366,7 @@ namespace BoletoNetCore
         {
             try
             {
-                // O número de registros no arquivo é igual ao número de registros gerados + 4 (header e trailler do lote / header e trailler do arquivo)
+                // O nï¿½mero de registros no arquivo ï¿½ igual ao nï¿½mero de registros gerados + 4 (header e trailler do lote / header e trailler do arquivo)
                 var numeroRegistrosNoArquivo = numeroRegistroGeral + 4;
                 var reg = new TRegistroEDI();
                 reg.Adicionar(TTiposDadoEDI.ediNumericoSemSeparador_, 0001, 003, 0, "237", '0');

@@ -1,4 +1,5 @@
 ﻿using BoletoNetCore.Exceptions;
+using BoletoNetCore.Extensions;
 using System;
 using System.Collections.Generic;
 
@@ -98,7 +99,7 @@ namespace BoletoNetCore
                 boleto.Pagador.Nome = registro.Substring(148, 40);
 
                 // Registro Retorno
-                boleto.RegistroArquivoRetorno = boleto.RegistroArquivoRetorno + registro + Environment.NewLine;
+                boleto.RegistroArquivoRetorno = boleto.RegistroArquivoRetorno + registro + StringExtensions.NewLineCRLF;
 
                 //////
                 //18.3T 97 99 3 - Num Banco Cobr./Receb.
@@ -136,7 +137,7 @@ namespace BoletoNetCore
                 boleto.DataCredito = Utils.ToDateTime(Utils.ToInt32(registro.Substring(145, 8)).ToString("##-##-####"));
 
                 // Registro Retorno
-                boleto.RegistroArquivoRetorno = boleto.RegistroArquivoRetorno + registro + Environment.NewLine;
+                boleto.RegistroArquivoRetorno = boleto.RegistroArquivoRetorno + registro + StringExtensions.NewLineCRLF;
             }
             catch (Exception ex)
             {

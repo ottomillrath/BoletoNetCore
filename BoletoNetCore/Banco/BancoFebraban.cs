@@ -1,4 +1,5 @@
 ﻿using BoletoNetCore.Exceptions;
+using BoletoNetCore.Extensions;
 using System;
 using System.Collections.Generic;
 
@@ -87,7 +88,7 @@ namespace BoletoNetCore
                         // Cabeçalho do Arquivo
                         header += ((IBancoCNAB240)this).GerarHeaderRemessaCNAB240(ref numeroArquivoRemessa, ref numeroRegistro);
                         // Cabeçalho do Lote
-                        header += Environment.NewLine;
+                        header += StringExtensions.NewLineCRLF;
                         header += ((IBancoCNAB240)this).GerarHeaderLoteRemessaCNAB240(ref numeroArquivoRemessa, ref numeroRegistro);
                         break;
                     case TipoArquivo.CNAB400:
@@ -130,7 +131,7 @@ namespace BoletoNetCore
                                              numeroRegistroCobrancaSimples, valorCobrancaSimples,
                                              numeroRegistroCobrancaVinculada, valorCobrancaVinculada,
                                              numeroRegistroCobrancaCaucionada, valorCobrancaCaucionada,
-                                             numeroRegistroCobrancaDescontada, valorCobrancaDescontada) + Environment.NewLine
+                                             numeroRegistroCobrancaDescontada, valorCobrancaDescontada) + StringExtensions.NewLineCRLF
                                              + ((IBancoCNAB240)this).GerarTrailerRemessaCNAB240(
                                              numeroRegistroGeral, valorBoletoGeral,
                                              numeroRegistroCobrancaSimples, valorCobrancaSimples,
@@ -151,7 +152,7 @@ namespace BoletoNetCore
                                             numeroRegistroCobrancaSimples, valorCobrancaSimples,
                                             numeroRegistroCobrancaVinculada, valorCobrancaVinculada,
                                             numeroRegistroCobrancaCaucionada, valorCobrancaCaucionada,
-                                            numeroRegistroCobrancaDescontada, valorCobrancaDescontada) + Environment.NewLine
+                                            numeroRegistroCobrancaDescontada, valorCobrancaDescontada) + StringExtensions.NewLineCRLF
                                             + ((IBancoCNAB150)this).GerarTrailerRemessaCNAB150(
                                             numeroRegistroGeral, valorBoletoGeral,
                                             numeroRegistroCobrancaSimples, valorCobrancaSimples,

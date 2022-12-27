@@ -7,6 +7,7 @@ using System.Net.Mail;
 using System.Net.Mime;
 using System.Reflection;
 using System.Text;
+using BoletoNetCore.Extensions;
 
 namespace BoletoNetCore
 {
@@ -429,7 +430,7 @@ namespace BoletoNetCore
                 .Replace("@ACEITE", Boleto.Aceite).ToString()
                 .Replace("@ENDERECOBENEFICIARIO_BOLETO", MostrarEnderecoBeneficiario ? string.Format(" - {0}", enderecoBeneficiarioCompacto) : "")
                 .Replace("@ENDERECOBENEFICIARIO", MostrarEnderecoBeneficiario ? enderecoBeneficiario : "")
-                .Replace("@INSTRUCOES", Boleto.MensagemInstrucoesCaixaFormatado.Replace(Environment.NewLine, "<br/>"))
+                .Replace("@INSTRUCOES", Boleto.MensagemInstrucoesCaixaFormatado.Replace(StringExtensions.NewLineCRLF, "<br/>"))
                 .Replace("@PARCELAS", Boleto.ParcelaInformativo != string.Empty ? ("Parcela: " + Boleto.ParcelaInformativo) : "");
         }
 

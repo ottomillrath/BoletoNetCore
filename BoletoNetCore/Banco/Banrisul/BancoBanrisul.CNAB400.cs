@@ -18,7 +18,7 @@ namespace BoletoNetCore
             var strline = GerarDetalheRemessaCNAB400Registro1Mensagem(boleto, ref registro);
             if (!string.IsNullOrWhiteSpace(strline))
             {
-                detalhe += Environment.NewLine;
+                detalhe += StringExtensions.NewLineCRLF;
                 detalhe += strline;
             }
             return detalhe;
@@ -382,7 +382,7 @@ namespace BoletoNetCore
                 boleto.CodigoMotivoOcorrencia = registro.Substring(382, 10);
 
                 // Registro Retorno
-                boleto.RegistroArquivoRetorno = boleto.RegistroArquivoRetorno + registro + Environment.NewLine;
+                boleto.RegistroArquivoRetorno = boleto.RegistroArquivoRetorno + registro + StringExtensions.NewLineCRLF;
             }
             catch (Exception ex)
             {

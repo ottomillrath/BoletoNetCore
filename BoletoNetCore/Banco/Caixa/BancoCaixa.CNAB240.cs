@@ -110,18 +110,18 @@ namespace BoletoNetCore
 
         public string GerarDetalheRemessaCNAB240(Boleto boleto, ref int numeroRegistro)
         {
-            // Segmento P (Obrigatório)
+            // Segmento P (Obrigatï¿½rio)
             var detalhe = GerarDetalheSegmentoPRemessaCNAB240SIGCB(boleto, ref numeroRegistro);
 
-            // Segmento Q (Obrigatório)
-            detalhe += Environment.NewLine;
+            // Segmento Q (Obrigatï¿½rio)
+            detalhe += StringExtensions.NewLineCRLF;
             detalhe += GerarDetalheSegmentoQRemessaCNAB240SIGCB(boleto, ref numeroRegistro);
 
             // Segmento R (Opcional)
             var strline = GerarDetalheSegmentoRRemessaCNAB240SIGCB(boleto, ref numeroRegistro);
             if (!IsNullOrWhiteSpace(strline))
             {
-                detalhe += Environment.NewLine;
+                detalhe += StringExtensions.NewLineCRLF;
                 detalhe += strline;
             }
 
@@ -129,7 +129,7 @@ namespace BoletoNetCore
             strline = GerarDetalheSegmentoSRemessaCNAB240SIGCB(boleto, ref numeroRegistro);
             if (!IsNullOrWhiteSpace(strline))
             {
-                detalhe += Environment.NewLine;
+                detalhe += StringExtensions.NewLineCRLF;
                 detalhe += strline;
             }
 
@@ -378,7 +378,7 @@ namespace BoletoNetCore
             // Trailler do Lote
             try
             {
-                // O número de registros no lote é igual ao número de registros gerados + 2 (header e trailler do lote)
+                // O nï¿½mero de registros no lote ï¿½ igual ao nï¿½mero de registros gerados + 2 (header e trailler do lote)
                 var numeroRegistrosNoLote = numeroRegistroGeral + 2;
                 var reg = new TRegistroEDI();
                 reg.Adicionar(TTiposDadoEDI.ediNumericoSemSeparador_, 0001, 003, 0, "104", '0');
@@ -408,7 +408,7 @@ namespace BoletoNetCore
         {
             try
             {
-                // O número de registros no arquivo é igual ao número de registros gerados + 4 (header e trailler do lote / header e trailler do arquivo)
+                // O nï¿½mero de registros no arquivo ï¿½ igual ao nï¿½mero de registros gerados + 4 (header e trailler do lote / header e trailler do arquivo)
                 var numeroRegistrosNoArquivo = numeroRegistroGeral + 4;
                 var reg = new TRegistroEDI();
                 reg.Adicionar(TTiposDadoEDI.ediNumericoSemSeparador_, 0001, 003, 0, "104", '0');
@@ -434,9 +434,9 @@ namespace BoletoNetCore
 
         public override void LerHeaderRetornoCNAB240(ArquivoRetorno arquivoRetorno, string registro)
         {
-            ////144 - 151 Data de geração do arquivo N 008 DDMMAAAA
+            ////144 - 151 Data de geraï¿½ï¿½o do arquivo N 008 DDMMAAAA
             //arquivoRetorno.DataGeracao = Utils.ToDateTime(Utils.ToInt32(registro.Substring(143, 8)).ToString("##-##-####"));
-            ////158 - 163 Nº seqüencial do arquivo N 006
+            ////158 - 163 Nï¿½ seqï¿½encial do arquivo N 006
             //arquivoRetorno.NumeroSequencial = Utils.ToInt32(registro.Substring(157, 6));
         }
 
@@ -444,7 +444,7 @@ namespace BoletoNetCore
         {
             try
             {
-                //Nº Controle do Participante
+                //Nï¿½ Controle do Participante
                 boleto.NumeroControleParticipante = registro.Substring(105, 25);
 
                 //Carteira
@@ -462,30 +462,30 @@ namespace BoletoNetCore
                         break;
                 }
 
-                //Identificação do Título no Banco
+                //Identificaï¿½ï¿½o do Tï¿½tulo no Banco
                 boleto.NossoNumero = registro.Substring(39, 17);
                 boleto.NossoNumeroDV = registro.Substring(56, 1);
                 boleto.NossoNumeroFormatado = Format("{0}-{1}", boleto.NossoNumero, boleto.NossoNumeroDV);
 
-                //Identificação de Ocorrência
+                //Identificaï¿½ï¿½o de Ocorrï¿½ncia
                 boleto.CodigoMovimentoRetorno = registro.Substring(15, 2);
                 boleto.DescricaoMovimentoRetorno = Cnab.MovimentoRetornoCnab240(boleto.CodigoMovimentoRetorno);
                 boleto.CodigoMotivoOcorrencia = registro.Substring(213, 10);
                 boleto.ListMotivosOcorrencia = Cnab.MotivoOcorrenciaCnab240(boleto.CodigoMotivoOcorrencia, boleto.CodigoMovimentoRetorno);
 
-                //Número do Documento
+                //Nï¿½mero do Documento
                 boleto.NumeroDocumento = registro.Substring(58, 11);
                 boleto.EspecieDocumento = TipoEspecieDocumento.NaoDefinido;
 
-                //Valor do Título
+                //Valor do Tï¿½tulo
                 boleto.ValorTitulo = Convert.ToDecimal(registro.Substring(81, 15)) / 100;
                 boleto.ValorTarifas = Convert.ToDecimal(registro.Substring(198, 15)) / 100;
 
-                //Data Vencimento do Título
+                //Data Vencimento do Tï¿½tulo
                 boleto.DataVencimento = Utils.ToDateTime(Utils.ToInt32(registro.Substring(73, 8)).ToString("##-##-####"));
 
                 // Registro Retorno
-                boleto.RegistroArquivoRetorno = boleto.RegistroArquivoRetorno + registro + Environment.NewLine;
+                boleto.RegistroArquivoRetorno = boleto.RegistroArquivoRetorno + registro + StringExtensions.NewLineCRLF;
             }
             catch (Exception ex)
             {

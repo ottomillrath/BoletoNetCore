@@ -4,6 +4,15 @@ namespace BoletoNetCore.Extensions
 {
     public static class StringExtensions
     {
+        public static string NewLineCRLF
+        {
+            get
+            {
+
+                return "\r\n";
+            }
+
+        }
         public static string Right(this string value, int length)
         {
             if (String.IsNullOrEmpty(value))
@@ -19,7 +28,7 @@ namespace BoletoNetCore.Extensions
 
         public static string MidVB(this string str, int start, int length)
         {
-            return str.Mid(--start,length);
+            return str.Mid(--start, length);
         }
 
         public static string Mid(this string str, int startIndex, int length)

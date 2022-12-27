@@ -2,6 +2,7 @@
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Text;
+using BoletoNetCore.Extensions;
 
 namespace BoletoNetCore
 {
@@ -32,27 +33,27 @@ namespace BoletoNetCore
             {
                 if (string.IsNullOrWhiteSpace(cnpj))
                 {
-                    mensagemErro += "Cnpj não informado." + Environment.NewLine;
+                    mensagemErro += "Cnpj não informado." + StringExtensions.NewLineCRLF;
                 }
                 if (string.IsNullOrWhiteSpace(razaoSocial))
                 {
-                    mensagemErro += "Razão Social não informada." + Environment.NewLine;
+                    mensagemErro += "Razão Social não informada." + StringExtensions.NewLineCRLF;
                 }
                 if (numeroBanco == 0)
                 {
-                    mensagemErro += "Banco não informado." + Environment.NewLine;
+                    mensagemErro += "Banco não informado." + StringExtensions.NewLineCRLF;
                 }
                 if (string.IsNullOrWhiteSpace(agencia))
                 {
-                    mensagemErro += "Agência não informada." + Environment.NewLine;
+                    mensagemErro += "Agência não informada." + StringExtensions.NewLineCRLF;
                 }
                 if (string.IsNullOrWhiteSpace(conta))
                 {
-                    mensagemErro += "Conta não informada." + Environment.NewLine;
+                    mensagemErro += "Conta não informada." + StringExtensions.NewLineCRLF;
                 }
                 if (string.IsNullOrWhiteSpace(carteira))
                 {
-                    mensagemErro += "Carteira não informada." + Environment.NewLine;
+                    mensagemErro += "Carteira não informada." + StringExtensions.NewLineCRLF;
                 }
                 if (!string.IsNullOrWhiteSpace(mensagemErro))
                 {
@@ -60,19 +61,19 @@ namespace BoletoNetCore
                 }
                 if (tipoCarteira < 1 || tipoCarteira > 5)
                 {
-                    mensagemErro += "Tipo da Carteira inválida: 1-Simples, 2-Vinculada, 3-Caucionada, 4-Descontada, 5-Vendor" + Environment.NewLine;
+                    mensagemErro += "Tipo da Carteira inválida: 1-Simples, 2-Vinculada, 3-Caucionada, 4-Descontada, 5-Vendor" + StringExtensions.NewLineCRLF;
                 }
                 if (tipoFormaCadastramento < 1 || tipoFormaCadastramento > 2)
                 {
-                    mensagemErro += "Tipo da Forma de Cadastramento inválida: 1-Com Registro, 2-Sem Registro" + Environment.NewLine;
+                    mensagemErro += "Tipo da Forma de Cadastramento inválida: 1-Com Registro, 2-Sem Registro" + StringExtensions.NewLineCRLF;
                 }
                 if (tipoImpressaoBoleto < 1 || tipoImpressaoBoleto > 2)
                 {
-                    mensagemErro += "Tipo da Impressão do Boleto inválida: 1-Banco, 2-Empresa" + Environment.NewLine;
+                    mensagemErro += "Tipo da Impressão do Boleto inválida: 1-Banco, 2-Empresa" + StringExtensions.NewLineCRLF;
                 }
                 if (tipoDocumento < 1 || tipoDocumento > 2)
                 {
-                    mensagemErro += "Tipo do Documento do Boleto inválido: 1-Tradicional, 2-Escritural" + Environment.NewLine;
+                    mensagemErro += "Tipo do Documento do Boleto inválido: 1-Tradicional, 2-Escritural" + StringExtensions.NewLineCRLF;
                 }
 
                 // Banco, Beneficiario, Conta Corrente
@@ -117,7 +118,7 @@ namespace BoletoNetCore
             {
                 while (ex != null)
                 {
-                    mensagemErro += ex.Message + Environment.NewLine;
+                    mensagemErro += ex.Message + StringExtensions.NewLineCRLF;
                     ex = ex.InnerException;
                 }
                 return false;
@@ -149,7 +150,7 @@ namespace BoletoNetCore
             {
                 while (ex != null)
                 {
-                    mensagemErro += ex.Message + Environment.NewLine;
+                    mensagemErro += ex.Message + StringExtensions.NewLineCRLF;
                     ex = ex.InnerException;
                 }
                 return false;
@@ -167,7 +168,7 @@ namespace BoletoNetCore
             {
                 while (ex != null)
                 {
-                    mensagemErro += ex.Message + Environment.NewLine;
+                    mensagemErro += ex.Message + StringExtensions.NewLineCRLF;
                     ex = ex.InnerException;
                 }
                 return false;
@@ -190,7 +191,7 @@ namespace BoletoNetCore
             {
                 while (ex != null)
                 {
-                    mensagemErro += ex.Message + Environment.NewLine;
+                    mensagemErro += ex.Message + StringExtensions.NewLineCRLF;
                     ex = ex.InnerException;
                 }
                 return false;
@@ -209,16 +210,16 @@ namespace BoletoNetCore
                 mensagemErro = "";
                 if (boleto == null)
                 {
-                    mensagemErro += "Nenhum boleto aberto." + Environment.NewLine;
+                    mensagemErro += "Nenhum boleto aberto." + StringExtensions.NewLineCRLF;
                     return false;
                 }
                 if (string.IsNullOrWhiteSpace(cnpj))
                 {
-                    mensagemErro += "Cnpj não informado." + Environment.NewLine;
+                    mensagemErro += "Cnpj não informado." + StringExtensions.NewLineCRLF;
                 }
                 if (string.IsNullOrWhiteSpace(razaoSocial))
                 {
-                    mensagemErro += "Razão Social não informada." + Environment.NewLine;
+                    mensagemErro += "Razão Social não informada." + StringExtensions.NewLineCRLF;
                 }
                 if (!string.IsNullOrWhiteSpace(mensagemErro))
                 {
@@ -247,7 +248,7 @@ namespace BoletoNetCore
             {
                 while (ex != null)
                 {
-                    mensagemErro += ex.Message + Environment.NewLine;
+                    mensagemErro += ex.Message + StringExtensions.NewLineCRLF;
                     ex = ex.InnerException;
                 }
                 return false;
@@ -266,7 +267,7 @@ namespace BoletoNetCore
                 mensagemErro = "";
                 if (boleto == null)
                 {
-                    mensagemErro += "Nenhum boleto aberto." + Environment.NewLine;
+                    mensagemErro += "Nenhum boleto aberto." + StringExtensions.NewLineCRLF;
                     return false;
                 }
                 boleto.NumeroDocumento = numeroDocumento;
@@ -285,7 +286,7 @@ namespace BoletoNetCore
             {
                 while (ex != null)
                 {
-                    mensagemErro += ex.Message + Environment.NewLine;
+                    mensagemErro += ex.Message + StringExtensions.NewLineCRLF;
                     ex = ex.InnerException;
                 }
                 return false;
@@ -304,7 +305,7 @@ namespace BoletoNetCore
                 mensagemErro = "";
                 if (boleto == null)
                 {
-                    mensagemErro += "Nenhum boleto aberto." + Environment.NewLine;
+                    mensagemErro += "Nenhum boleto aberto." + StringExtensions.NewLineCRLF;
                     return false;
                 }
                 boleto.DataDesconto = dataDesconto;
@@ -316,7 +317,7 @@ namespace BoletoNetCore
             {
                 while (ex != null)
                 {
-                    mensagemErro += ex.Message + Environment.NewLine;
+                    mensagemErro += ex.Message + StringExtensions.NewLineCRLF;
                     ex = ex.InnerException;
                 }
                 return false;
@@ -335,7 +336,7 @@ namespace BoletoNetCore
                 mensagemErro = "";
                 if (boleto == null)
                 {
-                    mensagemErro += "Nenhum boleto aberto." + Environment.NewLine;
+                    mensagemErro += "Nenhum boleto aberto." + StringExtensions.NewLineCRLF;
                     return false;
                 }
                 boleto.DataMulta = dataMulta;
@@ -347,7 +348,7 @@ namespace BoletoNetCore
             {
                 while (ex != null)
                 {
-                    mensagemErro += ex.Message + Environment.NewLine;
+                    mensagemErro += ex.Message + StringExtensions.NewLineCRLF;
                     ex = ex.InnerException;
                 }
                 return false;
@@ -366,7 +367,7 @@ namespace BoletoNetCore
                 mensagemErro = "";
                 if (boleto == null)
                 {
-                    mensagemErro += "Nenhum boleto aberto." + Environment.NewLine;
+                    mensagemErro += "Nenhum boleto aberto." + StringExtensions.NewLineCRLF;
                     return false;
                 }
                 boleto.DataJuros = dataJuros;
@@ -378,7 +379,7 @@ namespace BoletoNetCore
             {
                 while (ex != null)
                 {
-                    mensagemErro += ex.Message + Environment.NewLine;
+                    mensagemErro += ex.Message + StringExtensions.NewLineCRLF;
                     ex = ex.InnerException;
                 }
                 return false;
@@ -409,7 +410,7 @@ namespace BoletoNetCore
             {
                 while (ex != null)
                 {
-                    mensagemErro += ex.Message + Environment.NewLine;
+                    mensagemErro += ex.Message + StringExtensions.NewLineCRLF;
                     ex = ex.InnerException;
                 }
                 return false;
@@ -433,7 +434,7 @@ namespace BoletoNetCore
             {
                 while (ex != null)
                 {
-                    mensagemErro += ex.Message + Environment.NewLine;
+                    mensagemErro += ex.Message + StringExtensions.NewLineCRLF;
                     ex = ex.InnerException;
                 }
                 return false;
@@ -457,7 +458,7 @@ namespace BoletoNetCore
             {
                 while (ex != null)
                 {
-                    mensagemErro += ex.Message + Environment.NewLine;
+                    mensagemErro += ex.Message + StringExtensions.NewLineCRLF;
                     ex = ex.InnerException;
                 }
                 return false;
@@ -481,7 +482,7 @@ namespace BoletoNetCore
             {
                 while (ex != null)
                 {
-                    mensagemErro += ex.Message + Environment.NewLine;
+                    mensagemErro += ex.Message + StringExtensions.NewLineCRLF;
                     ex = ex.InnerException;
                 }
                 return false;
@@ -505,7 +506,7 @@ namespace BoletoNetCore
             {
                 while (ex != null)
                 {
-                    mensagemErro += ex.Message + Environment.NewLine;
+                    mensagemErro += ex.Message + StringExtensions.NewLineCRLF;
                     ex = ex.InnerException;
                 }
                 return false;
@@ -523,18 +524,18 @@ namespace BoletoNetCore
                 }
                 if (string.IsNullOrWhiteSpace(nomeArquivo))
                 {
-                    mensagemErro = "Nome do arquivo não informado." + Environment.NewLine;
+                    mensagemErro = "Nome do arquivo não informado." + StringExtensions.NewLineCRLF;
                     return false;
                 }
                 if (quantidadeBoletos == 0)
                 {
-                    mensagemErro = "Nenhum boleto encontrado." + Environment.NewLine;
+                    mensagemErro = "Nenhum boleto encontrado." + StringExtensions.NewLineCRLF;
                     return false;
                 }
                 var extensaoArquivo = nomeArquivo.Substring(nomeArquivo.Length - 3).ToUpper();
                 if (extensaoArquivo != "HTM" && extensaoArquivo != "PDF")
                 {
-                    mensagemErro = "Tipo do arquivo inválido: HTM ou PDF" + Environment.NewLine;
+                    mensagemErro = "Tipo do arquivo inválido: HTM ou PDF" + StringExtensions.NewLineCRLF;
                     return false;
                 }
                 var html = new StringBuilder();
@@ -567,7 +568,7 @@ namespace BoletoNetCore
             {
                 while (ex != null)
                 {
-                    mensagemErro += ex.Message + Environment.NewLine;
+                    mensagemErro += ex.Message + StringExtensions.NewLineCRLF;
                     ex = ex.InnerException;
                 }
                 return false;
@@ -599,7 +600,7 @@ namespace BoletoNetCore
             {
                 while (ex != null)
                 {
-                    mensagemErro += ex.Message + Environment.NewLine;
+                    mensagemErro += ex.Message + StringExtensions.NewLineCRLF;
                     ex = ex.InnerException;
                 }
                 return false;
@@ -634,7 +635,7 @@ namespace BoletoNetCore
             {
                 while (ex != null)
                 {
-                    mensagemErro += ex.Message + Environment.NewLine;
+                    mensagemErro += ex.Message + StringExtensions.NewLineCRLF;
                     ex = ex.InnerException;
                 }
                 return false;
@@ -667,7 +668,7 @@ namespace BoletoNetCore
             {
                 while (ex != null)
                 {
-                    mensagemErro += ex.Message + Environment.NewLine;
+                    mensagemErro += ex.Message + StringExtensions.NewLineCRLF;
                     ex = ex.InnerException;
                 }
                 return false;

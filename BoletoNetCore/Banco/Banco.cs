@@ -67,27 +67,27 @@ namespace BoletoNetCore
             //JUROS
             if (boleto.ImprimirValoresAuxiliares == true && boleto.ValorJurosDia > 0)
             {
-                boleto.MensagemInstrucoesCaixaFormatado += $"Cobrar juros de R$ {boleto.ValorJurosDia.ToString("N2")} por dia de atraso APÓS {boleto.DataJuros.ToString("dd/MM/yyyy")}{Environment.NewLine}";
+                boleto.MensagemInstrucoesCaixaFormatado += $"Cobrar juros de R$ {boleto.ValorJurosDia.ToString("N2")} por dia de atraso APÓS {boleto.DataJuros.ToString("dd/MM/yyyy")}{StringExtensions.NewLineCRLF}";
             }
             else if (boleto.ImprimirValoresAuxiliares == true && boleto.PercentualJurosDia > 0)
             {
-                boleto.MensagemInstrucoesCaixaFormatado += $"Cobrar juros de {boleto.PercentualJurosDia.ToString("N2")}% por dia de atraso APÓS {boleto.DataJuros.ToString("dd/MM/yyyy")}{Environment.NewLine}";
+                boleto.MensagemInstrucoesCaixaFormatado += $"Cobrar juros de {boleto.PercentualJurosDia.ToString("N2")}% por dia de atraso APÓS {boleto.DataJuros.ToString("dd/MM/yyyy")}{StringExtensions.NewLineCRLF}";
             }
 
             //MULTA
             if (boleto.ImprimirValoresAuxiliares == true && boleto.ValorMulta > 0)
             {
-                boleto.MensagemInstrucoesCaixaFormatado += $"Cobrar multa de R$ {boleto.ValorMulta.ToString("N2")} a partir DE {boleto.DataMulta.ToString("dd/MM/yyyy")}{Environment.NewLine}";
+                boleto.MensagemInstrucoesCaixaFormatado += $"Cobrar multa de R$ {boleto.ValorMulta.ToString("N2")} a partir DE {boleto.DataMulta.ToString("dd/MM/yyyy")}{StringExtensions.NewLineCRLF}";
             }
             else if (boleto.ImprimirValoresAuxiliares == true && boleto.PercentualMulta > 0)
             {
-                boleto.MensagemInstrucoesCaixaFormatado += $"Cobrar multa de {boleto.PercentualMulta.ToString("N2")}% a partir DE {boleto.DataMulta.ToString("dd/MM/yyyy")}{Environment.NewLine}";
+                boleto.MensagemInstrucoesCaixaFormatado += $"Cobrar multa de {boleto.PercentualMulta.ToString("N2")}% a partir DE {boleto.DataMulta.ToString("dd/MM/yyyy")}{StringExtensions.NewLineCRLF}";
             }
 
             //DESCONTO
             if (boleto.ImprimirValoresAuxiliares == true && boleto.ValorDesconto > 0)
             {
-                boleto.MensagemInstrucoesCaixaFormatado += $"Conceder desconto de R$ {boleto.ValorDesconto.ToString("N2")} ATÉ {boleto.DataDesconto.ToString("dd/MM/yyyy")}{Environment.NewLine}";
+                boleto.MensagemInstrucoesCaixaFormatado += $"Conceder desconto de R$ {boleto.ValorDesconto.ToString("N2")} ATÉ {boleto.DataDesconto.ToString("dd/MM/yyyy")}{StringExtensions.NewLineCRLF}";
             }
 
             //Aqui, define se a mensagem de instrução manual deve ser impressa, 
@@ -96,7 +96,7 @@ namespace BoletoNetCore
             //https://github.com/BoletoNet/BoletoNetCore/pull/91
             if (boleto.ImprimirMensagemInstrucao && boleto.MensagemInstrucoesCaixa?.Length > 0)
             {
-                boleto.MensagemInstrucoesCaixaFormatado += Environment.NewLine;
+                boleto.MensagemInstrucoesCaixaFormatado += StringExtensions.NewLineCRLF;
                 boleto.MensagemInstrucoesCaixaFormatado += boleto.MensagemInstrucoesCaixa;
             }
 

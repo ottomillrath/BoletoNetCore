@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using static System.String;
+using BoletoNetCore.Extensions;
 
 namespace BoletoNetCore
 {
@@ -138,13 +139,13 @@ namespace BoletoNetCore
 
         public string GerarDetalheRemessaCNAB240(Boleto boleto, ref int numeroRegistro)
         {
-            string str1 = this.GerarDetalheSegmentoPRemessaCNAB240(boleto, ref numeroRegistro) + Environment.NewLine + this.GerarDetalheSegmentoQRemessaCNAB240(boleto, ref numeroRegistro);
+            string str1 = this.GerarDetalheSegmentoPRemessaCNAB240(boleto, ref numeroRegistro) + StringExtensions.NewLineCRLF + this.GerarDetalheSegmentoQRemessaCNAB240(boleto, ref numeroRegistro);
             string str2 = this.GerarDetalheSegmentoRRemessaCNAB240(boleto, ref numeroRegistro);
             if (!IsNullOrWhiteSpace(str2))
-                str1 = str1 + Environment.NewLine + str2;
+                str1 = str1 + StringExtensions.NewLineCRLF + str2;
             string str3 = this.GerarDetalheSegmentoSRemessaCNAB240(boleto, ref numeroRegistro);
             if (!IsNullOrWhiteSpace(str3))
-                str1 = str1 + Environment.NewLine + str3;
+                str1 = str1 + StringExtensions.NewLineCRLF + str3;
             return str1;
         }
 
@@ -400,7 +401,7 @@ namespace BoletoNetCore
                 string str = registro.Substring(133, 15);
                 boleto.Pagador.CPFCNPJ = str.Substring(str.Length - 14, 14);
                 boleto.Pagador.Nome = registro.Substring(148, 40);
-                boleto.RegistroArquivoRetorno = boleto.RegistroArquivoRetorno + registro + Environment.NewLine;
+                boleto.RegistroArquivoRetorno = boleto.RegistroArquivoRetorno + registro + StringExtensions.NewLineCRLF;
             }
             catch (Exception ex)
             {
@@ -422,7 +423,7 @@ namespace BoletoNetCore
                 boleto.ValorOutrosCreditos = Convert.ToDecimal(registro.Substring(122, 15)) / 100M;
                 boleto.DataProcessamento = Utils.ToDateTime(Utils.ToInt32(registro.Substring(137, 8)).ToString("##-##-####"));
                 boleto.DataCredito = Utils.ToDateTime(Utils.ToInt32(registro.Substring(145, 8)).ToString("##-##-####"));
-                boleto.RegistroArquivoRetorno = boleto.RegistroArquivoRetorno + registro + Environment.NewLine;
+                boleto.RegistroArquivoRetorno = boleto.RegistroArquivoRetorno + registro + StringExtensions.NewLineCRLF;
             }
             catch (Exception ex)
             {

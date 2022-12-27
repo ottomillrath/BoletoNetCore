@@ -1,5 +1,6 @@
 using System;
 using BoletoNetCore.Util;
+using BoletoNetCore.Extensions;
 
 namespace BoletoNetCore
 {
@@ -8,8 +9,8 @@ namespace BoletoNetCore
         public string GerarDetalheRemessaCNAB240(Boleto boleto, ref int registro)
         {
             var linhas = this.GerarDetalheRemessaCNAB240_SegmentoP(boleto, ref registro);
-            linhas += Environment.NewLine + this.GerarDetalheRemessaCNAB240_SegmentoQ(boleto, ref registro);
-            linhas += Environment.NewLine + this.GerarDetalheRemessaCNAB240_SegmentoR(boleto, ref registro);
+            linhas += StringExtensions.NewLineCRLF + this.GerarDetalheRemessaCNAB240_SegmentoQ(boleto, ref registro);
+            linhas += StringExtensions.NewLineCRLF + this.GerarDetalheRemessaCNAB240_SegmentoR(boleto, ref registro);
             return linhas;
         }
 

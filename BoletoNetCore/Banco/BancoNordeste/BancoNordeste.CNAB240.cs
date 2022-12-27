@@ -1,5 +1,6 @@
 ﻿using System;
 using static System.String;
+using BoletoNetCore.Extensions;
 
 namespace BoletoNetCore
 {
@@ -227,7 +228,7 @@ namespace BoletoNetCore
                 string str = registro.Substring(133, 15);
                 boleto.Pagador.CPFCNPJ = str.Substring(str.Length - 14, 14);
                 boleto.Pagador.Nome = registro.Substring(148, 40);
-                boleto.RegistroArquivoRetorno = boleto.RegistroArquivoRetorno + registro + Environment.NewLine;
+                boleto.RegistroArquivoRetorno = boleto.RegistroArquivoRetorno + registro + StringExtensions.NewLineCRLF;
             }
             catch (Exception ex)
             {
@@ -249,7 +250,7 @@ namespace BoletoNetCore
                 boleto.ValorOutrosCreditos = Convert.ToDecimal(registro.Substring(122, 15)) / 100M;
                 boleto.DataProcessamento = Utils.ToDateTime(Utils.ToInt32(registro.Substring(137, 8)).ToString("##-##-####"));
                 boleto.DataCredito = Utils.ToDateTime(Utils.ToInt32(registro.Substring(145, 8)).ToString("##-##-####"));
-                boleto.RegistroArquivoRetorno = boleto.RegistroArquivoRetorno + registro + Environment.NewLine;
+                boleto.RegistroArquivoRetorno = boleto.RegistroArquivoRetorno + registro + StringExtensions.NewLineCRLF;
             }
             catch (Exception ex)
             {
