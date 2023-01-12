@@ -43,6 +43,9 @@ namespace BoletoNetCore
 
         public string Token { get; set; }
 
+        public byte[] Certificado { get; set; }
+        public string CertificadoSenha { get; set; }
+
         public Task ConsultarStatus(Boleto boleto)
         {
             throw new NotImplementedException();

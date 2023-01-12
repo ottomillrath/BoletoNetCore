@@ -174,6 +174,9 @@ namespace BoletoNetCore
         /// </summary>
         public bool Homologacao { get; set; }
 
+        public byte[] Certificado { get; set; }
+        public string CertificadoSenha { get; set; }
+
         Task<string> GerarToken();
         /// <summary>
         /// REgistra Boleto no banco e Retorna o ID do boleto quando disponivel

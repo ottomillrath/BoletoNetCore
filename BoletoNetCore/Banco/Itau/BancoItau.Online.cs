@@ -1,12 +1,50 @@
-﻿using System;
+﻿using System.Data.Common;
+using System.IO;
+using System.Linq;
+using System.Security.Cryptography.X509Certificates;
+using System;
 using System.Collections.Generic;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Json;
-using System.Text.Json.Serialization;
+
 using System.Threading.Tasks;
 using BoletoNetCore.Exceptions;
 using static System.String;
+using System.Threading;
+using System.Text.Json;
+using System.Text.Json.Serialization;
+
+public class LoggingHandler : DelegatingHandler
+{
+    public LoggingHandler(HttpMessageHandler innerHandler)
+        : base(innerHandler)
+    {
+    }
+
+    protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+    {
+        Console.WriteLine("Request:");
+        Console.WriteLine(request.ToString());
+        if (request.Content != null)
+        {
+            Console.WriteLine(await request.Content.ReadAsStringAsync());
+        }
+        Console.WriteLine();
+
+        HttpResponseMessage response = await base.SendAsync(request, cancellationToken);
+
+        Console.WriteLine("Response:");
+        Console.WriteLine(response.ToString());
+        if (response.Content != null)
+        {
+            Console.WriteLine(await response.Content.ReadAsStringAsync());
+        }
+        Console.WriteLine();
+
+        return response;
+    }
+}
 
 namespace BoletoNetCore
 {
@@ -21,15 +59,20 @@ namespace BoletoNetCore
             {
                 if (this._httpClient == null)
                 {
-                    this._httpClient = new HttpClient();
+                    var handler = new HttpClientHandler();
+                    Uri uri;
                     if (Homologacao)
                     {
-                        this._httpClient.BaseAddress = new Uri("https://devportal.itau.com.br/sandboxapi/cash_management_ext_v2/v2/");
+                        uri = new Uri("https://devportal.itau.com.br/sandboxapi/cash_management_ext_v2/v2/");
                     }
                     else
                     {
-                        this._httpClient.BaseAddress = new Uri("https://api.itau.com.br/cash_management/v2/");
+                        uri = new Uri("https://api.itau.com.br/cash_management/v2/");
+                        X509Certificate2 certificate = new X509Certificate2(Certificado, CertificadoSenha);
+                        handler.ClientCertificates.Add(certificate);
                     }
+                    this._httpClient = new HttpClient(new LoggingHandler(handler));
+                    this._httpClient.BaseAddress = uri;
                 }
 
                 return this._httpClient;
@@ -40,6 +83,8 @@ namespace BoletoNetCore
         public string ChaveApi { get; set; }
 
         public string SecretApi { get; set; }
+        public byte[] Certificado { get; set; }
+        public string CertificadoSenha { get; set; }
 
         public string Token { get; set; }
 
@@ -54,45 +99,61 @@ namespace BoletoNetCore
         /// <returns></returns>
         public async Task<string> GerarToken()
         {
-            var request = new HttpRequestMessage(HttpMethod.Post, "https://devportal.itau.com.br/api/jwt");
+            HttpRequestMessage request;
+            if (Homologacao)
+            {
+                request = new HttpRequestMessage(HttpMethod.Post, "https://devportal.itau.com.br/api/jwt");
+            }
+            else
+            {
+                request = new HttpRequestMessage(HttpMethod.Post, "https://sts.itau.com.br/api/oauth/token");
+            }
             var body = new AutenticacaoItauRequest()
             {
                 ClientId = ChaveApi,
                 ClientSecret = SecretApi,
+
             };
-            request.Content = JsonContent.Create(body);
+            // request.Headers.Add("Content-Type", "application/x-www-form-urlencoded");            
+            var dict = new Dictionary<string, string>();
+            dict["grant_type"] = "client_credentials";
+            dict["client_id"] = ChaveApi;
+            dict["client_secret"] = SecretApi;
+            request.Content = new FormUrlEncodedContent(dict);
             var response = await this.httpClient.SendAsync(request);
             await this.CheckHttpResponseError(response);
             var ret = await response.Content.ReadFromJsonAsync<AutenticacaoItauResponse>();
-            this.Token = ret.AccessToken;
+            Console.WriteLine(ret.AccessToken);
+            Token = ret.AccessToken;
             return ret.AccessToken;
         }
 
         public async Task<string> RegistrarBoleto(Boleto boleto)
         {
+            var beneficiario = new BeneficiarioItauApi()
+            {
+                IdBeneficiario = boleto.Banco.Beneficiario.Codigo,
+                NomeCobranca = boleto.Banco.Beneficiario.Nome,
+                Endereco = new EnderecoItauApi()
+                {
+                    NomeBairro = boleto.Banco.Beneficiario.Endereco.Bairro,
+                    NomeCidade = boleto.Banco.Beneficiario.Endereco.Cidade,
+                    NomeLogradouro = boleto.Banco.Beneficiario.Endereco.LogradouroEndereco,
+                    NumeroCEP = boleto.Banco.Beneficiario.Endereco.CEP,
+                    SiglaUF = boleto.Banco.Beneficiario.Endereco.UF,
+                },
+                TipoPessoa = new()
+                {
+                    CodigoTipoPessoa = boleto.Banco.Beneficiario.TipoCPFCNPJ("A"),
+                    NumeroCadastroNacionalPessoaJuridica = boleto.Banco.Beneficiario.TipoCPFCNPJ("A") == "J" ? boleto.Banco.Beneficiario.CPFCNPJ : "",
+                    NumeroCadastroPessoaFisica = boleto.Banco.Beneficiario.TipoCPFCNPJ("A") == "F" ? boleto.Banco.Beneficiario.CPFCNPJ : "",
+                },
+            };
             var emissao = new EmissaoBoletoItauApi()
             {
-                Beneficiario = new BeneficiarioItauApi()
-                {
-                    NomeCobranca = boleto.Banco.Beneficiario.Nome,
-                    Endereco = new EnderecoItauApi()
-                    {
-                        NomeBairro = boleto.Banco.Beneficiario.Endereco.Bairro,
-                        NomeCidade = boleto.Banco.Beneficiario.Endereco.Cidade,
-                        NomeLogradouro = boleto.Banco.Beneficiario.Endereco.LogradouroEndereco,
-                        NumeroCEP = boleto.Banco.Beneficiario.Endereco.CEP,
-                        SiglaUF = boleto.Banco.Beneficiario.Endereco.UF,
-                    },
-                    IdBeneficiario = boleto.Banco.Beneficiario.Codigo,
-                    TipoPessoa = new()
-                    {
-                        CodigoTipoPessoa = boleto.Banco.Beneficiario.TipoCPFCNPJ("A"),
-                        NumeroCadastroNacionalPessoaJuridica = boleto.Banco.Beneficiario.TipoCPFCNPJ("A") == "J" ? boleto.Banco.Beneficiario.CPFCNPJ : "",
-                        NumeroCadastroPessoaFisica = boleto.Banco.Beneficiario.TipoCPFCNPJ("A") == "F" ? boleto.Banco.Beneficiario.CPFCNPJ : "",
-                    },
-                },
-                CodigoCanalOperacao = "BKL",
-                CodigoOperador = "889911348", // TODO
+                Beneficiario = beneficiario,
+                CodigoCanalOperacao = "API",
+                CodigoOperador = string.Format("{0}{1}", boleto.Banco.Beneficiario.ContaBancaria.Agencia.PadRight(4, '0'), boleto.Banco.Beneficiario.ContaBancaria.Conta.PadLeft(5, '0')),
                 DadoBoleto = new()
                 {
                     CodigoCarteira = boleto.Carteira,
@@ -128,13 +189,13 @@ namespace BoletoNetCore
                     },
                     PagamentoParcial = false, // TODO
                     QuantidadeMaximoParcial = "0", // TODO
-                    RecebimentoDivergente = new() // TODO
-                    {
-                        CodigoTipoAutorizacao = "03",
-                        CodigoTipoRecebimento = "P",
-                        PercentualMaximo = "00000000000000000",
-                        PercentualMinimo = "00000000000000000",
-                    },
+                                                   // RecebimentoDivergente = new() // TODO
+                                                   // {
+                                                   //     CodigoTipoAutorizacao = "03",
+                                                   //     CodigoTipoRecebimento = "P",
+                                                   //     PercentualMaximo = "00000000000000000",
+                                                   //     PercentualMinimo = "00000000000000000",
+                                                   // },
                     TipoBoleto = "a vista",
                     ValorTotalTitulo = string.Format("{0:f2}", boleto.ValorTitulo).Replace(",", "").Replace(".", "").Trim().PadLeft(17, '0'),
                 },
@@ -153,36 +214,46 @@ namespace BoletoNetCore
             };
             emissao.DadoBoleto.DadosIndividuaisBoleto.Add(dib);
 
-            if (boleto.Avalista != null)
-            {
-                emissao.DadoBoleto.SacadorAvalista = new()
-                {
-                    Pessoa = new()
-                    {
-                        NomeFantasia = boleto.Avalista.Nome,
-                        NomePessoa = boleto.Avalista.Nome,
-                        TipoPessoa = new()
-                        {
-                            CodigoTipoPessoa = boleto.Avalista.TipoCPFCNPJ("A"),
-                            NumeroCadastroNacionalPessoaJuridica = boleto.Avalista.TipoCPFCNPJ("A") == "J" ? boleto.Avalista.CPFCNPJ : "",
-                            NumeroCadastroPessoaFisica = boleto.Avalista.TipoCPFCNPJ("A") == "F" ? boleto.Avalista.CPFCNPJ : "",
-                        },
-                    },
-                    Endereco = new()
-                    {
-                        NomeBairro = boleto.Avalista.Endereco.Bairro,
-                        NomeCidade = boleto.Avalista.Endereco.Cidade,
-                        NomeLogradouro = boleto.Avalista.Endereco.LogradouroEndereco,
-                        NumeroCEP = boleto.Avalista.Endereco.CEP,
-                        SiglaUF = boleto.Avalista.Endereco.UF,
-                    }
-                };
-            }
+            // if (boleto.Avalista != null)
+            // {
+            //     emissao.DadoBoleto.SacadorAvalista = new()
+            //     {
+            //         Pessoa = new()
+            //         {
+            //             NomeFantasia = boleto.Avalista.Nome,
+            //             NomePessoa = boleto.Avalista.Nome,
+            //             TipoPessoa = new()
+            //             {
+            //                 CodigoTipoPessoa = boleto.Avalista.TipoCPFCNPJ("A"),
+            //                 NumeroCadastroNacionalPessoaJuridica = boleto.Avalista.TipoCPFCNPJ("A") == "J" ? boleto.Avalista.CPFCNPJ : "",
+            //                 NumeroCadastroPessoaFisica = boleto.Avalista.TipoCPFCNPJ("A") == "F" ? boleto.Avalista.CPFCNPJ : "",
+            //             },
+            //         },
+            //         Endereco = new()
+            //         {
+            //             NomeBairro = boleto.Avalista.Endereco.Bairro,
+            //             NomeCidade = boleto.Avalista.Endereco.Cidade,
+            //             NomeLogradouro = boleto.Avalista.Endereco.LogradouroEndereco,
+            //             NumeroCEP = boleto.Avalista.Endereco.CEP,
+            //             SiglaUF = boleto.Avalista.Endereco.UF,
+            //         }
+            //     };
+            // }
+
+            Token = await this.GerarToken();
 
             var request = new HttpRequestMessage(HttpMethod.Post, "boletos");
-            request.Headers.Add("x-itau-apikey", this.Token);
-            request.Headers.Add("x-itau-correlationID", "123");
-            request.Content = JsonContent.Create(emissao);
+            request.Headers.Add("Authorization", "Bearer " + Token);
+            request.Headers.Add("x-itau-apikey", ChaveApi);
+            request.Headers.Add("x-itau-correlationID", boleto.Id);
+            var data = new EmissaoBoletoItauDataApi();
+            data.data = emissao;
+            var options = new JsonSerializerOptions
+            {
+                DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingDefault,
+            };
+
+            request.Content = JsonContent.Create(data, null, options);
             var response = await this.httpClient.SendAsync(request);
             await this.CheckHttpResponseError(response);
             var boletoEmitido = await response.Content.ReadFromJsonAsync<EmissaoBoletoItauApi>();
@@ -194,17 +265,33 @@ namespace BoletoNetCore
             if (response.IsSuccessStatusCode)
                 return;
 
-            if (response.StatusCode == HttpStatusCode.BadRequest || (response.StatusCode == HttpStatusCode.NotFound && response.Content.Headers.ContentType.MediaType == "application/json"))
+            if (response.StatusCode == HttpStatusCode.BadRequest || response.StatusCode == HttpStatusCode.UnprocessableEntity || (response.StatusCode == HttpStatusCode.NotFound && response.Content.Headers.ContentType.MediaType == "application/json"))
             {
-                var bad = await response.Content.ReadFromJsonAsync<BadRequestSicrediApi>();
-                BoletoNetCoreException.ErroAoRegistrarTituloOnline(new Exception(string.Format("{0} {1}", bad.Parametro, bad.Mensagem).Trim()));
+                var bad = await response.Content.ReadFromJsonAsync<BadRequestItauApi>();
+                throw BoletoNetCoreException.ErroAoRegistrarTituloOnline(new Exception(string.Format("{0} {1} - {2}", bad.Codigo, bad.Mensagem, String.Join("|", bad.Campos.Select(c => string.Format("{0} - {1}", c.Campo, c.Mensagem)))).Trim()));
             }
             else
-                BoletoNetCoreException.ErroAoRegistrarTituloOnline(new Exception(string.Format("Erro desconhecido: {0}", response.StatusCode)));
+                throw BoletoNetCoreException.ErroAoRegistrarTituloOnline(new Exception(string.Format("Erro desconhecido: {0}", response.StatusCode)));
         }
     }
 
     #region "online classes"
+    class BadRequestItauApi
+    {
+        [JsonPropertyName("codigo")]
+        public string Codigo { get; set; }
+        [JsonPropertyName("mensagem")]
+        public string Mensagem { get; set; }
+        [JsonPropertyName("campos")]
+        public BadRequestCamposItauApi[] Campos { get; set; }
+    }
+    class BadRequestCamposItauApi
+    {
+        [JsonPropertyName("campo")]
+        public string Campo { get; set; }
+        [JsonPropertyName("mensagem")]
+        public string Mensagem { get; set; }
+    }
     class AutenticacaoItauRequest
     {
         public string ClientId { get; set; }
@@ -212,10 +299,12 @@ namespace BoletoNetCore
     }
     class AutenticacaoItauResponse
     {
+        [JsonPropertyName("access_token")]
         public string AccessToken { get; set; }
     }
     class BeneficiarioItauApi
     {
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
         [JsonPropertyName("id_beneficiario")]
         public string IdBeneficiario { get; set; }
 
@@ -243,6 +332,7 @@ namespace BoletoNetCore
         [JsonPropertyName("pagador")]
         public PagadorItauApi Pagador { get; set; }
 
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("sacador_avalista")]
         public SacadorAvalistaItauApi SacadorAvalista { get; set; }
 
@@ -376,6 +466,11 @@ namespace BoletoNetCore
         public string PercentualMaximo { get; set; }
     }
 
+    class EmissaoBoletoItauDataApi
+    {
+        [JsonPropertyName("data")]
+        public EmissaoBoletoItauApi data { get; set; }
+    }
     class EmissaoBoletoItauApi
     {
         [JsonPropertyName("codigo_canal_operacao")]

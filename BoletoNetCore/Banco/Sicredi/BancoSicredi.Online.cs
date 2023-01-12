@@ -43,6 +43,9 @@ namespace BoletoNetCore
         // Caso seja necessário gerar uma chave de transação antes, é necessário criar uma nova chave master, o que invalida a anterior.
         public string Token { get; set; }
 
+        public byte[] Certificado { get; set; }
+        public string CertificadoSenha { get; set; }
+
         #endregion
 
         public async Task<string> GerarToken()
