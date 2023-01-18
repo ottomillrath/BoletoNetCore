@@ -1,4 +1,6 @@
-﻿using System.Data.Common;
+﻿using System.ComponentModel;
+using System.Threading.Tasks.Dataflow;
+using System.Data.Common;
 using System.IO;
 using System.Linq;
 using System.Security.Cryptography.X509Certificates;
@@ -256,8 +258,7 @@ namespace BoletoNetCore
             request.Content = JsonContent.Create(data, null, options);
             var response = await this.httpClient.SendAsync(request);
             await this.CheckHttpResponseError(response);
-            var boletoEmitido = await response.Content.ReadFromJsonAsync<EmissaoBoletoItauApi>();
-            return boletoEmitido.DadoBoleto.DadosIndividuaisBoleto[0].IdBoletoIndividual;
+            return dib.IdBoletoIndividual;
         }
 
         private async Task CheckHttpResponseError(HttpResponseMessage response)
@@ -268,6 +269,13 @@ namespace BoletoNetCore
             if (response.StatusCode == HttpStatusCode.BadRequest || response.StatusCode == HttpStatusCode.UnprocessableEntity || (response.StatusCode == HttpStatusCode.NotFound && response.Content.Headers.ContentType.MediaType == "application/json"))
             {
                 var bad = await response.Content.ReadFromJsonAsync<BadRequestItauApi>();
+                if (bad.Campos.Length == 1)
+                {
+                    if (bad.Campos[0].Campo == "COD-RET" && bad.Campos[0].Mensagem == "Título já cadastrado na cobrança")
+                    {
+                        return;
+                    }
+                }
                 throw BoletoNetCoreException.ErroAoRegistrarTituloOnline(new Exception(string.Format("{0} {1} - {2}", bad.Codigo, bad.Mensagem, String.Join("|", bad.Campos.Select(c => string.Format("{0} - {1}", c.Campo, c.Mensagem)))).Trim()));
             }
             else
