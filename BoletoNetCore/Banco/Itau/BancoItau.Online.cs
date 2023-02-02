@@ -53,6 +53,8 @@ namespace BoletoNetCore
     partial class BancoItau : IBancoOnlineRest
     {
         public bool Homologacao { get; set; } = true;
+        // implementar este flow id de alguma forma, por enquanto deixar fixo
+        private string flowID = "d7cd52b3-6c4b-46db-94e7-13850cacae8b";
         #region HttpClient
         private HttpClient _httpClient;
         private HttpClient httpClient
@@ -247,7 +249,8 @@ namespace BoletoNetCore
             var request = new HttpRequestMessage(HttpMethod.Post, "boletos");
             request.Headers.Add("Authorization", "Bearer " + Token);
             request.Headers.Add("x-itau-apikey", ChaveApi);
-            request.Headers.Add("x-itau-correlationID", boleto.Id);
+            request.Headers.Add("x-itau-correlationID", dib.IdBoletoIndividual);
+            request.Headers.Add("x-itau-flowID", flowID);
             var data = new EmissaoBoletoItauDataApi();
             data.data = emissao;
             var options = new JsonSerializerOptions
