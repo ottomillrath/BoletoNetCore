@@ -137,37 +137,19 @@ namespace BoletoNetCore
             var beneficiario = new BeneficiarioItauApi()
             {
                 IdBeneficiario = boleto.Banco.Beneficiario.Codigo,
-                NomeCobranca = boleto.Banco.Beneficiario.Nome,
-                Endereco = new EnderecoItauApi()
-                {
-                    NomeBairro = boleto.Banco.Beneficiario.Endereco.Bairro,
-                    NomeCidade = boleto.Banco.Beneficiario.Endereco.Cidade,
-                    NomeLogradouro = boleto.Banco.Beneficiario.Endereco.LogradouroEndereco,
-                    NumeroCEP = boleto.Banco.Beneficiario.Endereco.CEP,
-                    SiglaUF = boleto.Banco.Beneficiario.Endereco.UF,
-                },
-                TipoPessoa = new()
-                {
-                    CodigoTipoPessoa = boleto.Banco.Beneficiario.TipoCPFCNPJ("A"),
-                    NumeroCadastroNacionalPessoaJuridica = boleto.Banco.Beneficiario.TipoCPFCNPJ("A") == "J" ? boleto.Banco.Beneficiario.CPFCNPJ : "",
-                    NumeroCadastroPessoaFisica = boleto.Banco.Beneficiario.TipoCPFCNPJ("A") == "F" ? boleto.Banco.Beneficiario.CPFCNPJ : "",
-                },
             };
             var emissao = new EmissaoBoletoItauApi()
             {
                 Beneficiario = beneficiario,
                 CodigoCanalOperacao = "API",
-                CodigoOperador = string.Format("{0}{1}", boleto.Banco.Beneficiario.ContaBancaria.Agencia.PadRight(4, '0'), boleto.Banco.Beneficiario.ContaBancaria.Conta.PadLeft(5, '0')),
                 DadoBoleto = new()
                 {
                     CodigoCarteira = boleto.Carteira,
                     CodigoEspecie = AjustaEspecieCnab400(boleto.EspecieDocumento),
-                    CodigoTipoVencimento = 3, // TODO
                     DadosIndividuaisBoleto = new(),
                     DataEmissao = boleto.DataEmissao.ToString("yyyy-MM-dd"),
                     DescontoExpresso = true,
                     DescricaoInstrumentoCobranca = "boleto", // TODO
-                    FormaEnvio = "impressao",
                     //TODO ListaMensagemCobranca
                     Pagador = new()
                     {
@@ -205,15 +187,16 @@ namespace BoletoNetCore
                 },
                 EtapaProcessoBoleto = "efetivacao",
             };
+            var correlation = System.Guid.NewGuid().ToString();
             var dib = new DadosIndividuaisBoletoItauApi()
             {
-                CodigoBarras = boleto.CodigoBarra.CodigoDeBarras,
-                DacTitulo = boleto.NossoNumeroDV,
+                // CodigoBarras = boleto.CodigoBarra.CodigoDeBarras,
+                // DacTitulo = boleto.NossoNumeroDV,
                 NumeroNossoNumero = boleto.NossoNumero,
                 DataVencimento = boleto.DataVencimento.ToString("yyyy-MM-dd"),
-                NumeroLinhaDigitavel = boleto.CodigoBarra.LinhaDigitavel,
-                DataLimitePagamento = "2031-06-01",
-                IdBoletoIndividual = System.Guid.NewGuid().ToString(),
+                // NumeroLinhaDigitavel = boleto.CodigoBarra.LinhaDigitavel,
+                // DataLimitePagamento = "2031-06-01",
+                // IdBoletoIndividual = System.Guid.NewGuid().ToString(),
                 ValorTitulo = string.Format("{0:f2}", boleto.ValorTitulo).Replace(",", "").Replace(".", "").Trim().PadLeft(17, '0'),
             };
             emissao.DadoBoleto.DadosIndividuaisBoleto.Add(dib);
@@ -249,7 +232,7 @@ namespace BoletoNetCore
             var request = new HttpRequestMessage(HttpMethod.Post, "boletos");
             request.Headers.Add("Authorization", "Bearer " + Token);
             request.Headers.Add("x-itau-apikey", ChaveApi);
-            request.Headers.Add("x-itau-correlationID", dib.IdBoletoIndividual);
+            request.Headers.Add("x-itau-correlationID", correlation);
             request.Headers.Add("x-itau-flowID", flowID);
             var data = new EmissaoBoletoItauDataApi();
             data.data = emissao;
@@ -261,7 +244,7 @@ namespace BoletoNetCore
             request.Content = JsonContent.Create(data, null, options);
             var response = await this.httpClient.SendAsync(request);
             await this.CheckHttpResponseError(response);
-            return dib.IdBoletoIndividual;
+            return correlation;
         }
 
         private async Task CheckHttpResponseError(HttpResponseMessage response)
@@ -318,24 +301,12 @@ namespace BoletoNetCore
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
         [JsonPropertyName("id_beneficiario")]
         public string IdBeneficiario { get; set; }
-
-        [JsonPropertyName("nome_cobranca")]
-        public string NomeCobranca { get; set; }
-
-        [JsonPropertyName("tipo_pessoa")]
-        public TipoPessoaItauApi TipoPessoa { get; set; }
-
-        [JsonPropertyName("endereco")]
-        public EnderecoItauApi Endereco { get; set; }
     }
 
     class DadoBoletoItauApi
     {
         [JsonPropertyName("descricao_instrumento_cobranca")]
         public string DescricaoInstrumentoCobranca { get; set; }
-
-        [JsonPropertyName("forma_envio")]
-        public string FormaEnvio { get; set; }
 
         [JsonPropertyName("tipo_boleto")]
         public string TipoBoleto { get; set; }
@@ -349,9 +320,6 @@ namespace BoletoNetCore
 
         [JsonPropertyName("codigo_carteira")]
         public string CodigoCarteira { get; set; }
-
-        [JsonPropertyName("codigo_tipo_vencimento")]
-        public int CodigoTipoVencimento { get; set; }
 
         [JsonPropertyName("valor_total_titulo")]
         public string ValorTotalTitulo { get; set; }
@@ -371,9 +339,6 @@ namespace BoletoNetCore
         [JsonPropertyName("quantidade_maximo_parcial")]
         public string QuantidadeMaximoParcial { get; set; }
 
-        [JsonPropertyName("lista_mensagem_cobranca")]
-        public List<ListaMensagemCobrancaItauApi> ListaMensagemCobranca { get; set; }
-
         [JsonPropertyName("recebimento_divergente")]
         public RecebimentoDivergenteItauApi RecebimentoDivergente { get; set; }
 
@@ -383,14 +348,9 @@ namespace BoletoNetCore
 
     class DadosIndividuaisBoletoItauApi
     {
-        [JsonPropertyName("id_boleto_individual")]
-        public string IdBoletoIndividual { get; set; }
 
         [JsonPropertyName("numero_nosso_numero")]
         public string NumeroNossoNumero { get; set; }
-
-        [JsonPropertyName("dac_titulo")]
-        public string DacTitulo { get; set; }
 
         [JsonPropertyName("data_vencimento")]
         public string DataVencimento { get; set; }
@@ -398,17 +358,11 @@ namespace BoletoNetCore
         [JsonPropertyName("valor_titulo")]
         public string ValorTitulo { get; set; }
 
-        [JsonPropertyName("codigo_barras")]
-        public string CodigoBarras { get; set; }
+        [JsonPropertyName("texto_uso_beneficiario")]
+        public string TextoUsoBeneficiario { get; set; }
 
-        [JsonPropertyName("numero_linha_digitavel")]
-        public string NumeroLinhaDigitavel { get; set; }
-
-        [JsonPropertyName("data_limite_pagamento")]
-        public string DataLimitePagamento { get; set; }
-
-        [JsonPropertyName("lista_mensagens_cobranca")]
-        public List<object> ListaMensagensCobranca { get; set; }
+        [JsonPropertyName("texto_seu_numero")]
+        public string TextoSeuNumero { get; set; }
     }
 
     class EnderecoItauApi
@@ -442,12 +396,6 @@ namespace BoletoNetCore
 
         [JsonPropertyName("endereco")]
         public EnderecoItauApi Endereco { get; set; }
-
-        [JsonPropertyName("pagador_eletronico_DDA")]
-        public bool PagadorEletronicoDDA { get; set; }
-
-        [JsonPropertyName("praca_protesto")]
-        public bool PracaProtesto { get; set; }
     }
 
     class PessoaItauApi
@@ -486,9 +434,6 @@ namespace BoletoNetCore
     {
         [JsonPropertyName("codigo_canal_operacao")]
         public string CodigoCanalOperacao { get; set; }
-
-        [JsonPropertyName("codigo_operador")]
-        public string CodigoOperador { get; set; }
 
         [JsonPropertyName("etapa_processo_boleto")]
         public string EtapaProcessoBoleto { get; set; }
