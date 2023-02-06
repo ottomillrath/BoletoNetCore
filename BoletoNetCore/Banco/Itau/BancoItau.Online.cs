@@ -255,13 +255,13 @@ namespace BoletoNetCore
             if (response.StatusCode == HttpStatusCode.BadRequest || response.StatusCode == HttpStatusCode.UnprocessableEntity || (response.StatusCode == HttpStatusCode.NotFound && response.Content.Headers.ContentType.MediaType == "application/json"))
             {
                 var bad = await response.Content.ReadFromJsonAsync<BadRequestItauApi>();
-                if (bad.Campos.Length == 1)
-                {
-                    if (bad.Campos[0].Campo == "COD-RET" && bad.Campos[0].Mensagem == "Título já cadastrado na cobrança")
-                    {
-                        return;
-                    }
-                }
+                // if (bad.Campos.Length == 1)
+                // {
+                //     if (bad.Campos[0].Campo == "COD-RET" && bad.Campos[0].Mensagem == "Título já cadastrado na cobrança")
+                //     {
+                //         return;
+                //     }
+                // }
                 throw BoletoNetCoreException.ErroAoRegistrarTituloOnline(new Exception(string.Format("{0} {1} - {2}", bad.Codigo, bad.Mensagem, String.Join("|", bad.Campos.Select(c => string.Format("{0} - {1}", c.Campo, c.Mensagem)))).Trim()));
             }
             else
