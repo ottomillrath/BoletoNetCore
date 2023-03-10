@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Drawing;
 //Envio por email
 using System.IO;
 using System.Net.Mail;
@@ -8,10 +7,11 @@ using System.Net.Mime;
 using System.Reflection;
 using System.Text;
 using BoletoNetCore.Extensions;
+using SkiaSharp;
 
 namespace BoletoNetCore
 {
-    using System.Drawing.Imaging;
+    using System.Globalization;
     using System.Linq;
 
     [Serializable()]
@@ -98,20 +98,6 @@ namespace BoletoNetCore
 
         private string GetCodBarraCode(string code)
         {
-            //System.Drawing.Bitmap img = new BarCode2of5i(code, 1, 50, code.Length).ToBitmap();
-
-            ////img = img.GetThumbnailImage(460, 61, null, new IntPtr()) as System.Drawing.Bitmap;
-            //using (MemoryStream s = new MemoryStream(10000))
-            //{
-            //    img.Save(s, ImageFormat.Jpeg);
-            //    s.Position = 0;
-            //    using (BinaryReader reader = new BinaryReader(s))
-            //    {
-            //        return Convert.ToBase64String(reader.ReadBytes((int)s.Length));
-            //    }
-            //}
-
-            //img = img.GetThumbnailImage(460, 61, null, new IntPtr()) as System.Drawing.Bitmap;
             return Convert.ToBase64String(new BarCode2of5i(code, 1, 50, code.Length).ToByte());
         }
 
@@ -287,13 +273,13 @@ namespace BoletoNetCore
 
                         grupoDemonstrativo = grupoDemonstrativo.Replace("@DESCRICAOITEM", item.Descricao);
                         grupoDemonstrativo = grupoDemonstrativo.Replace("@REFERENCIAITEM", item.Referencia);
-                        grupoDemonstrativo = grupoDemonstrativo.Replace("@VALORITEM", item.Valor.ToString("R$ ##,##0.00"));
+                        grupoDemonstrativo = grupoDemonstrativo.Replace("@VALORITEM", item.Valor.ToString("C", CultureInfo.GetCultureInfo("pt-BR")));
                     }
 
                     grupoDemonstrativo.Append(GetResourceHypertext("BoletoNetCore.BoletoImpressao.Parts.TotalDemonstrativo.html"));
                     grupoDemonstrativo = grupoDemonstrativo.Replace(
                         "@VALORTOTALGRUPO",
-                        relatorio.Itens.Sum(c => c.Valor).ToString("R$ ##,##0.00"));
+                        relatorio.Itens.Sum(c => c.Valor).ToString("C", CultureInfo.GetCultureInfo("pt-BR")));
                 }
 
                 html = html.Replace("@ITENSDEMONSTRATIVO", grupoDemonstrativo.ToString());
@@ -390,49 +376,48 @@ namespace BoletoNetCore
             if (String.IsNullOrWhiteSpace(_vLocalLogoBeneficiario))
                 _vLocalLogoBeneficiario = urlImagemLogo;
 
-
-            html = html.Replace("@CODIGOBANCO", Utils.FormatCode(Boleto.Banco.Codigo.ToString(), 3));
-            html = html.Replace("@DIGITOBANCO", Boleto.Banco.Digito.ToString());
-            html = html.Replace("@URLIMAGEMLOGO", urlImagemLogo);
-            html = html.Replace("@URLIMGBENEFICIARIO", _vLocalLogoBeneficiario);
-            html = html.Replace("@URLIMAGEMBARRA", urlImagemBarra);
-            html = html.Replace("@LINHADIGITAVEL", Boleto.CodigoBarra.LinhaDigitavel);
-            html = html.Replace("@LOCALPAGAMENTO", Boleto.Banco.Beneficiario.ContaBancaria.LocalPagamento);
-            html = html.Replace("@MENSAGEMFIXATOPOBOLETO", Boleto.Banco.Beneficiario.ContaBancaria.MensagemFixaTopoBoleto);
-            html = html.Replace("@MENSAGEMFIXAPAGADOR", Boleto.Banco.Beneficiario.ContaBancaria.MensagemFixaPagador);
-            html = html.Replace("@DATAVENCIMENTO", dataVencimento);
-            html = html.Replace("@BENEFICIARIO_BOLETO", !Boleto.Banco.Beneficiario.MostrarCNPJnoBoleto ? Boleto.Banco.Beneficiario.Nome : string.Format("{0} - {1}", Boleto.Banco.Beneficiario.Nome, Utils.FormataCNPJ(Boleto.Banco.Beneficiario.CPFCNPJ)));
-            html = html.Replace("@BENEFICIARIO", Boleto.Banco.Beneficiario.Nome);
-            html = html.Replace("@DATADOCUMENTO", Boleto.DataEmissao.ToString("dd/MM/yyyy"));
-            html = html.Replace("@NUMERODOCUMENTO", Boleto.NumeroDocumento);
-            html = html.Replace("@ESPECIEDOCUMENTO", Boleto.EspecieDocumento.ToString());
-            html = html.Replace("@DATAPROCESSAMENTO", Boleto.DataProcessamento.ToString("dd/MM/yyyy"));
-            html = html.Replace("@NOSSONUMERO", Boleto.NossoNumeroFormatado);
-            html = html.Replace("@CARTEIRA", Boleto.CarteiraImpressaoBoleto);
-            html = html.Replace("@ESPECIE", Boleto.EspecieMoeda);
-            html = html.Replace("@QUANTIDADE", (Boleto.QuantidadeMoeda == 0 ? "" : Boleto.QuantidadeMoeda.ToString()));
-            html = html.Replace("@VALORDOCUMENTO", Boleto.ValorMoeda);
-            html = html.Replace("@=VALORDOCUMENTO", (Boleto.ValorTitulo == 0 ? "" : Boleto.ValorTitulo.ToString("R$ ##,##0.00")));
-            html = html.Replace("@DESCONTOS", (Boleto.ImprimirValoresAuxiliares == false || Boleto.ValorDesconto == 0 ? "" : Boleto.ValorDesconto.ToString("R$ ##,##0.00")));
-            html = html.Replace("@OUTRASDEDUCOES", (Boleto.ImprimirValoresAuxiliares == false || Boleto.ValorAbatimento == 0 ? "" : Boleto.ValorAbatimento.ToString("R$ ##,##0.00")));
-            html = html.Replace("@MORAMULTA", (Boleto.ImprimirValoresAuxiliares == false || Boleto.ValorMulta == 0 ? "" : Boleto.ValorMulta.ToString("R$ ##,##0.00")));
-            html = html.Replace("@OUTROSACRESCIMOS", (Boleto.ImprimirValoresAuxiliares == false || Boleto.ValorOutrasDespesas == 0 ? "" : Boleto.ValorOutrasDespesas.ToString("R$ ##,##0.00")));
-            html = html.Replace("@VALORCOBRADO", (Boleto.ImprimirValoresAuxiliares == false || Boleto.ValorPago == 0 ? "" : Boleto.ValorPago.ToString("R$ ##,##0.00")));
-            html = html.Replace("@AGENCIACONTA", Boleto.Banco.Beneficiario.CodigoFormatado);
-            html = html.Replace("@PAGADOR", pagador);
-            html = html.Replace("@ENDERECOPAGADOR", enderecoPagador);
-            html = html.Replace("@AVALISTA", avalista);
-            html = html.Replace("@AGENCIACODIGOBENEFICIARIO", Boleto.Banco.Beneficiario.CodigoFormatado);
-            html = html.Replace("@CPFCNPJ", Utils.FormataCPFCPPJ(Boleto.Banco.Beneficiario.CPFCNPJ));
-            html = html.Replace("@AUTENTICACAOMECANICA", "");
-            html = html.Replace("@USODOBANCO", Boleto.UsoBanco);
-            html = html.Replace("@IMAGEMCODIGOBARRA", imagemCodigoBarras);
-            html = html.Replace("@ACEITE", Boleto.Aceite);
-            html = html.Replace("@ENDERECOBENEFICIARIO_BOLETO", MostrarEnderecoBeneficiario ? string.Format(" - {0}", enderecoBeneficiarioCompacto) : "");
-            html = html.Replace("@ENDERECOBENEFICIARIO", MostrarEnderecoBeneficiario ? enderecoBeneficiario : "");
-            html = html.Replace("@INSTRUCOES", Boleto.MensagemInstrucoesCaixaFormatado.Replace(StringExtensions.NewLineCRLF, "<br/>"));
-            html = html.Replace("@PARCELAS", Boleto.ParcelaInformativo != string.Empty ? ("Parcela: " + Boleto.ParcelaInformativo) : ""); ;
-            return html.ToString();
+            return html
+                .Replace("@CODIGOBANCO", Utils.FormatCode(Boleto.Banco.Codigo.ToString(), 3))
+                .Replace("@DIGITOBANCO", Boleto.Banco.Digito.ToString())
+                .Replace("@URLIMAGEMLOGO", urlImagemLogo)
+                .Replace("@URLIMGBENEFICIARIO", _vLocalLogoBeneficiario)
+                .Replace("@URLIMAGEMBARRA", urlImagemBarra)
+                .Replace("@LINHADIGITAVEL", Boleto.CodigoBarra.LinhaDigitavel)
+                .Replace("@LOCALPAGAMENTO", Boleto.Banco.Beneficiario.ContaBancaria.LocalPagamento)
+                .Replace("@MENSAGEMFIXATOPOBOLETO", Boleto.Banco.Beneficiario.ContaBancaria.MensagemFixaTopoBoleto)
+                .Replace("@MENSAGEMFIXAPAGADOR", Boleto.Banco.Beneficiario.ContaBancaria.MensagemFixaPagador)
+                .Replace("@DATAVENCIMENTO", dataVencimento)
+                .Replace("@BENEFICIARIO_BOLETO", !Boleto.Banco.Beneficiario.MostrarCNPJnoBoleto ? Boleto.Banco.Beneficiario.Nome : string.Format("{0} - {1}", Boleto.Banco.Beneficiario.Nome, Utils.FormataCNPJ(Boleto.Banco.Beneficiario.CPFCNPJ)))
+                .Replace("@BENEFICIARIO", Boleto.Banco.Beneficiario.Nome)
+                .Replace("@DATADOCUMENTO", Boleto.DataEmissao.ToString("dd/MM/yyyy"))
+                .Replace("@NUMERODOCUMENTO", Boleto.NumeroDocumento)
+                .Replace("@ESPECIEDOCUMENTO", Boleto.EspecieDocumento.ToString())
+                .Replace("@DATAPROCESSAMENTO", Boleto.DataProcessamento.ToString("dd/MM/yyyy"))
+                .Replace("@NOSSONUMERO", Boleto.NossoNumeroFormatado)
+                .Replace("@CARTEIRA", Boleto.CarteiraImpressaoBoleto)
+                .Replace("@ESPECIE", Boleto.EspecieMoeda)
+                .Replace("@QUANTIDADE", (Boleto.QuantidadeMoeda == 0 ? "" : Boleto.QuantidadeMoeda.ToString()))
+                .Replace("@VALORDOCUMENTO", Boleto.ValorMoeda)
+                .Replace("@=VALORDOCUMENTO", (Boleto.ValorTitulo == 0 ? "" : Boleto.ValorTitulo.ToString("C", CultureInfo.GetCultureInfo("pt-BR"))))
+                .Replace("@DESCONTOS", (Boleto.ImprimirValoresAuxiliares == false || Boleto.ValorDesconto == 0 ? "" : Boleto.ValorDesconto.ToString("C", CultureInfo.GetCultureInfo("pt-BR"))))
+                .Replace("@OUTRASDEDUCOES", (Boleto.ImprimirValoresAuxiliares == false || Boleto.ValorAbatimento == 0 ? "" : Boleto.ValorAbatimento.ToString("C", CultureInfo.GetCultureInfo("pt-BR"))))
+                .Replace("@MORAMULTA", (Boleto.ImprimirValoresAuxiliares == false || Boleto.ValorMulta == 0 ? "" : Boleto.ValorMulta.ToString("C", CultureInfo.GetCultureInfo("pt-BR"))))
+                .Replace("@OUTROSACRESCIMOS", (Boleto.ImprimirValoresAuxiliares == false || Boleto.ValorOutrasDespesas == 0 ? "" : Boleto.ValorOutrasDespesas.ToString("C", CultureInfo.GetCultureInfo("pt-BR"))))
+                .Replace("@VALORCOBRADO", (Boleto.ImprimirValoresAuxiliares == false || Boleto.ValorPago == 0 ? "" : Boleto.ValorPago.ToString("C", CultureInfo.GetCultureInfo("pt-BR"))))
+                .Replace("@AGENCIACONTA", Boleto.Banco.Beneficiario.CodigoFormatado)
+                .Replace("@PAGADOR", pagador)
+                .Replace("@ENDERECOPAGADOR", enderecoPagador)
+                .Replace("@AVALISTA", avalista)
+                .Replace("@AGENCIACODIGOBENEFICIARIO", Boleto.Banco.Beneficiario.CodigoFormatado)
+                .Replace("@CPFCNPJ", Utils.FormataCPFCPPJ(Boleto.Banco.Beneficiario.CPFCNPJ))
+                .Replace("@AUTENTICACAOMECANICA", "")
+                .Replace("@USODOBANCO", Boleto.UsoBanco)
+                .Replace("@IMAGEMCODIGOBARRA", imagemCodigoBarras)
+                .Replace("@ACEITE", Boleto.Aceite).ToString()
+                .Replace("@ENDERECOBENEFICIARIO_BOLETO", MostrarEnderecoBeneficiario ? string.Format(" - {0}", enderecoBeneficiarioCompacto) : "")
+                .Replace("@ENDERECOBENEFICIARIO", MostrarEnderecoBeneficiario ? enderecoBeneficiario : "")
+                .Replace("@INSTRUCOES", Boleto.MensagemInstrucoesCaixaFormatado.Replace(Environment.NewLine, "<br/>"))
+                .Replace("@PARCELAS", Boleto.ParcelaInformativo != string.Empty ? ("Parcela: " + Boleto.ParcelaInformativo) : "");
         }
 
         #endregion Html
@@ -860,7 +845,8 @@ namespace BoletoNetCore
 
                 var linhaDigitavel = Boleto.CodigoBarra.LinhaDigitavel.Replace("  ", " ").Trim();
 
-                var imagemLinha = Utils.DrawText(linhaDigitavel, new Font("Arial", 30, FontStyle.Bold), Color.Black, Color.White);
+                var font = SKTypeface.FromFamilyName("Arial", SKFontStyleWeight.Bold, SKFontStyleWidth.Normal, SKFontStyleSlant.Upright);
+                var imagemLinha = Utils.DrawText(linhaDigitavel, 40, font, SKColors.Black, SKColors.White);
                 var base64Linha = Convert.ToBase64String(Utils.ConvertImageToByte(imagemLinha));
 
                 var fnLinha = string.Format("data:image/gif;base64,{0}", base64Linha);
@@ -886,7 +872,7 @@ namespace BoletoNetCore
 
         #endregion Geração do Html OffLine
 
-        public Image GeraImagemCodigoBarras(Boleto boleto)
+        public SKBitmap GeraImagemCodigoBarras(Boleto boleto)
         {
             var cb = new BarCode2of5i(boleto.CodigoBarra.CodigoDeBarras, 1, 50, boleto.CodigoBarra.CodigoDeBarras.Length);
             return cb.ToBitmap();

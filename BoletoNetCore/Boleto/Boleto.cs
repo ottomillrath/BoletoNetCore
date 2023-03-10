@@ -1,3 +1,4 @@
+using BoletoNetCore.Enums;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -101,6 +102,12 @@ namespace BoletoNetCore
         public decimal PercentualMulta { get; set; }
 
         public DateTime DataMulta { get; set; }
+
+        /// <summary>
+        /// C�digo adotado para identificar o crit�rio de pagamento de multa(valor, percentual ou sem cobran�� de multa), a ser aplicada pelo atraso do pagamento do T�tulo.
+        /// </summary>
+        //TODO: Precisa ajustar os arquivos de remessa dos bancos para usar essa propriedade, que informa o crit�rio de pagamento de multa. Cecred/Ailos (085) - Carteira 1 ajustado
+        public TipoCodigoMulta TipoCodigoMulta { get; set; } = TipoCodigoMulta.Valor;
 
         // Desconto
         public DateTime DataDesconto { get; set; }
