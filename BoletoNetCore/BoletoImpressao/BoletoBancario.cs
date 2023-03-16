@@ -874,7 +874,7 @@ namespace BoletoNetCore
 
         public SKBitmap GeraImagemCodigoBarras(Boleto boleto)
         {
-            var cb = new BarCode2of5i(boleto.CodigoBarra.CodigoDeBarras, 1, 50, boleto.CodigoBarra.CodigoDeBarras.Length);
+            var cb = new BarCode2of5i(boleto.CodigoBarra.CodigoDeBarras, 2, 60, boleto.CodigoBarra.CodigoDeBarras.Length);
             return cb.ToBitmap();
         }
 

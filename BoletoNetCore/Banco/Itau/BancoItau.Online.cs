@@ -198,7 +198,40 @@ namespace BoletoNetCore
                 // DataLimitePagamento = "2031-06-01",
                 // IdBoletoIndividual = System.Guid.NewGuid().ToString(),
                 ValorTitulo = string.Format("{0:f2}", boleto.ValorTitulo).Replace(",", "").Replace(".", "").Trim().PadLeft(17, '0'),
+                Juros = new JurosItauApi(),
+                Multa = new MultaItauApi(),
             };
+            if (boleto.TipoJuros == TipoJuros.Simples)
+            {
+                dib.Juros.DataJuros = boleto.DataJuros;
+                if (boleto.ValorJurosDia > 0)
+                {
+                    dib.Juros.CodigoTipoJuros = "93";
+                    dib.Juros.ValorJuros = string.Format("{0:f2}", boleto.ValorJurosDia).Replace(",", "").Replace(".", "").Trim().PadLeft(17, '0');
+                }
+                else if (boleto.PercentualJurosDia > 0)
+                {
+                    dib.Juros.CodigoTipoJuros = "91";
+                    dib.Juros.PercentualJuros = string.Format("{0:f5}", boleto.PercentualJurosDia).Replace(",", "").Replace(".", "").Trim().PadLeft(12, '0');
+                }
+            }
+            switch (boleto.TipoCodigoMulta)
+            {
+                case Enums.TipoCodigoMulta.DispensarCobrancaMulta:
+                    dib.Multa.CodigoTipoMulta = "03";
+                    break;
+                case Enums.TipoCodigoMulta.Percentual:
+                    dib.Multa.QuantidadeDiasMulta = Convert.ToInt32((boleto.DataMulta - boleto.DataVencimento).TotalDays);
+                    dib.Multa.CodigoTipoMulta = "02";
+                    dib.Multa.PercentualMulta = string.Format("{0:f5}", boleto.PercentualMulta).Replace(",", "").Replace(".", "").Trim().PadLeft(12, '0');
+                    break;
+                case Enums.TipoCodigoMulta.Valor:
+                    dib.Multa.QuantidadeDiasMulta = Convert.ToInt32((boleto.DataMulta - boleto.DataVencimento).TotalDays);
+                    dib.Multa.CodigoTipoMulta = "01";
+                    dib.Multa.ValorMulta = string.Format("{0:f2}", boleto.ValorMulta).Replace(",", "").Replace(".", "").Trim().PadLeft(17, '0');
+                    break;
+            }
+
             emissao.DadoBoleto.DadosIndividuaisBoleto.Add(dib);
 
             // if (boleto.Avalista != null)
@@ -363,6 +396,43 @@ namespace BoletoNetCore
 
         [JsonPropertyName("texto_seu_numero")]
         public string TextoSeuNumero { get; set; }
+        [JsonPropertyName("juros")]
+        public JurosItauApi Juros { get; set; }
+        [JsonPropertyName("multa")]
+        public MultaItauApi Multa { get; set; }
+    }
+
+    class MultaItauApi
+    {
+        [JsonPropertyName("codigo_tipo_multa")]
+        public string CodigoTipoMulta { get; set; }
+
+        [JsonPropertyName("percentual_multa")]
+        public string PercentualMulta { get; set; }
+
+        [JsonPropertyName("quantidade_dias_multa")]
+        public int QuantidadeDiasMulta { get; set; }
+
+        [JsonPropertyName("valor_multa")]
+        public string ValorMulta { get; set; }
+    }
+
+    class JurosItauApi
+    {
+        [JsonPropertyName("codigo_tipo_juros")]
+        public string CodigoTipoJuros { get; set; }
+
+        [JsonPropertyName("data_juros")]
+        public DateTime DataJuros { get; set; }
+
+        [JsonPropertyName("percentual_juros")]
+        public string PercentualJuros { get; set; }
+
+        [JsonPropertyName("quantidade_dias_juros")]
+        public int QuantidadeDiasJuros { get; set; }
+
+        [JsonPropertyName("valor_juros")]
+        public string ValorJuros { get; set; }
     }
 
     class EnderecoItauApi
