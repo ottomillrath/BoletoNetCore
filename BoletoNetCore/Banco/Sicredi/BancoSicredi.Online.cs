@@ -148,6 +148,11 @@ namespace BoletoNetCore
             // todo: verificar quais dados necessarios para preencher boleto
             ret[0].Situacao.ToString();
         }
+
+        public Task<string> CancelarBoleto(Boleto boleto)
+        {
+            throw new NotImplementedException();
+        }
     }
 
     #region Classes Auxiliares (json) Sicredi

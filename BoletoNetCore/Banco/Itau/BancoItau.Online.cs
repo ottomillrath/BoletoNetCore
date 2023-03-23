@@ -260,7 +260,8 @@ namespace BoletoNetCore
             //     };
             // }
 
-            Token = await this.GerarToken();
+            // chamar manualmente para não criar token repetidamente na emissão/cancelamento
+            // Token = await this.GerarToken();
 
             var request = new HttpRequestMessage(HttpMethod.Post, "boletos");
             request.Headers.Add("Authorization", "Bearer " + Token);
@@ -299,6 +300,22 @@ namespace BoletoNetCore
             }
             else
                 throw BoletoNetCoreException.ErroAoRegistrarTituloOnline(new Exception(string.Format("Erro desconhecido: {0}", response.StatusCode)));
+        }
+
+        public async Task<string> CancelarBoleto(Boleto boleto)
+        {
+            var correlation = System.Guid.NewGuid().ToString();
+
+            var request = new HttpRequestMessage(HttpMethod.Patch, string.Format("boletos/{0}{1}/baixa", boleto.Banco.Beneficiario.Codigo, boleto.NossoNumero));
+            request.Headers.Add("Authorization", "Bearer " + Token);
+            request.Headers.Add("x-itau-apikey", ChaveApi);
+            request.Headers.Add("x-itau-correlationID", correlation);
+            request.Headers.Add("x-itau-flowID", flowID);
+
+            var response = await this.httpClient.SendAsync(request);
+            await this.CheckHttpResponseError(response);
+            
+            return correlation;
         }
     }
 

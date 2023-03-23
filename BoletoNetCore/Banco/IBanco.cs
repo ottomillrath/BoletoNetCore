@@ -182,6 +182,7 @@ namespace BoletoNetCore
         /// REgistra Boleto no banco e Retorna o ID do boleto quando disponivel
         /// </summary>
         Task<string> RegistrarBoleto(Boleto boleto);
+        Task<string> CancelarBoleto(Boleto boleto);
         Task ConsultarStatus(Boleto boleto);
     }
 }
