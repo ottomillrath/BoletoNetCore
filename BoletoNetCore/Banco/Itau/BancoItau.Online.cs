@@ -161,14 +161,14 @@ namespace BoletoNetCore
                     CodigoEspecie = AjustaEspecieCnab400(boleto.EspecieDocumento),
                     DadosIndividuaisBoleto = new(),
                     DataEmissao = boleto.DataEmissao.ToString("yyyy-MM-dd"),
-                    DescontoExpresso = true,
+                    DescontoExpresso = false,
                     DescricaoInstrumentoCobranca = "boleto", // TODO
                     //TODO ListaMensagemCobranca
                     Pagador = new()
                     {
                         Pessoa = new()
                         {
-                            NomeFantasia = boleto.Pagador.Nome.GetWithLength(50),
+                            // NomeFantasia = boleto.Pagador.Nome.GetWithLength(50),
                             NomePessoa = boleto.Pagador.Nome.GetWithLength(50),
                             TipoPessoa = new()
                             {
@@ -321,7 +321,7 @@ namespace BoletoNetCore
         {
             var correlation = System.Guid.NewGuid().ToString();
 
-            var request = new HttpRequestMessage(HttpMethod.Patch, string.Format("boletos/{0}{1}/baixa", boleto.Banco.Beneficiario.Codigo, boleto.NossoNumero));
+            var request = new HttpRequestMessage(HttpMethod.Patch, string.Format("boletos/{0}109{1}/baixa", boleto.Banco.Beneficiario.Codigo, boleto.NossoNumero));
             request.Headers.Add("Authorization", "Bearer " + Token);
             request.Headers.Add("x-itau-apikey", ChaveApi);
             request.Headers.Add("x-itau-correlationID", correlation);
