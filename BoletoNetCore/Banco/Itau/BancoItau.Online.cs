@@ -173,8 +173,6 @@ namespace BoletoNetCore
                             TipoPessoa = new()
                             {
                                 CodigoTipoPessoa = boleto.Pagador.TipoCPFCNPJ("A"),
-                                NumeroCadastroNacionalPessoaJuridica = boleto.Pagador.TipoCPFCNPJ("A") == "J" ? boleto.Pagador.CPFCNPJ : "",
-                                NumeroCadastroPessoaFisica = boleto.Pagador.TipoCPFCNPJ("A") == "F" ? boleto.Pagador.CPFCNPJ : "",
                             },
                         },
                         Endereco = new()
@@ -202,6 +200,15 @@ namespace BoletoNetCore
                 },
                 EtapaProcessoBoleto = "efetivacao",
             };
+            if (boleto.Pagador.TipoCPFCNPJ("A") == "J")
+            {
+                emissao.DadoBoleto.Pagador.Pessoa.TipoPessoa.NumeroCadastroNacionalPessoaJuridica = boleto.Pagador.CPFCNPJ;
+            }
+            else
+            {
+                emissao.DadoBoleto.Pagador.Pessoa.TipoPessoa.NumeroCadastroPessoaFisica = boleto.Pagador.CPFCNPJ;
+
+            }
             var correlation = System.Guid.NewGuid().ToString();
             var dib = new DadosIndividuaisBoletoItauApi()
             {
@@ -508,8 +515,8 @@ namespace BoletoNetCore
         [JsonPropertyName("tipo_pessoa")]
         public TipoPessoaItauApi TipoPessoa { get; set; }
 
-        [JsonPropertyName("nome_fantasia")]
-        public string NomeFantasia { get; set; }
+        // [JsonPropertyName("nome_fantasia")]
+        // public string NomeFantasia { get; set; }
     }
 
     class RecebimentoDivergenteItauApi
