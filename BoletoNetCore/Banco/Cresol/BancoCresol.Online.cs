@@ -139,6 +139,11 @@ namespace BoletoNetCore
             else
                 throw BoletoNetCoreException.ErroAoRegistrarTituloOnline(new Exception(string.Format("Erro desconhecido: {0}", response.StatusCode)));
         }
+
+        public Task<string> CancelarBoleto(Boleto boleto)
+        {
+            throw new NotImplementedException();
+        }
     }
 
     #region "online classes"

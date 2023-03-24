@@ -17,6 +17,19 @@ using System.Threading;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
+public static class Helper
+{
+    public static string GetWithLength(this string texto, int len)
+    {
+        var t = texto.Trim().Replace("/", "");
+        if (t.Length > len)
+        {
+            return t.Substring(0, len);
+        }
+        return t;
+    }
+}
+
 public class LoggingHandler : DelegatingHandler
 {
     public LoggingHandler(HttpMessageHandler innerHandler)
@@ -50,6 +63,7 @@ public class LoggingHandler : DelegatingHandler
 
 namespace BoletoNetCore
 {
+
     partial class BancoItau : IBancoOnlineRest
     {
         public bool Homologacao { get; set; } = true;
@@ -83,7 +97,6 @@ namespace BoletoNetCore
             }
         }
         #endregion
-
         public string ChaveApi { get; set; }
 
         public string SecretApi { get; set; }
@@ -155,8 +168,8 @@ namespace BoletoNetCore
                     {
                         Pessoa = new()
                         {
-                            NomeFantasia = boleto.Pagador.Nome,
-                            NomePessoa = boleto.Pagador.Nome,
+                            NomeFantasia = boleto.Pagador.Nome.GetWithLength(50),
+                            NomePessoa = boleto.Pagador.Nome.GetWithLength(50),
                             TipoPessoa = new()
                             {
                                 CodigoTipoPessoa = boleto.Pagador.TipoCPFCNPJ("A"),
@@ -166,11 +179,11 @@ namespace BoletoNetCore
                         },
                         Endereco = new()
                         {
-                            NomeBairro = boleto.Pagador.Endereco.Bairro,
-                            NomeCidade = boleto.Pagador.Endereco.Cidade,
-                            NomeLogradouro = boleto.Pagador.Endereco.LogradouroEndereco,
-                            NumeroCEP = boleto.Pagador.Endereco.CEP,
-                            SiglaUF = boleto.Pagador.Endereco.UF,
+                            NomeBairro = boleto.Pagador.Endereco.Bairro.GetWithLength(15),
+                            NomeCidade = boleto.Pagador.Endereco.Cidade.GetWithLength(20),
+                            NomeLogradouro = boleto.Pagador.Endereco.LogradouroEndereco.GetWithLength(45),
+                            NumeroCEP = boleto.Pagador.Endereco.CEP.GetWithLength(8),
+                            SiglaUF = boleto.Pagador.Endereco.UF.GetWithLength(2),
                         }
                     },
                     PagamentoParcial = false, // TODO
@@ -184,6 +197,8 @@ namespace BoletoNetCore
                                                    // },
                     TipoBoleto = "a vista",
                     ValorTotalTitulo = string.Format("{0:f2}", boleto.ValorTitulo).Replace(",", "").Replace(".", "").Trim().PadLeft(17, '0'),
+                    Juros = new JurosItauApi(),
+                    Multa = new MultaItauApi(),
                 },
                 EtapaProcessoBoleto = "efetivacao",
             };
@@ -193,42 +208,42 @@ namespace BoletoNetCore
                 // CodigoBarras = boleto.CodigoBarra.CodigoDeBarras,
                 // DacTitulo = boleto.NossoNumeroDV,
                 NumeroNossoNumero = boleto.NossoNumero,
+                TextoSeuNumero = boleto.NossoNumero,
+                TextoUsoBeneficiario = boleto.NossoNumero,
                 DataVencimento = boleto.DataVencimento.ToString("yyyy-MM-dd"),
                 // NumeroLinhaDigitavel = boleto.CodigoBarra.LinhaDigitavel,
                 // DataLimitePagamento = "2031-06-01",
                 // IdBoletoIndividual = System.Guid.NewGuid().ToString(),
                 ValorTitulo = string.Format("{0:f2}", boleto.ValorTitulo).Replace(",", "").Replace(".", "").Trim().PadLeft(17, '0'),
-                Juros = new JurosItauApi(),
-                Multa = new MultaItauApi(),
             };
             if (boleto.TipoJuros == TipoJuros.Simples)
             {
-                dib.Juros.DataJuros = boleto.DataJuros;
+                emissao.DadoBoleto.Juros.DataJuros = boleto.DataJuros.ToString("yyyy-MM-dd");
                 if (boleto.ValorJurosDia > 0)
                 {
-                    dib.Juros.CodigoTipoJuros = "93";
-                    dib.Juros.ValorJuros = string.Format("{0:f2}", boleto.ValorJurosDia).Replace(",", "").Replace(".", "").Trim().PadLeft(17, '0');
+                    emissao.DadoBoleto.Juros.CodigoTipoJuros = "93";
+                    emissao.DadoBoleto.Juros.ValorJuros = string.Format("{0:f2}", boleto.ValorJurosDia).Replace(",", "").Replace(".", "").Trim().PadLeft(17, '0');
                 }
                 else if (boleto.PercentualJurosDia > 0)
                 {
-                    dib.Juros.CodigoTipoJuros = "91";
-                    dib.Juros.PercentualJuros = string.Format("{0:f5}", boleto.PercentualJurosDia).Replace(",", "").Replace(".", "").Trim().PadLeft(12, '0');
+                    emissao.DadoBoleto.Juros.CodigoTipoJuros = "91";
+                    emissao.DadoBoleto.Juros.PercentualJuros = string.Format("{0:f5}", boleto.PercentualJurosDia).Replace(",", "").Replace(".", "").Trim().PadLeft(12, '0');
                 }
             }
             switch (boleto.TipoCodigoMulta)
             {
                 case Enums.TipoCodigoMulta.DispensarCobrancaMulta:
-                    dib.Multa.CodigoTipoMulta = "03";
+                    emissao.DadoBoleto.Multa.CodigoTipoMulta = "03";
                     break;
                 case Enums.TipoCodigoMulta.Percentual:
-                    dib.Multa.QuantidadeDiasMulta = Convert.ToInt32((boleto.DataMulta - boleto.DataVencimento).TotalDays);
-                    dib.Multa.CodigoTipoMulta = "02";
-                    dib.Multa.PercentualMulta = string.Format("{0:f5}", boleto.PercentualMulta).Replace(",", "").Replace(".", "").Trim().PadLeft(12, '0');
+                    emissao.DadoBoleto.Multa.QuantidadeDiasMulta = Convert.ToInt32((boleto.DataMulta - boleto.DataVencimento).TotalDays);
+                    emissao.DadoBoleto.Multa.CodigoTipoMulta = "02";
+                    emissao.DadoBoleto.Multa.PercentualMulta = string.Format("{0:f5}", boleto.PercentualMulta).Replace(",", "").Replace(".", "").Trim().PadLeft(12, '0');
                     break;
                 case Enums.TipoCodigoMulta.Valor:
-                    dib.Multa.QuantidadeDiasMulta = Convert.ToInt32((boleto.DataMulta - boleto.DataVencimento).TotalDays);
-                    dib.Multa.CodigoTipoMulta = "01";
-                    dib.Multa.ValorMulta = string.Format("{0:f2}", boleto.ValorMulta).Replace(",", "").Replace(".", "").Trim().PadLeft(17, '0');
+                    emissao.DadoBoleto.Multa.QuantidadeDiasMulta = Convert.ToInt32((boleto.DataMulta - boleto.DataVencimento).TotalDays);
+                    emissao.DadoBoleto.Multa.CodigoTipoMulta = "01";
+                    emissao.DadoBoleto.Multa.ValorMulta = string.Format("{0:f2}", boleto.ValorMulta).Replace(",", "").Replace(".", "").Trim().PadLeft(17, '0');
                     break;
             }
 
@@ -314,7 +329,7 @@ namespace BoletoNetCore
 
             var response = await this.httpClient.SendAsync(request);
             await this.CheckHttpResponseError(response);
-            
+
             return correlation;
         }
     }
@@ -394,6 +409,10 @@ namespace BoletoNetCore
 
         [JsonPropertyName("desconto_expresso")]
         public bool DescontoExpresso { get; set; }
+        [JsonPropertyName("juros")]
+        public JurosItauApi Juros { get; set; }
+        [JsonPropertyName("multa")]
+        public MultaItauApi Multa { get; set; }
     }
 
     class DadosIndividuaisBoletoItauApi
@@ -413,10 +432,6 @@ namespace BoletoNetCore
 
         [JsonPropertyName("texto_seu_numero")]
         public string TextoSeuNumero { get; set; }
-        [JsonPropertyName("juros")]
-        public JurosItauApi Juros { get; set; }
-        [JsonPropertyName("multa")]
-        public MultaItauApi Multa { get; set; }
     }
 
     class MultaItauApi
@@ -440,7 +455,7 @@ namespace BoletoNetCore
         public string CodigoTipoJuros { get; set; }
 
         [JsonPropertyName("data_juros")]
-        public DateTime DataJuros { get; set; }
+        public string DataJuros { get; set; }
 
         [JsonPropertyName("percentual_juros")]
         public string PercentualJuros { get; set; }
