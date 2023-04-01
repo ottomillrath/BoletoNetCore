@@ -327,11 +327,12 @@ namespace BoletoNetCore
         public async Task<string> CancelarBoleto(Boleto boleto)
         {
             var correlation = System.Guid.NewGuid().ToString();
+            var fId = System.Guid.NewGuid().ToString();
 
             var request = new HttpRequestMessage(HttpMethod.Patch, string.Format("boletos/{0}109{1}/baixa", boleto.Banco.Beneficiario.Codigo, boleto.NossoNumero));
             request.Headers.Add("Authorization", "Bearer " + Token);
             request.Headers.Add("x-itau-apikey", ChaveApi);
-            request.Headers.Add("x-itau-correlationID", correlation);
+            request.Headers.Add("x-itau-correlationID", fId);
             request.Headers.Add("x-itau-flowID", flowID);
 
             var response = await this.httpClient.SendAsync(request);
