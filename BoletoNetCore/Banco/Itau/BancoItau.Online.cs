@@ -15,7 +15,7 @@ public static class Helper
 {
     public static string GetWithLength(this string texto, int len)
     {
-        var t = texto.Trim().Replace("/", "");
+        var t = texto.Trim().Replace("/", "").Replace("(", "").Replace(")", "");
         if (t.Length > len)
         {
             return t.Substring(0, len);
@@ -69,23 +69,22 @@ namespace BoletoNetCore
         {
             get
             {
-                if (this._httpClient == null)
+
+                var handler = new HttpClientHandler();
+                Uri uri;
+                if (Homologacao)
                 {
-                    var handler = new HttpClientHandler();
-                    Uri uri;
-                    if (Homologacao)
-                    {
-                        uri = new Uri("https://devportal.itau.com.br/sandboxapi/cash_management_ext_v2/v2/");
-                    }
-                    else
-                    {
-                        uri = new Uri("https://api.itau.com.br/cash_management/v2/");
-                        X509Certificate2 certificate = new X509Certificate2(Certificado, CertificadoSenha);
-                        handler.ClientCertificates.Add(certificate);
-                    }
-                    this._httpClient = new HttpClient(new LoggingHandler(handler));
-                    this._httpClient.BaseAddress = uri;
+                    uri = new Uri("https://devportal.itau.com.br/sandboxapi/cash_management_ext_v2/v2/");
                 }
+                else
+                {
+                    uri = new Uri("https://api.itau.com.br/cash_management/v2/");
+                    X509Certificate2 certificate = new X509Certificate2(Certificado, CertificadoSenha);
+                    handler.ClientCertificates.Add(certificate);
+                }
+                this._httpClient = new HttpClient(new LoggingHandler(handler));
+                this._httpClient.BaseAddress = uri;
+
 
                 return this._httpClient;
             }
@@ -256,13 +255,15 @@ namespace BoletoNetCore
             request.Headers.Add("x-itau-apikey", ChaveApi);
             request.Headers.Add("x-itau-correlationID", correlation);
             request.Headers.Add("x-itau-flowID", flowID);
+            // request.Headers.Add("Content-Type", "application/json");
+            request.Headers.Add("Accept", "application/json");
             var data = new EmissaoBoletoItauDataApi();
             data.data = emissao;
 
             request.Content = new StringContent(JsonConvert.SerializeObject(data, Formatting.None, new JsonSerializerSettings
             {
                 NullValueHandling = NullValueHandling.Ignore
-            }));
+            }), System.Text.Encoding.UTF8, "application/json");
             var response = await this.httpClient.SendAsync(request);
             await this.CheckHttpResponseError(response);
             return correlation;
