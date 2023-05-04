@@ -220,15 +220,20 @@ namespace BoletoNetCore
             emissao.DadoBoleto.Juros.DataJuros = boleto.DataJuros.ToString("yyyy-MM-dd");
             if (boleto.TipoJuros == TipoJuros.Simples)
             {
-                if (boleto.ValorJurosDia > 0)
+                if (boleto.ValorJurosDia > (decimal)0.01)
                 {
                     emissao.DadoBoleto.Juros.CodigoTipoJuros = "93";
                     emissao.DadoBoleto.Juros.ValorJuros = string.Format("{0:f2}", boleto.ValorJurosDia).Replace(",", "").Replace(".", "").Trim().PadLeft(17, '0');
                 }
-                else if (boleto.PercentualJurosDia > 0)
+                else if (boleto.PercentualJurosDia > 0 && (decimal)(boleto.ValorTitulo * boleto.PercentualJurosDia / 100) > (decimal)0.01)
                 {
                     emissao.DadoBoleto.Juros.CodigoTipoJuros = "91";
                     emissao.DadoBoleto.Juros.PercentualJuros = string.Format("{0:f5}", boleto.PercentualJurosDia).Replace(",", "").Replace(".", "").Trim().PadLeft(12, '0');
+                }
+                else if (boleto.PercentualJurosDia > 0)
+                {
+                    emissao.DadoBoleto.Juros.CodigoTipoJuros = "93";
+                    emissao.DadoBoleto.Juros.ValorJuros = string.Format("{0:f2}", 0.01).Replace(",", "").Replace(".", "").Trim().PadLeft(17, '0');
                 }
             }
             switch (boleto.TipoCodigoMulta)
@@ -454,7 +459,7 @@ namespace BoletoNetCore
         public string PercentualJuros { get; set; }
         public bool ShouldSerializePercentualJuros()
         {
-            return CodigoTipoJuros == "91";
+            return CodigoTipoJuros == "91" || CodigoTipoJuros == "90";
         }
 
         [JsonIgnore]
