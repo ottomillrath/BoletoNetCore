@@ -72,10 +72,13 @@ namespace BoletoNetCore
                 reg.Adicionar(TTiposDadoEDI.ediDataDDMMAA___________, 0151, 006, 0, boleto.DataEmissao, ' ');
                 reg.Adicionar(TTiposDadoEDI.ediNumericoSemSeparador_, 0157, 002, 0, boleto.CodigoInstrucao1, '0');
                 reg.Adicionar(TTiposDadoEDI.ediNumericoSemSeparador_, 0159, 002, 0, boleto.CodigoInstrucao2, '0');
-                if (boleto.PercentualJurosDia > 0 && boleto.ValorJurosDia == 0 ) {
+                if (boleto.PercentualJurosDia > 0 && boleto.ValorJurosDia == 0)
+                {
                     var vjDia = (boleto.ValorTitulo * boleto.PercentualJurosDia) / 100;
                     reg.Adicionar(TTiposDadoEDI.ediNumericoSemSeparador_, 0161, 013, 2, vjDia, '0');
-                } else {
+                }
+                else
+                {
                     reg.Adicionar(TTiposDadoEDI.ediNumericoSemSeparador_, 0161, 013, 2, boleto.ValorJurosDia, '0');
                 }
 
@@ -315,6 +318,8 @@ namespace BoletoNetCore
 
                 // Data do Crédito
                 boleto.DataCredito = Utils.ToDateTime(Utils.ToInt32(registro.Substring(295, 6)).ToString("##-##-##"));
+                // #864emum1m
+                boleto.DataCredito = boleto.DataCredito.AddDays(1);
 
                 boleto.Pagador = new Pagador();
                 boleto.Pagador.Nome = registro.Substring(324, 30).Trim();
@@ -475,7 +480,7 @@ namespace BoletoNetCore
         public static IEnumerable<string> MotivoOcorrenciaCnab400(string codigo, string codigoMovimentoRetorno)
         {
             //define qual o domínio que será utilizado, conforme C047
-            var funcaoDominio = new string[] {  "02"  }.Contains(codigoMovimentoRetorno) ? MotivoOcorrenciaTabela10 :
+            var funcaoDominio = new string[] { "02" }.Contains(codigoMovimentoRetorno) ? MotivoOcorrenciaTabela10 :
                           new string[] { "03" }.Contains(codigoMovimentoRetorno) ? MotivoOcorrenciaTabela1 : null;
 
             //retorna uma lista vazia caso ele não encontre um domínio de motivos de ocorrência
