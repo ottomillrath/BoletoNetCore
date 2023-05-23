@@ -305,6 +305,8 @@ namespace BoletoNetCore
             request.Headers.Add("x-itau-apikey", ChaveApi);
             request.Headers.Add("x-itau-correlationID", fId);
             request.Headers.Add("x-itau-flowID", flowID);
+            
+            request.Content = new StringContent("{}", System.Text.Encoding.UTF8, "application/json");
 
             var response = await this.httpClient.SendAsync(request);
             await this.CheckHttpResponseError(response);
