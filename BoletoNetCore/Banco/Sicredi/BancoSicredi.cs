@@ -38,7 +38,8 @@ namespace BoletoNetCore
             var dia = agora.Day.ToString().PadLeft(2, '0');
 
             if (sequencial < 0 || sequencial > 10)
-                throw BoletoNetCoreException.NumeroSequencialInvalido(sequencial);
+                sequencial = 0;
+                // throw BoletoNetCoreException.NumeroSequencialInvalido(sequencial);
 
             if (sequencial < 1) // se 0 ou 1 é o primeiro arquivo do dia
                 return string.Format("{0}{1}{2}.{3}", Beneficiario.Codigo, mes, dia, "CRM");
