@@ -158,6 +158,7 @@ namespace BoletoNetCore
                     DescontoExpresso = false,
                     DescricaoInstrumentoCobranca = "boleto", // TODO
                     //TODO ListaMensagemCobranca
+
                     Pagador = new()
                     {
                         Pessoa = new()
@@ -191,9 +192,17 @@ namespace BoletoNetCore
                     ValorTotalTitulo = string.Format("{0:f2}", boleto.ValorTitulo).Replace(",", "").Replace(".", "").Trim().PadLeft(17, '0'),
                     Juros = new JurosItauApi(),
                     Multa = new MultaItauApi(),
+                    MensagensCobranca = new List<ListaMensagemCobrancaItauApi>(),
                 },
                 EtapaProcessoBoleto = "efetivacao",
             };
+            if (boleto.MensagemInstrucoesCaixa.Length > 0)
+            {
+                emissao.DadoBoleto.MensagensCobranca.Add(new ListaMensagemCobrancaItauApi()
+                {
+                    Mensagem = boleto.MensagemInstrucoesCaixa,
+                });
+            }
             if (boleto.Pagador.TipoCPFCNPJ("A") == "J")
             {
                 emissao.DadoBoleto.Pagador.Pessoa.TipoPessoa.NumeroCadastroNacionalPessoaJuridica = boleto.Pagador.CPFCNPJ;
@@ -305,7 +314,7 @@ namespace BoletoNetCore
             request.Headers.Add("x-itau-apikey", ChaveApi);
             request.Headers.Add("x-itau-correlationID", fId);
             request.Headers.Add("x-itau-flowID", flowID);
-            
+
             request.Content = new StringContent("{}", System.Text.Encoding.UTF8, "application/json");
 
             var response = await this.httpClient.SendAsync(request);
@@ -401,6 +410,8 @@ namespace BoletoNetCore
         public JurosItauApi Juros { get; set; }
         [JsonProperty("multa")]
         public MultaItauApi Multa { get; set; }
+        [JsonProperty("mensagens_cobranca")]
+        public List<ListaMensagemCobrancaItauApi> MensagensCobranca { get; set; }
     }
 
     [JsonObject(MemberSerialization.OptIn)]
