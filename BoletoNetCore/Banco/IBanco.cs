@@ -183,6 +183,6 @@ namespace BoletoNetCore
         /// </summary>
         Task<string> RegistrarBoleto(Boleto boleto);
         Task<string> CancelarBoleto(Boleto boleto);
-        Task ConsultarStatus(Boleto boleto);
+        Task<string> ConsultarStatus(Boleto boleto);
     }
 }

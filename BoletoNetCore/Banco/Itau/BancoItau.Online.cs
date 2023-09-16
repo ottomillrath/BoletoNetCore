@@ -10,6 +10,9 @@ using System.Threading.Tasks;
 using BoletoNetCore.Exceptions;
 using static System.String;
 using System.Threading;
+using Microsoft.AspNetCore.WebUtilities;
+using System.Text.Json.Nodes;
+using Newtonsoft.Json.Linq;
 
 public static class Helper
 {
@@ -98,9 +101,37 @@ namespace BoletoNetCore
 
         public string Token { get; set; }
 
-        public Task ConsultarStatus(Boleto boleto)
+        public async Task<string> ConsultarStatus(Boleto boleto)
         {
-            throw new NotImplementedException();
+            var query = new Dictionary<string, string>()
+            {
+                ["id_beneficiario"] = boleto.Banco.Beneficiario.Codigo,
+                ["codigo_carteira"] = boleto.Carteira,
+                ["nosso_numero"] = boleto.NossoNumero,
+                ["page_size"] = "1",
+                ["order_by"] = "data_vencimento",
+                ["order"] = "ASC"
+            };
+            var correlation = System.Guid.NewGuid().ToString();
+            var uri = QueryHelpers.AddQueryString("https://secure.api.cloud.itau.com.br/boletoscash/v2/boletos", query);
+            var request = new HttpRequestMessage(HttpMethod.Get, uri);
+            request.Headers.Add("Authorization", "Bearer " + Token);
+            request.Headers.Add("x-itau-apikey", ChaveApi);
+            request.Headers.Add("x-itau-correlationID", correlation);
+            request.Headers.Add("x-itau-flowID", flowID);
+            request.Headers.Add("Accept", "application/json");
+            var result = await this.httpClient.SendAsync(request);
+            var retString = await result.Content.ReadAsStringAsync();
+            var ret = JsonConvert.DeserializeObject<JObject>(retString);
+            try
+            {
+                var status = (string)ret.SelectToken("$.data[0].dado_boleto.dados_individuais_boleto[0].situacao_geral_boleto");
+                return status;
+            }
+            catch
+            {
+                return "";
+            }
         }
 
         /// <summary>
@@ -269,7 +300,6 @@ namespace BoletoNetCore
             request.Headers.Add("x-itau-apikey", ChaveApi);
             request.Headers.Add("x-itau-correlationID", correlation);
             request.Headers.Add("x-itau-flowID", flowID);
-            // request.Headers.Add("Content-Type", "application/json");
             request.Headers.Add("Accept", "application/json");
             var data = new EmissaoBoletoItauDataApi();
             data.data = emissao;

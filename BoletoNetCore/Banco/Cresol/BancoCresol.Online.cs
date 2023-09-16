@@ -46,7 +46,7 @@ namespace BoletoNetCore
         public byte[] Certificado { get; set; }
         public string CertificadoSenha { get; set; }
 
-        public Task ConsultarStatus(Boleto boleto)
+        public Task<string> ConsultarStatus(Boleto boleto)
         {
             throw new NotImplementedException();
         }
