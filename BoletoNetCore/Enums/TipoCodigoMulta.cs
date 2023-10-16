@@ -1,9 +1,10 @@
 ﻿namespace BoletoNetCore.Enums
 {
-    public enum TipoCodigoMulta
-    {
-        Valor = 1,
-        Percentual = 2,
-        DispensarCobrancaMulta = 9
-    }
+	public enum TipoCodigoMulta
+	{
+		Isento = 0,
+		Valor = 1,
+		Percentual = 2,
+		DispensarCobrancaMulta = 9
+	}
 }
