@@ -3,99 +3,108 @@ using System;
 
 namespace BoletoNetCore
 {
-    public class CodigoBarra
-    {
-        /// <summary>
-        /// Representação numérica do Código de Barras, composto por 44 posições
-        ///    01 a 03 - 3 - Identificação  do  Banco
-        ///    04 a 04 - 1 - Código da Moeda
-        ///    05 a 05 – 1 - Dígito verificador do Código de Barras
-        ///    06 a 09 - 4 - Fator de vencimento
-        ///    10 a 19 - 10 - Valor
-        ///    20 a 44 – 25 - Campo Livre
-        /// </summary>
-        public string CodigoDeBarras
-        {
-            get
-            {
-                string codigoSemDv = string.Format("{0}{1}{2}{3}{4}",
-                                                      CodigoBanco,
-                                                      Moeda,
-                                                      FatorVencimento,
-                                                      ValorDocumento,
-                                                      CampoLivre);
-                return string.Format("{0}{1}{2}",
-                                        codigoSemDv.Left(4),
-                                        DigitoVerificador,
-                                        codigoSemDv.Right(39));
-            }
-        }
+	public class CodigoBarra
+	{
+		/// <summary>
+		/// Representaï¿½ï¿½o numï¿½rica do Cï¿½digo de Barras, composto por 44 posiï¿½ï¿½es
+		///    01 a 03 - 3 - Identificaï¿½ï¿½o  do  Banco
+		///    04 a 04 - 1 - Cï¿½digo da Moeda
+		///    05 a 05 ï¿½ 1 - Dï¿½gito verificador do Cï¿½digo de Barras
+		///    06 a 09 - 4 - Fator de vencimento
+		///    10 a 19 - 10 - Valor
+		///    20 a 44 ï¿½ 25 - Campo Livre
+		/// </summary>
+		private string _CodigoBarras = string.Empty;
+		public string CodigoDeBarras
+		{
+			get
+			{
+				if (_CodigoBarras == "")
+				{
+					string codigoSemDv = string.Format("{0}{1}{2}{3}{4}",
+													  CodigoBanco,
+													  Moeda,
+													  FatorVencimento,
+													  ValorDocumento,
+													  CampoLivre);
+					return string.Format("{0}{1}{2}",
+											codigoSemDv.Left(4),
+											DigitoVerificador,
+											codigoSemDv.Right(39));
+				}
+				return _CodigoBarras;
+			}
+			set
+			{
+				_CodigoBarras = value;
+			}
+		}
 
-        /// <summary>
-        /// A linha digitável é composta por cinco campos:
-        ///      1º campo
-        ///          composto pelo código de Banco, código da moeda, as cinco primeiras posições do campo 
-        ///          livre e o dígito verificador deste campo;
-        ///      2º campo
-        ///          composto pelas posições 6ª a 15ª do campo livre e o dígito verificador deste campo;
-        ///      3º campo
-        ///          composto pelas posições 16ª a 25ª do campo livre e o dígito verificador deste campo;
-        ///      4º campo
-        ///          composto pelo dígito verificador do código de barras, ou seja, a 5ª posição do código de 
-        ///          barras;
-        ///      5º campo
-        ///          Composto pelo fator de vencimento com 4(quatro) caracteres e o valor do documento com 10(dez) caracteres, sem separadores e sem edição.
-        /// </summary>
-        public string LinhaDigitavel { get; set; } = String.Empty;
+		/// <summary>
+		/// A linha digitï¿½vel ï¿½ composta por cinco campos:
+		///      1ï¿½ campo
+		///          composto pelo cï¿½digo de Banco, cï¿½digo da moeda, as cinco primeiras posiï¿½ï¿½es do campo 
+		///          livre e o dï¿½gito verificador deste campo;
+		///      2ï¿½ campo
+		///          composto pelas posiï¿½ï¿½es 6ï¿½ a 15ï¿½ do campo livre e o dï¿½gito verificador deste campo;
+		///      3ï¿½ campo
+		///          composto pelas posiï¿½ï¿½es 16ï¿½ a 25ï¿½ do campo livre e o dï¿½gito verificador deste campo;
+		///      4ï¿½ campo
+		///          composto pelo dï¿½gito verificador do cï¿½digo de barras, ou seja, a 5ï¿½ posiï¿½ï¿½o do cï¿½digo de 
+		///          barras;
+		///      5ï¿½ campo
+		///          Composto pelo fator de vencimento com 4(quatro) caracteres e o valor do documento com 10(dez) caracteres, sem separadores e sem ediï¿½ï¿½o.
+		/// </summary>
+		public string LinhaDigitavel { get; set; } = String.Empty;
 
-        /// <summary>
-        /// Código do Banco (3 dígitos)
-        /// </summary>
-        public string CodigoBanco { get; set; } = String.Empty;
+		/// <summary>
+		/// Cï¿½digo do Banco (3 dï¿½gitos)
+		/// </summary>
+		public string CodigoBanco { get; set; } = String.Empty;
 
-        /// <summary>
-        /// Código da Moeda (9 = Real)
-        /// </summary>
-        public int Moeda { get; set; } = 9;
+		/// <summary>
+		/// Cï¿½digo da Moeda (9 = Real)
+		/// </summary>
+		public int Moeda { get; set; } = 9;
 
-        /// <summary>
-        /// Campo Livre - Implementado por cada banco.
-        /// </summary>
-        public string CampoLivre { get; set; } = String.Empty;
+		/// <summary>
+		/// Campo Livre - Implementado por cada banco.
+		/// </summary>
+		public string CampoLivre { get; set; } = String.Empty;
 
-        public long FatorVencimento { get; set; } = 0;
+		public long FatorVencimento { get; set; } = 0;
 
-        public string ValorDocumento { get; set; } = String.Empty;
+		public string ValorDocumento { get; set; } = String.Empty;
 
-        public string DigitoVerificador
-        {
-            get
-            {
-                string codigoSemDv = string.Format("{0}{1}{2}{3}{4}",
-                                      CodigoBanco,
-                                      Moeda,
-                                      FatorVencimento,
-                                      ValorDocumento,
-                                      CampoLivre);
+		public string DigitoVerificador
+		{
+			get
+			{
+				string codigoSemDv = string.Format("{0}{1}{2}{3}{4}",
+									  CodigoBanco,
+									  Moeda,
+									  FatorVencimento,
+									  ValorDocumento,
+									  CampoLivre);
 
-                // Calcula Dígito Verificador do Código de Barras
-                int pesoMaximo = 9, soma = 0, peso = 2;
-                for (int i = (codigoSemDv.Length - 1); i >= 0; i--)
-                {
-                    soma = soma + (Convert.ToInt32(codigoSemDv.Substring(i, 1)) * peso);
-                    if (peso == pesoMaximo)
-                        peso = 2;
-                    else
-                        peso = peso + 1;
-                }
-                var resto = (soma % 11);
+				// Calcula Dï¿½gito Verificador do Cï¿½digo de Barras
+				int pesoMaximo = 9, soma = 0, peso = 2;
+				for (int i = (codigoSemDv.Length - 1); i >= 0; i--)
+				{
+					soma = soma + (Convert.ToInt32(codigoSemDv.Substring(i, 1)) * peso);
+					if (peso == pesoMaximo)
+						peso = 2;
+					else
+						peso = peso + 1;
+				}
+				var resto = (soma % 11);
 
-                if (resto <= 1 || resto > 9)
-                    return "1";
+				if (resto <= 1 || resto > 9)
+					return "1";
 
-                return (11 - resto).ToString();
+				return (11 - resto).ToString();
 
-            }
-        }
-    }
+			}
+		}
+	}
 }
