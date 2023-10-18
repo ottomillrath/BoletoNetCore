@@ -247,6 +247,9 @@ namespace BoletoNetCore
 			boleto.PdfBase64 = br.Resultado[0].Boleto.PdfBoleto;
 			boleto.CodigoBarra.CodigoDeBarras = br.Resultado[0].Boleto.CodigoBarras;
 			boleto.NossoNumero = br.Resultado[0].Boleto.NossoNumero.ToString();
+			string ld = br.Resultado[0].Boleto.LinhaDigitavel;
+			boleto.CodigoBarra.LinhaDigitavel = ld;
+			boleto.CodigoBarra.CampoLivre = $"{ld.Substring(4, 5)}{ld.Substring(10, 10)}{ld.Substring(21, 10)}";
 			return "";
 		}
 
