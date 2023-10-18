@@ -247,6 +247,10 @@ namespace BoletoNetCore
 			boleto.PdfBase64 = br.Resultado[0].Boleto.PdfBoleto;
 			boleto.CodigoBarra.CodigoDeBarras = br.Resultado[0].Boleto.CodigoBarras;
 			boleto.NossoNumero = br.Resultado[0].Boleto.NossoNumero.ToString();
+
+			// chamei o validar dados pq não tava atualizando a linha digitavel
+			// efetuar novos testes e verificar se ficou de acordo e se não gerou nenhum novo problema
+			boleto.ValidarDados(); 
 			return "";
 		}
 
