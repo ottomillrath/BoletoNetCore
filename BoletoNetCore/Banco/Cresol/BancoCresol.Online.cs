@@ -144,7 +144,22 @@ namespace BoletoNetCore
         {
             throw new NotImplementedException();
         }
-    }
+
+		public Task<int> SolicitarMovimentacao(TipoMovimentacao tipo, int numeroContrato, DateTime inicio, DateTime fim)
+		{
+			throw new NotImplementedException();
+		}
+
+		public Task<int[]> ConsultarStatusSolicitacaoMovimentacao(int numeroContrato, int codigoSolicitacao)
+		{
+			throw new NotImplementedException();
+		}
+
+		public Task<string> DownloadArquivoMovimentacao(int numeroContrato, int codigoSolicitacao, int idArquivo)
+		{
+			throw new NotImplementedException();
+		}
+	}
 
     #region "online classes"
     class AutenticacaoCresolResponse
