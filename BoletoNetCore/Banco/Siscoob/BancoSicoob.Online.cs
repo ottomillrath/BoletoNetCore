@@ -309,6 +309,70 @@ namespace BoletoNetCore
 			}
 			return "";
 		}
+
+		public async Task<int> SolicitarMovimentacao(TipoMovimentacao tipo, int numeroContrato, DateTime inicio, DateTime fim)
+		{
+			var data = new SolicitarMovimentacaoSicoobApi()
+			{
+				NumeroContrato = numeroContrato,
+				TipoMovimento = tipo,
+				DataInicial = inicio,
+				DataFinal = fim,
+			};
+
+			var request = new HttpRequestMessage(HttpMethod.Post, "boletos/solicitacoes/movimentacao");
+			request.Headers.Add("Authorization", "Bearer " + Token);
+			request.Headers.Add("client_id", ChaveApi);
+			request.Headers.Add("Accept", "application/json");
+
+			request.Content = new StringContent(JsonConvert.SerializeObject(data, Formatting.None, new JsonSerializerSettings
+			{
+				NullValueHandling = NullValueHandling.Ignore
+			}), System.Text.Encoding.UTF8, "application/json");
+			var response = await this.httpClient.SendAsync(request);
+			await this.CheckHttpResponseError(response);
+			var ret = JsonConvert.DeserializeObject<SolicitarMovimentacaoResponseSicoobApi>(await response.Content.ReadAsStringAsync());
+			return ret.Resultado.CodigoSolicitacao;
+		}
+
+		public async Task<int[]> ConsultarStatusSolicitacaoMovimentacao(int numeroContrato, int codigoSolicitacao)
+		{
+			var query = new Dictionary<string, string>()
+			{
+				["numeroContrato"] = numeroContrato.ToString(),
+				["codigoSolicitacao"] = codigoSolicitacao.ToString(),
+			};
+
+			var uri = QueryHelpers.AddQueryString("boletos/solicitacoes/movimentacao", query);
+			var request = new HttpRequestMessage(HttpMethod.Get, uri);
+			request.Headers.Add("Authorization", "Bearer " + Token);
+			request.Headers.Add("client_id", ChaveApi);
+			request.Headers.Add("Accept", "application/json");
+			var response = await this.httpClient.SendAsync(request);
+			await this.CheckHttpResponseError(response);
+			var ret = JsonConvert.DeserializeObject<SolicitarMovimentacaoResponseSicoobApi>(await response.Content.ReadAsStringAsync());
+			return ret.Resultado.IdArquivos;
+		}
+
+		public async Task<string> DownloadArquivoMovimentacao(int numeroContrato, int codigoSolicitacao, int idArquivo)
+		{
+			var query = new Dictionary<string, string>()
+			{
+				["numeroContrato"] = numeroContrato.ToString(),
+				["codigoSolicitacao"] = codigoSolicitacao.ToString(),
+				["idArquivo"] = idArquivo.ToString(),
+			};
+
+			var uri = QueryHelpers.AddQueryString("boletos/movimentacao-download", query);
+			var request = new HttpRequestMessage(HttpMethod.Get, uri);
+			request.Headers.Add("Authorization", "Bearer " + Token);
+			request.Headers.Add("client_id", ChaveApi);
+			request.Headers.Add("Accept", "application/json");
+			var response = await this.httpClient.SendAsync(request);
+			await this.CheckHttpResponseError(response);
+			var ret = JsonConvert.DeserializeObject<SolicitarMovimentacaoResponseSicoobApi>(await response.Content.ReadAsStringAsync());
+			return ret.Resultado.Arquivo;
+		}
 	}
 
 	#region "online classes"
@@ -664,6 +728,53 @@ namespace BoletoNetCore
 		public string SeuNumero { get; set; }
 	}
 
+	public class SolicitarMovimentacaoSicoobApi
+	{
+		[JsonProperty("numeroContrato")]
+		public int NumeroContrato { get; set; }
+
+		[JsonProperty("tipoMovimento")]
+		public TipoMovimentacao TipoMovimento { get; set; }
+
+		[JsonProperty("dataInicial")]
+		public DateTimeOffset DataInicial { get; set; }
+
+		[JsonProperty("dataFinal")]
+		public DateTimeOffset DataFinal { get; set; }
+	}
+
+	public class SolicitarMovimentacaoResultado
+	{
+		[JsonProperty("mensagem", NullValueHandling = NullValueHandling.Ignore)]
+		public string Mensagem { get; set; }
+
+		[JsonProperty("codigoSolicitacao", NullValueHandling = NullValueHandling.Ignore)]
+		public int CodigoSolicitacao { get; set; }
+
+		[JsonProperty("quantidadeTotalRegistros", NullValueHandling = NullValueHandling.Ignore)]
+		public string QuantidadeTotalRegistros { get; set; }
+
+		[JsonProperty("quantidadeRegistrosArquivo", NullValueHandling = NullValueHandling.Ignore)]
+		public int QuantidadeRegistrosArquivo { get; set; }
+
+		[JsonProperty("quantidadeArquivo", NullValueHandling = NullValueHandling.Ignore)]
+		public int QuantidadeArquivo { get; set; }
+
+		[JsonProperty("idArquivos", NullValueHandling = NullValueHandling.Ignore)]
+		public int[] IdArquivos { get; set; }
+
+		[JsonProperty("arquivo", NullValueHandling = NullValueHandling.Ignore)]
+		public string Arquivo { get; set; }
+
+		[JsonProperty("nomeArquivo", NullValueHandling = NullValueHandling.Ignore)]
+		public string NomeArquivo { get; set; }
+	}
+
+	class SolicitarMovimentacaoResponseSicoobApi : BaseResponseSicoobApi
+	{
+		[JsonProperty("resultado")]
+		public SolicitarMovimentacaoResultado Resultado { get; set; }
+	}
 	#endregion
 }
 
