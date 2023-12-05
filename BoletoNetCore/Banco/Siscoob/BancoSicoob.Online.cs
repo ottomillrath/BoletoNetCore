@@ -737,10 +737,12 @@ namespace BoletoNetCore
 		public TipoMovimentacao TipoMovimento { get; set; }
 
 		[JsonProperty("dataInicial")]
-		public DateTimeOffset DataInicial { get; set; }
+		[JsonConverter(typeof(SicoobDateTimeConverterApi))]
+		public DateTime DataInicial { get; set; }
 
 		[JsonProperty("dataFinal")]
-		public DateTimeOffset DataFinal { get; set; }
+		[JsonConverter(typeof(SicoobDateTimeConverterApi))]
+		public DateTime DataFinal { get; set; }
 	}
 
 	public class SolicitarMovimentacaoResultado
