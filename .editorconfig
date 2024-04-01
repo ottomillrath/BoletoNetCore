@@ -1,0 +1,16 @@
+﻿[*.cs]
+
+# CS1998: O método assíncrono não possui operadores 'await' e será executado de forma síncrona
+dotnet_diagnostic.CS1998.severity = none
+
+# IDE0011: Add braces
+csharp_prefer_braces = false
+
+# IDE0270: Use coalesce expression
+dotnet_style_coalesce_expression = false
+
+# IDE0017: Simplify object initialization
+dotnet_style_object_initializer = false
+
+indent_style = space
+indent_size = 4
