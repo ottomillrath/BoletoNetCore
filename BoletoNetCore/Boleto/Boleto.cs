@@ -234,6 +234,8 @@ namespace BoletoNetCore
         public string ParcelaInformativo { get; set; } = string.Empty;
         public string QrCode { get; set; }
         public string PdfBase64 { get; set; }
+        public string PixTxId { get; set; }
+        public string PixEmv { get; set; }
 
         public void ValidarDados()
         {

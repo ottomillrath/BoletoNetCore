@@ -1,4 +1,4 @@
-using System.Linq;
+﻿using System.Linq;
 using System.Security.Cryptography.X509Certificates;
 using System;
 using System.Collections.Generic;
@@ -295,21 +295,59 @@ namespace BoletoNetCore
 
             emissao.DadoBoleto.DadosIndividuaisBoleto.Add(dib);
 
-            var request = new HttpRequestMessage(HttpMethod.Post, "boletos");
+            HttpRequestMessage request;
+            if (boleto.Banco.Beneficiario.ContaBancaria.PixHabilitado)
+            {
+                emissao.EtapaProcessoBoleto = "simulacao";
+                emissao.DadoBoleto.DescricaoInstrumentoCobranca = "boleto_pix";
+                emissao.DadosQrCode = new BolecodeDadoQrCodeItauApi()
+                {
+                    Chave = boleto.Banco.Beneficiario.ContaBancaria.ChavePix,
+                    TipoCobranca = "cob",
+                };
+                request = new HttpRequestMessage(HttpMethod.Post, "https://secure.api.itau/pix_recebimentos_conciliacoes/v2/boletos_pix")
+                {
+                    Content = new StringContent(JsonConvert.SerializeObject(emissao, Formatting.None, new JsonSerializerSettings
+                    {
+                        NullValueHandling = NullValueHandling.Ignore
+                    }), System.Text.Encoding.UTF8, "application/json")
+                };
+            }
+            else
+            {
+                var data = new EmissaoBoletoItauDataApi()
+                {
+                    data = emissao
+                };
+                request = new HttpRequestMessage(HttpMethod.Post, "boletos")
+                {
+                    Content = new StringContent(JsonConvert.SerializeObject(data, Formatting.None, new JsonSerializerSettings
+                    {
+                        NullValueHandling = NullValueHandling.Ignore
+                    }), System.Text.Encoding.UTF8, "application/json")
+                };
+            }
+
             request.Headers.Add("Authorization", "Bearer " + Token);
             request.Headers.Add("x-itau-apikey", ChaveApi);
             request.Headers.Add("x-itau-correlationID", correlation);
             request.Headers.Add("x-itau-flowID", flowID);
             request.Headers.Add("Accept", "application/json");
-            var data = new EmissaoBoletoItauDataApi();
-            data.data = emissao;
-
-            request.Content = new StringContent(JsonConvert.SerializeObject(data, Formatting.None, new JsonSerializerSettings
-            {
-                NullValueHandling = NullValueHandling.Ignore
-            }), System.Text.Encoding.UTF8, "application/json");
             var response = await this.httpClient.SendAsync(request);
             await this.CheckHttpResponseError(response);
+            if (boleto.Banco.Beneficiario.ContaBancaria.PixHabilitado)
+            {
+                var br = JsonConvert.DeserializeObject<ResponseCobrancaItauApi>(await response.Content.ReadAsStringAsync());
+                boleto.QrCode = br.Data.DadosQrCode.Base64;
+                // boleto.PdfBase64 = br.PdfBoleto;
+                boleto.CodigoBarra.CodigoDeBarras = br.Data.DadoBoleto.DadosIndividuaisBoleto[0].CodigoBarras;
+                boleto.NossoNumero = br.Data.DadoBoleto.DadosIndividuaisBoleto[0].NumeroNossoNumero;
+                string ld = br.Data.DadoBoleto.DadosIndividuaisBoleto[0].NumeroLinhaDigitavel;
+                boleto.CodigoBarra.LinhaDigitavel = ld;
+                boleto.CodigoBarra.CampoLivre = $"{ld.Substring(4, 5)}{ld.Substring(10, 10)}{ld.Substring(21, 10)}";
+                boleto.PixEmv = br.Data.DadosQrCode.Emv;
+                boleto.PixTxId = br.Data.DadosQrCode.TxId;
+            }
             return correlation;
         }
 
@@ -420,7 +458,7 @@ namespace BoletoNetCore
         public SacadorAvalistaItauApi SacadorAvalista { get; set; }
         public bool ShouldSerializeSacadorAvalista()
         {
-            return false;
+            return SacadorAvalista != null;
         }
 
         [JsonProperty("codigo_carteira")]
@@ -428,6 +466,13 @@ namespace BoletoNetCore
 
         [JsonProperty("valor_total_titulo")]
         public string ValorTotalTitulo { get; set; }
+
+        [JsonProperty("valor_abatimento")]
+        public string ValorAbatimento { get; set; }
+        public bool ShouldSerializeValorAbatimento()
+        {
+            return !string.IsNullOrWhiteSpace(ValorAbatimento);
+        }
 
         [JsonProperty("dados_individuais_boleto")]
         public List<DadosIndividuaisBoletoItauApi> DadosIndividuaisBoleto { get; set; }
@@ -451,12 +496,52 @@ namespace BoletoNetCore
 
         [JsonProperty("desconto_expresso")]
         public bool DescontoExpresso { get; set; }
+
         [JsonProperty("juros")]
         public JurosItauApi Juros { get; set; }
+
         [JsonProperty("multa")]
         public MultaItauApi Multa { get; set; }
+
         [JsonProperty("mensagens_cobranca")]
         public List<ListaMensagemCobrancaItauApi> MensagensCobranca { get; set; }
+
+        [JsonProperty("desconto")]
+        public DescontoItauApi Desconto { get; set; }
+
+        public bool ShouldSerializeDesconto()
+        {
+            return Desconto != null;
+        }
+
+        public bool ShouldSerializeRecebimentoDivergente()
+        {
+            return RecebimentoDivergente != null;
+        }
+
+        [JsonProperty("protesto")]
+        public ProtestoItauApi Protesto { get; set; }
+
+        public bool ShouldSerializeProtesto()
+        {
+            return Protesto != null;
+        }
+
+        [JsonProperty("negativacao")]
+        public BolecodeNegativacaoItauApi Negativacao { get; set; }
+
+        public bool ShouldSerializeNegativacao()
+        {
+            return Negativacao != null;
+        }
+
+        [JsonProperty("instrucao_cobranca")]
+        public InstrucaoCobrancaItauApi InstrucaoCobranca { get; set; }
+
+        public bool ShouldSerializeInstrucaoCobranca()
+        {
+            return InstrucaoCobranca != null;
+        }
     }
 
     [JsonObject(MemberSerialization.OptIn)]
@@ -469,6 +554,14 @@ namespace BoletoNetCore
         [JsonProperty("data_vencimento")]
         public string DataVencimento { get; set; }
 
+        [JsonProperty("data_limite_pagamento")]
+        public string DataLimitePagamento { get; set; }
+
+        public bool ShouldSerializeDataLimitePagamento()
+        {
+            return !string.IsNullOrWhiteSpace(DataLimitePagamento);
+        }
+
         [JsonProperty("valor_titulo")]
         public string ValorTitulo { get; set; }
 
@@ -477,6 +570,22 @@ namespace BoletoNetCore
 
         [JsonProperty("texto_seu_numero")]
         public string TextoSeuNumero { get; set; }
+
+        [JsonProperty("numero_linha_digitavel")]
+        public string NumeroLinhaDigitavel { get; set; }
+
+        public bool ShouldSerializeNumeroLinhaDigitavel()
+        {
+            return false;
+        }
+
+        [JsonProperty("codigo_barras")]
+        public string CodigoBarras { get; set; }
+
+        public bool ShouldSerializeCodigoBarras()
+        {
+            return false;
+        }
     }
 
     [JsonObject(MemberSerialization.OptIn)]
@@ -501,13 +610,20 @@ namespace BoletoNetCore
         {
             return CodigoTipoMulta == "01";
         }
+
+        [JsonProperty("data_multa")]
+        public string DataMulta { get; set; }
+        public bool ShouldSerializeDataMulta()
+        {
+            return !string.IsNullOrWhiteSpace(DataMulta);
+        }
     }
 
     [JsonObject(MemberSerialization.OptIn)]
     class JurosItauApi
     {
         [JsonProperty("codigo_tipo_juros")]
-        public string CodigoTipoJuros { get; set; } = "90";
+        public string CodigoTipoJuros { get; set; } = "05"; // Quando não se deseja cobrar juros caso o pagamento seja feito após o vencimento (isento)
 
         [JsonIgnore]
         [JsonProperty("data_juros")]
@@ -576,8 +692,13 @@ namespace BoletoNetCore
         [JsonProperty("tipo_pessoa")]
         public TipoPessoaItauApi TipoPessoa { get; set; }
 
-        // [JsonProperty("nome_fantasia")]
-        // public string NomeFantasia { get; set; }
+        [JsonProperty("nome_fantasia")]
+        public string NomeFantasia { get; set; }
+
+        public bool ShouldSerializeNomeFantasia()
+        {
+            return !string.IsNullOrWhiteSpace(NomeFantasia);
+        }
     }
 
     [JsonObject(MemberSerialization.OptIn)]
@@ -617,6 +738,14 @@ namespace BoletoNetCore
 
         [JsonProperty("dado_boleto")]
         public DadoBoletoItauApi DadoBoleto { get; set; }
+
+        [JsonProperty("dados_qrcode")]
+        public BolecodeDadoQrCodeItauApi DadosQrCode { get; set; }
+
+        public bool ShouldSerializeDadosQrCode()
+        {
+            return DadosQrCode != null;
+        }
     }
 
     [JsonObject(MemberSerialization.OptIn)]
@@ -648,6 +777,126 @@ namespace BoletoNetCore
         {
             return !string.IsNullOrWhiteSpace(NumeroCadastroPessoaFisica);
         }
+    }
+
+    [JsonObject(MemberSerialization.OptIn)]
+    class BolecodeNegativacaoItauApi
+    {
+        [JsonProperty("negativacao")]
+        public string NegativacaoNegativacao { get; set; }
+
+        [JsonProperty("quantidade_dias_negativacao")]
+        public string QuantidadeDiasNegativacao { get; set; }
+    }
+
+    [JsonObject(MemberSerialization.OptIn)]
+    class BolecodeDadoQrCodeItauApi
+    {
+        [JsonProperty("chave")]
+        public string Chave { get; set; }
+
+        [JsonProperty("id_location")]
+        public int IdLocation { get; set; }
+
+        public bool ShouldSerializeIdLocation()
+        {
+            return IdLocation > 0;
+        }
+
+        [JsonProperty("tipo_cobranca")]
+        public string TipoCobranca { get; set; } //  Valores aceitos: cob = cobrança pix imediata.
+    }
+
+    [JsonObject(MemberSerialization.OptIn)]
+    class DescontoItauApi
+    {
+        [JsonProperty("codigo_tipo_desconto")]
+        public string CodigoTipoDesconto { get; set; }
+
+        [JsonProperty("descontos")]
+        public DescontosItauApi Descontos { get; set; }
+    }
+
+    [JsonObject(MemberSerialization.OptIn)]
+    class DescontosItauApi
+    {
+        [JsonProperty("data_desconto")]
+        public string DataDesconto { get; set; }
+
+        [JsonProperty("percentual_desconto")]
+        public string PercentualDesconto { get; set; }
+
+        [JsonProperty("valor_desconto")]
+        public string ValorDesconto { get; set; }
+    }
+
+    [JsonObject(MemberSerialization.OptIn)]
+    class ProtestoItauApi
+    {
+        [JsonProperty("protesto")]
+        public bool Protesto { get; set; }
+
+        [JsonProperty("quantidade_dias_protesto")]
+        public int QuantidadeDiasProtesto { get; set; }
+    }
+
+    [JsonObject(MemberSerialization.OptIn)]
+    class InstrucaoCobrancaItauApi
+    {
+        [JsonProperty("codigo_instrucao_cobranca")]
+        public string CodigoInstrucaoCobranca { get; set; }
+
+        [JsonProperty("quantidade_dias_apos_vencimento")]
+        public int QuantidadeDiasAposVencimento { get; set; }
+
+        [JsonProperty("dia_util")]
+        public bool DiaUtil { get; set; }
+    }
+
+    [JsonObject(MemberSerialization.OptIn)]
+    class ResponseDataCobrancaItauApi
+    {
+        [JsonProperty("dado_boleto")]
+        public DadoBoletoItauApi DadoBoleto { get; set; }
+
+        [JsonProperty("dados_qrcode")]
+        public ResponseDadosQrCodeItauApi DadosQrCode { get; set; }
+    }
+
+    [JsonObject(MemberSerialization.OptIn)]
+    class ResponseCobrancaItauApi
+    {
+        [JsonProperty("data")]
+        public ResponseDataCobrancaItauApi Data { get; set; }
+    }
+
+    [JsonObject(MemberSerialization.OptIn)]
+    class ResponseDadosQrCodeItauApi
+    {
+        [JsonProperty("chave")]
+        public string Chave { get; set; }
+
+        [JsonProperty("emv")]
+        public string Emv { get; set; }
+
+        [JsonProperty("base64")]
+        public string Base64 { get; set; }
+
+
+        [JsonProperty("txid")]
+        public string TxId { get; set; }
+
+
+        [JsonProperty("id_location")]
+        public int IdLocation { get; set; }
+
+
+        [JsonProperty("location")]
+        public string Location { get; set; }
+
+
+        [JsonProperty("tipo_cobranca")]
+        public string TipoCobranca { get; set; }
     }
 
     #endregion
