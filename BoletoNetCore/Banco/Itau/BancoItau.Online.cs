@@ -298,7 +298,6 @@ namespace BoletoNetCore
             HttpRequestMessage request;
             if (boleto.Banco.Beneficiario.ContaBancaria.PixHabilitado)
             {
-                emissao.EtapaProcessoBoleto = "simulacao";
                 emissao.DadoBoleto.DescricaoInstrumentoCobranca = "boleto_pix";
                 emissao.DadosQrCode = new BolecodeDadoQrCodeItauApi()
                 {
