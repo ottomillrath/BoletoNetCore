@@ -337,7 +337,7 @@ namespace BoletoNetCore
             if (boleto.Banco.Beneficiario.ContaBancaria.PixHabilitado)
             {
                 var br = JsonConvert.DeserializeObject<ResponseCobrancaItauApi>(await response.Content.ReadAsStringAsync());
-                boleto.QrCode = br.Data.DadosQrCode.Base64;
+                boleto.PixQrCode = br.Data.DadosQrCode.Base64;
                 // boleto.PdfBase64 = br.PdfBoleto;
                 boleto.CodigoBarra.CodigoDeBarras = br.Data.DadoBoleto.DadosIndividuaisBoleto[0].CodigoBarras;
                 boleto.NossoNumero = br.Data.DadoBoleto.DadosIndividuaisBoleto[0].NumeroNossoNumero;

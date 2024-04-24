@@ -859,6 +859,11 @@ namespace BoletoNetCore
                 _vLocalLogoBeneficiario = urlImagemLogoBeneficiario;
             }
 
+            if (string.IsNullOrEmpty(pixString) && !string.IsNullOrEmpty(Boleto.PixQrCode))
+            {
+                pixString = Boleto.PixQrCode;
+            }
+
             var s = HtmlOffLine(null, fnLogo, fnBarra, fnCodigoBarras, usaCsspdf, pixString).ToString();
 
             if (convertLinhaDigitavelToImage)
