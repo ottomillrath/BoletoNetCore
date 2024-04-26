@@ -887,7 +887,7 @@ namespace BoletoNetCore
 
 
         [JsonProperty("id_location")]
-        public int IdLocation { get; set; }
+        public string IdLocation { get; set; }
 
 
         [JsonProperty("location")]
