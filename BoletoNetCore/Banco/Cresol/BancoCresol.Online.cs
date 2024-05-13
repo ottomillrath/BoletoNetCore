@@ -123,6 +123,12 @@ namespace BoletoNetCore
             await this.CheckHttpResponseError(response);
             var rawResp = await response.Content.ReadAsStringAsync();
             var boletoEmitido = await response.Content.ReadFromJsonAsync<List<BoletoCresolResponse>>();
+            boleto.CodigoBarra.CodigoDeBarras = boletoEmitido[0].CodigoBarras;
+            boleto.NossoNumero = boletoEmitido[0].NossoNumero.ToString();
+            boleto.NossoNumeroDV = boletoEmitido[0].DvNossoNumero;
+            string ld = boletoEmitido[0].LinhaDigitavel;
+            boleto.CodigoBarra.LinhaDigitavel = ld;
+            boleto.CodigoBarra.CampoLivre = $"{ld.Substring(4, 5)}{ld.Substring(10, 10)}{ld.Substring(21, 10)}";
             return boletoEmitido[0].Id.ToString();
         }
 
