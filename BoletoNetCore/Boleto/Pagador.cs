@@ -39,7 +39,7 @@ namespace BoletoNetCore
                 case "A":
                     return CPFCNPJ.Length <= 11 ? "F" : "J";
                 case "0":
-                    return CPFCNPJ.Length <= 11 ? "1" : "2";
+                    return CPFCNPJ.Length <= 11 ? "0" : "1";
                 case "00":
                     return CPFCNPJ.Length <= 11 ? "01" : "02";
             }

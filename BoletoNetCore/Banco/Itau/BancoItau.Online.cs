@@ -241,7 +241,6 @@ namespace BoletoNetCore
             else
             {
                 emissao.DadoBoleto.Pagador.Pessoa.TipoPessoa.NumeroCadastroPessoaFisica = boleto.Pagador.CPFCNPJ;
-
             }
             var correlation = System.Guid.NewGuid().ToString();
             var dib = new DadosIndividuaisBoletoItauApi()

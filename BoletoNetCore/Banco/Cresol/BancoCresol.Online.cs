@@ -6,7 +6,12 @@ using System.Net.Http.Json;
 using System.Text.Json.Serialization;
 using System.Threading.Tasks;
 using BoletoNetCore.Exceptions;
+using Newtonsoft.Json.Converters;
+using Newtonsoft.Json;
 using static System.String;
+using Newtonsoft.Json.Linq;
+
+#nullable enable
 
 namespace BoletoNetCore
 {
@@ -19,18 +24,20 @@ namespace BoletoNetCore
         {
             get
             {
-                if (this._httpClient == null)
+                var handler = new HttpClientHandler();
+                Uri uri;
+                if (Homologacao)
                 {
-                    this._httpClient = new HttpClient();
-                    if (Homologacao)
-                    {
-                        this._httpClient.BaseAddress = new Uri("https://api-dev.governarti.com.br/");
-                    }
-                    else
-                    {
-                        this._httpClient.BaseAddress = new Uri("https://cresolapi.governarti.com.br/");
-                    }
+                    uri = new Uri("https://api-dev.governarti.com.br/");
                 }
+                else
+                {
+                    uri = new Uri("https://cresolapi.governarti.com.br/");
+                }
+                this._httpClient = new HttpClient(new LoggingHandler(handler))
+                {
+                    BaseAddress = uri
+                };
 
                 return this._httpClient;
             }
@@ -46,9 +53,23 @@ namespace BoletoNetCore
         public byte[] Certificado { get; set; }
         public string CertificadoSenha { get; set; }
 
-        public Task<string> ConsultarStatus(Boleto boleto)
+        public async Task<string> ConsultarStatus(Boleto boleto)
         {
-            throw new NotImplementedException();
+            var request = new HttpRequestMessage(HttpMethod.Get, string.Format("titulos/{0}", boleto.Id));
+            request.Headers.Add("Authorization", "Bearer " + Token);
+            request.Headers.Add("Accept", "application/json");
+            var result = await this.httpClient.SendAsync(request);
+            var retString = await result.Content.ReadAsStringAsync();
+            var ret = JsonConvert.DeserializeObject<JObject>(retString);
+            try
+            {
+                var status = (string)ret.SelectToken("$.status");
+                return status;
+            }
+            catch
+            {
+                return "";
+            }
         }
 
         /// <summary>
@@ -57,19 +78,21 @@ namespace BoletoNetCore
         /// <returns></returns>
         public async Task<string> GerarToken()
         {
-            var url = "https://cresolauth.governarti.com.br/auth/realms/cresol/protocol/openid-connect/auth";
+            var url = "https://cresolauth.governarti.com.br/auth/realms/cresol/protocol/openid-connect/token";
             if (Homologacao)
             {
                 url = "https://auth-dev.governarti.com.br/auth/realms/cresol/protocol/openid-connect/token";
             }
             var request = new HttpRequestMessage(HttpMethod.Post, url);
-            var data = new Dictionary<string, string>();
-            data.Add("username", ChaveApi);
-            data.Add("password", SecretApi);
-            data.Add("grant_type", "password");
-            data.Add("client_id", "cresolApi");
-            data.Add("scope", "read");
-            data.Add("client_secret", "cr3s0l4p1");
+            var data = new Dictionary<string, string>
+            {
+                { "username", ChaveApi },
+                { "password", SecretApi },
+                { "grant_type", "password" },
+                { "client_id", "cresolApi" },
+                { "scope", "read" },
+                { "client_secret", "cr3s0l4p1" },
+            };
             var conteudo = new FormUrlEncodedContent(data);
             conteudo.Headers.Clear();
             conteudo.Headers.Add("Content-Type", "application/x-www-form-urlencoded");
@@ -77,8 +100,9 @@ namespace BoletoNetCore
 
             var response = await this.httpClient.SendAsync(request);
             await this.CheckHttpResponseError(response);
-            var ret = await response.Content.ReadFromJsonAsync<AutenticacaoCresolResponse>();
-            this.Token = ret.AccessToken;
+            var respString = await response.Content.ReadAsStringAsync();
+            var ret = JsonConvert.DeserializeObject<AutenticacaoCresolResponse>(respString);
+            Token = ret.AccessToken;
             return ret.AccessToken;
         }
 
@@ -89,15 +113,15 @@ namespace BoletoNetCore
             {
                 CdTipoJuros = "2", // TODO
                 CdTipoMulta = null, // TODO
-                CodigoBarras = boleto.CodigoBarra.CodigoDeBarras,
+                // CodigoBarras = boleto.CodigoBarra.CodigoDeBarras,
                 ControleParticipante = boleto.NumeroControleParticipante != string.Empty ? boleto.NumeroControleParticipante : null,
                 DocPagador = boleto.Pagador.CPFCNPJ,
                 DtDocumento = boleto.DataEmissao.ToString("yyyy-MM-dd"),
                 DtLimiteDesconto = boleto.DataDesconto == DateTime.MinValue ? null : boleto.DataDesconto.ToString("yyyy-MM-dd"),
                 DtVencimento = boleto.DataVencimento.ToString("yyyy-MM-dd"),
-                DvNossoNumero = boleto.NossoNumeroDV,
-                NossoNumero = boleto.NossoNumero,
-                LinhaDigitavel = boleto.CodigoBarra.LinhaDigitavel,
+                // DvNossoNumero = boleto.NossoNumeroDV,
+                // NossoNumero = boleto.NossoNumero,
+                // LinhaDigitavel = boleto.CodigoBarra.LinhaDigitavel,
                 NumeroDocumento = boleto.NumeroDocumento,
                 PagadorBairro = boleto.Pagador.Endereco.Bairro,
                 PagadorCep = Convert.ToInt32(boleto.Pagador.Endereco.CEP),
@@ -111,14 +135,14 @@ namespace BoletoNetCore
                 IdEspecie = 2,
             };
             emissao.Add(eb);
-            Token = await this.GerarToken();
-            var jc = JsonContent.Create(emissao);
-            var b = await jc.ReadAsStringAsync();
-            using var request = new HttpRequestMessage(HttpMethod.Post, "titulos")
+            var request = new HttpRequestMessage(HttpMethod.Post, "titulos");
+            var jc = new StringContent(JsonConvert.SerializeObject(emissao, Formatting.None, new JsonSerializerSettings
             {
-                Content = jc,
-            };
-            request.Headers.Add("Authorization", string.Format("Bearer {0}", this.Token));
+                NullValueHandling = NullValueHandling.Ignore
+            }), System.Text.Encoding.UTF8, "application/json");
+            request.Headers.Add("Authorization", "Bearer " + Token);
+            request.Headers.Add("Accept", "application/json");
+            request.Content = jc;
             var response = await this.httpClient.SendAsync(request);
             await this.CheckHttpResponseError(response);
             var rawResp = await response.Content.ReadAsStringAsync();
@@ -146,251 +170,257 @@ namespace BoletoNetCore
                 throw BoletoNetCoreException.ErroAoRegistrarTituloOnline(new Exception(string.Format("Erro desconhecido: {0}", response.StatusCode)));
         }
 
-        public Task<string> CancelarBoleto(Boleto boleto)
+        public async Task<string> CancelarBoleto(Boleto boleto)
+        {
+            var request = new HttpRequestMessage(HttpMethod.Put, string.Format("titulos/{0}/operacao/baixar", boleto.Id));
+            request.Headers.Add("Authorization", "Bearer " + Token);
+            request.Headers.Add("Accept", "application/json");
+            var response = await this.httpClient.SendAsync(request);
+            await this.CheckHttpResponseError(response);
+            return "";
+        }
+
+        public Task<int> SolicitarMovimentacao(TipoMovimentacao tipo, int numeroContrato, DateTime inicio, DateTime fim)
         {
             throw new NotImplementedException();
         }
 
-		public Task<int> SolicitarMovimentacao(TipoMovimentacao tipo, int numeroContrato, DateTime inicio, DateTime fim)
-		{
-			throw new NotImplementedException();
-		}
+        public Task<int[]> ConsultarStatusSolicitacaoMovimentacao(int numeroContrato, int codigoSolicitacao)
+        {
+            throw new NotImplementedException();
+        }
 
-		public Task<int[]> ConsultarStatusSolicitacaoMovimentacao(int numeroContrato, int codigoSolicitacao)
-		{
-			throw new NotImplementedException();
-		}
-
-		public Task<string> DownloadArquivoMovimentacao(int numeroContrato, int codigoSolicitacao, int idArquivo)
-		{
-			throw new NotImplementedException();
-		}
-	}
+        public Task<string> DownloadArquivoMovimentacao(int numeroContrato, int codigoSolicitacao, int idArquivo)
+        {
+            throw new NotImplementedException();
+        }
+    }
 
     #region "online classes"
+    [JsonObject(MemberSerialization.OptIn)]
     class AutenticacaoCresolResponse
     {
-        [JsonPropertyName("access_token")]
+        [JsonProperty("access_token")]
         public string AccessToken { get; set; }
     }
 
     class BadRequestCresol
     {
-        [JsonPropertyName("code")]
+        [JsonProperty("code")]
         public int Codigo { get; set; }
-        [JsonPropertyName("message")]
+        [JsonProperty("message")]
         public string Mensagem { get; set; }
-        [JsonPropertyName("date")]
+        [JsonProperty("date")]
         public string Data { get; set; }
     }
 
     // Root myDeserializedClass = JsonSerializer.Deserialize<List<Root>>(myJsonResponse);
     class OcorrenciaCresol
     {
-        [JsonPropertyName("id")]
+        [JsonProperty("id")]
         public int Id { get; set; }
 
-        [JsonPropertyName("idParcela")]
+        [JsonProperty("idParcela")]
         public int IdParcela { get; set; }
 
-        [JsonPropertyName("tipo")]
+        [JsonProperty("tipo")]
         public string Tipo { get; set; }
 
-        [JsonPropertyName("valor")]
+        [JsonProperty("valor")]
         public int Valor { get; set; }
 
-        [JsonPropertyName("codigoOcorrencia")]
+        [JsonProperty("codigoOcorrencia")]
         public int CodigoOcorrencia { get; set; }
 
-        [JsonPropertyName("descricaoOcorrencia")]
+        [JsonProperty("descricaoOcorrencia")]
         public string DescricaoOcorrencia { get; set; }
 
-        [JsonPropertyName("dtOcorrencia")]
+        [JsonProperty("dtOcorrencia")]
         public string DtOcorrencia { get; set; }
 
-        [JsonPropertyName("dtCredito")]
+        [JsonProperty("dtCredito")]
         public string DtCredito { get; set; }
 
-        [JsonPropertyName("motivo")]
+        [JsonProperty("motivo")]
         public string Motivo { get; set; }
     }
 
     class BoletoCresolRequest
     {
-        [JsonPropertyName("idEspecie")]
+        [JsonProperty("idEspecie")]
         public int IdEspecie { get; set; }
-        [JsonPropertyName("nossoNumero")]
-        public string NossoNumero { get; set; }
+        [JsonProperty("nossoNumero")]
+        public string? NossoNumero { get; set; }
 
-        [JsonPropertyName("dvNossoNumero")]
-        public string DvNossoNumero { get; set; }
+        [JsonProperty("dvNossoNumero")]
+        public string? DvNossoNumero { get; set; }
 
-        [JsonPropertyName("codigoBarras")]
-        public string CodigoBarras { get; set; }
+        [JsonProperty("codigoBarras")]
+        public string? CodigoBarras { get; set; }
 
-        [JsonPropertyName("linhaDigitavel")]
-        public string LinhaDigitavel { get; set; }
+        [JsonProperty("linhaDigitavel")]
+        public string? LinhaDigitavel { get; set; }
 
-        [JsonPropertyName("tipoPagador")]
+        [JsonProperty("tipoPagador")]
         public int TipoPagador { get; set; }
 
-        [JsonPropertyName("docPagador")]
+        [JsonProperty("docPagador")]
         public string DocPagador { get; set; }
 
-        [JsonPropertyName("pagadorNome")]
+        [JsonProperty("pagadorNome")]
         public string PagadorNome { get; set; }
 
-        [JsonPropertyName("pagadorEndereco")]
+        [JsonProperty("pagadorEndereco")]
         public string PagadorEndereco { get; set; }
 
-        [JsonPropertyName("pagadorEnderecoNumero")]
+        [JsonProperty("pagadorEnderecoNumero")]
         public string PagadorEnderecoNumero { get; set; }
 
-        [JsonPropertyName("pagadorBairro")]
+        [JsonProperty("pagadorBairro")]
         public string PagadorBairro { get; set; }
 
-        [JsonPropertyName("pagadorCep")]
+        [JsonProperty("pagadorCep")]
         public int PagadorCep { get; set; }
 
-        [JsonPropertyName("pagadorCidade")]
+        [JsonProperty("pagadorCidade")]
         public string PagadorCidade { get; set; }
 
-        [JsonPropertyName("pagadorUf")]
+        [JsonProperty("pagadorUf")]
         public string PagadorUf { get; set; }
 
-        [JsonPropertyName("numeroDocumento")]
+        [JsonProperty("numeroDocumento")]
         public string NumeroDocumento { get; set; }
 
-        [JsonPropertyName("dtVencimento")]
+        [JsonProperty("dtVencimento")]
         public string DtVencimento { get; set; }
 
-        // [JsonPropertyName("dtVencimentoPendente")]
+        // [JsonProperty("dtVencimentoPendente")]
         // public string DtVencimentoPendente { get; set; }
 
-        [JsonPropertyName("dtDocumento")]
+        [JsonProperty("dtDocumento")]
         public string DtDocumento { get; set; }
 
-        [JsonPropertyName("valorNominal")]
+        [JsonProperty("valorNominal")]
         public decimal ValorNominal { get; set; }
 
-        [JsonPropertyName("valorDesconto")]
+        [JsonProperty("valorDesconto")]
         public decimal ValorDesconto { get; set; }
 
-        [JsonPropertyName("cdTipoJuros")]
+        [JsonProperty("cdTipoJuros")]
         public string CdTipoJuros { get; set; }
 
-        [JsonPropertyName("valorJuros")]
+        [JsonProperty("valorJuros")]
         public decimal ValorJuros { get; set; }
 
-        [JsonPropertyName("dtLimiteDesconto")]
+        [JsonProperty("dtLimiteDesconto")]
         public string DtLimiteDesconto { get; set; }
 
-        [JsonPropertyName("cdTipoMulta")]
+        [JsonProperty("cdTipoMulta")]
         public string CdTipoMulta { get; set; }
 
-        [JsonPropertyName("valorMulta")]
+        [JsonProperty("valorMulta")]
         public decimal ValorMulta { get; set; }
 
-        [JsonPropertyName("controleParticipante")]
+        [JsonProperty("controleParticipante")]
         public string ControleParticipante { get; set; }
 
-        // [JsonPropertyName("status")]
+        // [JsonProperty("status")]
         // public string Status { get; set; }
 
-        // [JsonPropertyName("ocorrencias")]
+        // [JsonProperty("ocorrencias")]
         // public List<OcorrenciaCresol> Ocorrencias { get; set; }
     }
 
     class BoletoCresolResponse
     {
-        [JsonPropertyName("id")]
+        [JsonProperty("id")]
         public int Id { get; set; }
 
-        [JsonPropertyName("nossoNumero")]
+        [JsonProperty("nossoNumero")]
         public int NossoNumero { get; set; }
 
-        [JsonPropertyName("dvNossoNumero")]
+        [JsonProperty("dvNossoNumero")]
         public string DvNossoNumero { get; set; }
 
-        [JsonPropertyName("codigoBarras")]
+        [JsonProperty("codigoBarras")]
         public string CodigoBarras { get; set; }
 
-        [JsonPropertyName("linhaDigitavel")]
+        [JsonProperty("linhaDigitavel")]
         public string LinhaDigitavel { get; set; }
 
-        [JsonPropertyName("idEmissao")]
+        [JsonProperty("idEmissao")]
         public int IdEmissao { get; set; }
 
-        [JsonPropertyName("idEspecie")]
+        [JsonProperty("idEspecie")]
         public int? IdEspecie { get; set; }
 
-        [JsonPropertyName("tipoPagador")]
+        [JsonProperty("tipoPagador")]
         public int TipoPagador { get; set; }
 
-        [JsonPropertyName("docPagador")]
+        [JsonProperty("docPagador")]
         public long DocPagador { get; set; }
 
-        [JsonPropertyName("pagadorNome")]
+        [JsonProperty("pagadorNome")]
         public string PagadorNome { get; set; }
 
-        [JsonPropertyName("pagadorEndereco")]
+        [JsonProperty("pagadorEndereco")]
         public string PagadorEndereco { get; set; }
 
-        [JsonPropertyName("pagadorEnderecoNumero")]
+        [JsonProperty("pagadorEnderecoNumero")]
         public string? PagadorEnderecoNumero { get; set; }
 
-        [JsonPropertyName("pagadorBairro")]
+        [JsonProperty("pagadorBairro")]
         public string PagadorBairro { get; set; }
 
-        [JsonPropertyName("pagadorCep")]
+        [JsonProperty("pagadorCep")]
         public int PagadorCep { get; set; }
 
-        [JsonPropertyName("pagadorCidade")]
+        [JsonProperty("pagadorCidade")]
         public string PagadorCidade { get; set; }
 
-        [JsonPropertyName("pagadorUf")]
+        [JsonProperty("pagadorUf")]
         public string PagadorUf { get; set; }
 
-        [JsonPropertyName("numeroDocumento")]
+        [JsonProperty("numeroDocumento")]
         public string NumeroDocumento { get; set; }
 
-        [JsonPropertyName("dtVencimento")]
+        [JsonProperty("dtVencimento")]
         public string DtVencimento { get; set; }
 
-        [JsonPropertyName("dtVencimentoPendente")]
+        [JsonProperty("dtVencimentoPendente")]
         public string DtVencimentoPendente { get; set; }
 
-        [JsonPropertyName("dtDocumento")]
+        [JsonProperty("dtDocumento")]
         public string DtDocumento { get; set; }
 
-        [JsonPropertyName("valorNominal")]
+        [JsonProperty("valorNominal")]
         public decimal ValorNominal { get; set; }
 
-        [JsonPropertyName("valorDesconto")]
+        [JsonProperty("valorDesconto")]
         public decimal ValorDesconto { get; set; }
 
-        [JsonPropertyName("cdTipoJuros")]
+        [JsonProperty("cdTipoJuros")]
         public string CdTipoJuros { get; set; }
 
-        [JsonPropertyName("valorJuros")]
+        [JsonProperty("valorJuros")]
         public decimal ValorJuros { get; set; }
 
-        [JsonPropertyName("dtLimiteDesconto")]
+        [JsonProperty("dtLimiteDesconto")]
         public string DtLimiteDesconto { get; set; }
 
-        [JsonPropertyName("cdTipoMulta")]
+        [JsonProperty("cdTipoMulta")]
         public string CdTipoMulta { get; set; }
 
-        [JsonPropertyName("valorMulta")]
+        [JsonProperty("valorMulta")]
         public decimal ValorMulta { get; set; }
 
-        [JsonPropertyName("controleParticipante")]
+        [JsonProperty("controleParticipante")]
         public string ControleParticipante { get; set; }
 
-        [JsonPropertyName("status")]
+        [JsonProperty("status")]
         public string Status { get; set; }
 
-        [JsonPropertyName("ocorrencias")]
+        [JsonProperty("ocorrencias")]
         public List<OcorrenciaCresol> Ocorrencias { get; set; }
     }
 
