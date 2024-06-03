@@ -63,7 +63,7 @@ namespace BoletoNetCore
         {
             try
             {
-                return Convert.ToDateTime(value, CultureInfo.GetCultureInfo("pt-BR"));
+                return DateTime.SpecifyKind(Convert.ToDateTime(value, CultureInfo.GetCultureInfo("pt-BR")), DateTimeKind.Local);
             }
             catch
             {
