@@ -6,7 +6,7 @@ using static System.String;
 
 namespace BoletoNetCore
 {
-    internal sealed partial class BancoItau : BancoFebraban<BancoItau>, IBanco
+    public sealed partial class BancoItau : BancoFebraban<BancoItau>, IBanco
     {
         public BancoItau()
         {

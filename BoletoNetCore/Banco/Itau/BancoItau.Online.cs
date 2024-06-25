@@ -188,7 +188,7 @@ namespace BoletoNetCore
                     DataEmissao = boleto.DataEmissao.ToString("yyyy-MM-dd"),
                     DescontoExpresso = false,
                     DescricaoInstrumentoCobranca = "boleto", // TODO
-                    //TODO ListaMensagemCobranca
+                                                             //TODO ListaMensagemCobranca
 
                     Pagador = new()
                     {
@@ -293,7 +293,7 @@ namespace BoletoNetCore
             }
 
             emissao.DadoBoleto.DadosIndividuaisBoleto.Add(dib);
-
+            // emissao.EtapaProcessoBoleto = "simulacao";
             HttpRequestMessage request;
             if (boleto.Banco.Beneficiario.ContaBancaria.PixHabilitado)
             {
@@ -402,6 +402,85 @@ namespace BoletoNetCore
         public Task<string> DownloadArquivoMovimentacao(int numeroContrato, int codigoSolicitacao, int idArquivo)
         {
             throw new NotImplementedException();
+        }
+
+        public async Task<ItauWebhookCreateResponse> CreateWebhook(string url, string urlOauth, string clientId, string clientSecret)
+        {
+            ItauWebhookCreateRequest data = new()
+            {
+                Data = new()
+                {
+                    IdBeneficiario = this.Beneficiario.Codigo,
+                    Url = url,
+                    OauthUrl = urlOauth,
+                    ClientId = clientId,
+                    ClientSecret = clientSecret,
+                    ValorMinimo = 0,
+                },
+            };
+
+            var request = new HttpRequestMessage(HttpMethod.Post, "https://boletos.cloud.itau.com.br/boletos/v3/notificacoes_boletos")
+            {
+                Content = new StringContent(JsonConvert.SerializeObject(data, Formatting.None, new JsonSerializerSettings
+                {
+                    NullValueHandling = NullValueHandling.Ignore
+                }), System.Text.Encoding.UTF8, "application/json")
+            };
+            request.Headers.Add("Authorization", "Bearer " + Token);
+            request.Headers.Add("x-itau-apikey", ChaveApi);
+            request.Headers.Add("x-itau-flowID", flowID);
+            request.Headers.Add("x-itau-correlationid", System.Guid.NewGuid().ToString());
+            request.Headers.Add("Accept", "application/json");
+            var response = await this.httpClient.SendAsync(request);
+            if (!response.IsSuccessStatusCode)
+                if (response.StatusCode == HttpStatusCode.BadRequest || response.StatusCode == HttpStatusCode.UnprocessableEntity || (response.StatusCode == HttpStatusCode.NotFound && response.Content.Headers.ContentType.MediaType == "application/json"))
+                {
+                    var bad = JsonConvert.DeserializeObject<BadRequestItauApi>(await response.Content.ReadAsStringAsync());
+                    throw new Exception(string.Format("{0}: {1}", bad.Codigo, bad.Mensagem).Trim());
+                }
+
+            var resp = JsonConvert.DeserializeObject<ItauWebhookCreateResponse>(await response.Content.ReadAsStringAsync());
+            return resp;
+        }
+
+        public async Task<ItauWebhookGetResponse> GetWebhooks()
+        {
+            var request = new HttpRequestMessage(HttpMethod.Get, $"https://boletos.cloud.itau.com.br/boletos/v3/notificacoes_boletos?id_beneficiario={Beneficiario.Codigo}");
+            request.Headers.Add("Authorization", "Bearer " + Token);
+            request.Headers.Add("x-itau-apikey", ChaveApi);
+            request.Headers.Add("x-itau-flowID", flowID);
+            request.Headers.Add("x-itau-correlationid", System.Guid.NewGuid().ToString());
+            request.Headers.Add("Accept", "application/json");
+            var response = await this.httpClient.SendAsync(request);
+            if (!response.IsSuccessStatusCode)
+                if (response.StatusCode == HttpStatusCode.BadRequest || response.StatusCode == HttpStatusCode.UnprocessableEntity || (response.StatusCode == HttpStatusCode.NotFound && response.Content.Headers.ContentType.MediaType == "application/json"))
+                {
+                    var bad = JsonConvert.DeserializeObject<BadRequestItauApi>(await response.Content.ReadAsStringAsync());
+                    throw new Exception(string.Format("{0}: {1}", bad.Codigo, bad.Mensagem).Trim());
+                }
+
+            var resp = JsonConvert.DeserializeObject<ItauWebhookGetResponse>(await response.Content.ReadAsStringAsync());
+            return resp;
+        }
+
+        public async Task<bool> DeleteWebhook(string id)
+        {
+            var request = new HttpRequestMessage(HttpMethod.Delete, $"https://boletos.cloud.itau.com.br/boletos/v3/notificacoes_boletos/{id}");
+            request.Headers.Add("Authorization", "Bearer " + Token);
+            request.Headers.Add("x-itau-apikey", ChaveApi);
+            request.Headers.Add("x-itau-flowID", flowID);
+            request.Headers.Add("x-itau-correlationid", System.Guid.NewGuid().ToString());
+            request.Headers.Add("Accept", "application/json");
+            var response = await this.httpClient.SendAsync(request);
+            if (!response.IsSuccessStatusCode)
+                if (response.StatusCode == HttpStatusCode.BadRequest || response.StatusCode == HttpStatusCode.UnprocessableEntity || (response.StatusCode == HttpStatusCode.NotFound && response.Content.Headers.ContentType.MediaType == "application/json"))
+                {
+                    var bad = JsonConvert.DeserializeObject<BadRequestItauApi>(await response.Content.ReadAsStringAsync());
+                    throw new Exception(string.Format("{0}: {1}", bad.Codigo, bad.Mensagem).Trim());
+                }
+
+
+            return response.StatusCode == HttpStatusCode.NoContent;
         }
     }
 
@@ -897,6 +976,50 @@ namespace BoletoNetCore
         public string TipoCobranca { get; set; }
     }
 
+    [JsonObject(MemberSerialization.OptIn)]
+    public class ItauWebhook
+    {
+        [JsonProperty("id_notificacao_boleto")]
+        public string IdNotificacaoBoleto { get; set; }
+
+        [JsonProperty("id_beneficiario")]
+        public string IdBeneficiario { get; set; }
+
+        [JsonProperty("webhook_url")]
+        public string Url { get; set; }
+
+        [JsonProperty("webhook_client_id")]
+        public string ClientId { get; set; }
+
+        [JsonProperty("webhook_client_secret")]
+        public string ClientSecret { get; set; }
+
+        [JsonProperty("webhook_oauth_url")]
+        public string OauthUrl { get; set; }
+
+        [JsonProperty("valor_minimo")]
+        public double ValorMinimo { get; set; }
+
+        [JsonProperty("tipos_notificacoes")]
+        public string[] TiposNotificacoes { get; set; } = new string[] { "BAIXA_EFETIVA", "BAIXA_OPERACIONAL" };
+    }
+
+    [JsonObject(MemberSerialization.OptIn)]
+    public class ItauWebhookCreateRequest
+    {
+        [JsonProperty("data")]
+        public ItauWebhook Data { get; set; }
+    }
+
+    [JsonObject(MemberSerialization.OptIn)]
+    public class ItauWebhookCreateResponse : ItauWebhookCreateRequest { };
+
+    [JsonObject(MemberSerialization.OptIn)]
+    public class ItauWebhookGetResponse
+    {
+        [JsonProperty("data")]
+        public ItauWebhook[] Data { get; set; }
+    }
     #endregion
 }
 
