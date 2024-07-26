@@ -52,6 +52,7 @@ namespace BoletoNetCore
 
         public byte[] Certificado { get; set; }
         public string CertificadoSenha { get; set; }
+        public uint VersaoApi { get; set; }
 
         public async Task<string> ConsultarStatus(Boleto boleto)
         {

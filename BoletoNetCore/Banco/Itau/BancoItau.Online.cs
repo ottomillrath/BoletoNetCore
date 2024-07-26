@@ -98,6 +98,7 @@ namespace BoletoNetCore
         public string SecretApi { get; set; }
         public byte[] Certificado { get; set; }
         public string CertificadoSenha { get; set; }
+        public uint VersaoApi { get; set; }
 
         public string Token { get; set; }
 
