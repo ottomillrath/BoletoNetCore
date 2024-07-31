@@ -182,7 +182,8 @@ namespace BoletoNetCore
         {
             var emissao = new BoletoSicoobApi()
             {
-                NumeroContrato = int.Parse(boleto.Banco.Beneficiario.Codigo),
+                // na V3 precisa enviar o digito verificador do código do beneficiário junto com o código (999999-9 = 9999999)
+                NumeroContrato = int.Parse(string.Format("{0}{1}",  boleto.Banco.Beneficiario.Codigo, boleto.Banco.Beneficiario.CodigoDV)),
                 // Modalidade = TipoFormaCadastramento.ComRegistro,
                 NumeroContaCorrente = int.Parse(boleto.Banco.Beneficiario.ContaBancaria.Conta + boleto.Banco.Beneficiario.ContaBancaria.DigitoConta),
                 EspecieDocumento = boleto.EspecieDocumento,
