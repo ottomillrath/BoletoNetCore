@@ -33,6 +33,7 @@ namespace BoletoNetCore
 
         // Chave Master que deve ser gerada pelo portal do sicredi
         // Menu Cobrança, Sub Menu Lateral Código de Acesso / Gerar
+        public long Id { get; set; }
         public string ChaveApi { get; set; }
 
         // Não utilizada para o Sicredi

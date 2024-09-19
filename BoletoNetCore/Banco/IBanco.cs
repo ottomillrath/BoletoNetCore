@@ -154,6 +154,12 @@ namespace BoletoNetCore
     public interface IBancoOnlineRest : IBanco
     {
         /// <summary>
+        /// Id da conta
+        /// Usado no TokenCache para recuperar os tokens armazenados
+        /// </summary>
+        public long Id { get; set; }
+        
+        /// <summary>
         /// Chave de Acesso (ApiKey), geralmente utilizado para gerar o token de autenticacao
         /// No caso do sicredi por exemplo, a nomenclatura utilizada é Chave Master
         /// </summary>

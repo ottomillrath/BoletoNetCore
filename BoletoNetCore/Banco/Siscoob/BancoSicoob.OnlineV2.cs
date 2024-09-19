@@ -46,6 +46,8 @@ namespace BoletoNetCore
             }
         }
         #endregion
+
+        public long Id { get; set; }
         public string ChaveApi { get; set; }
         public string SecretApi { get; set; }
 

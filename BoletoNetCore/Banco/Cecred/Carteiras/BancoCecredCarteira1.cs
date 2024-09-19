@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace BoletoNetCore
 {
-    [CarteiraCodigo("1")]
+    [CarteiraCodigo("1")] 
     internal class BancoCecredCarteira1 : ICarteira<BancoCecred>
     {
         internal static Lazy<ICarteira<BancoCecred>> Instance { get; } = new Lazy<ICarteira<BancoCecred>>(() => new BancoCecredCarteira1());
