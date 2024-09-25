@@ -64,6 +64,11 @@ namespace BoletoNetCore
                                             int numeroRegistroCobrancaDescontada, decimal valorCobrancaDescontada);
 
         string FormatarNomeArquivoRemessa(int numeroSequencial);
+
+        /// <summary>
+        /// Subdominio do contexto
+        /// </summary>
+        public string Subdomain { get; set; }
     }
 
     /// <summary>
@@ -164,6 +169,7 @@ namespace BoletoNetCore
         /// No caso do sicredi por exemplo, a nomenclatura utilizada é Chave Master
         /// </summary>
         string ChaveApi { get; set; }
+
 
         /// <summary>
         /// Secret para casos de Client Id e Client Secret (Itaú)

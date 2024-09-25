@@ -10,11 +10,11 @@ namespace BoletoNetCore
     /// </summary>
     public class TokenCache : IDisposable
     {
-        private static ConcurrentDictionary<long, TokenInfo> _tokenCache;
+        private static ConcurrentDictionary<string, TokenInfo> _tokenCache;
 
         public TokenCache()
         {
-            if (_tokenCache == null) _tokenCache = new ConcurrentDictionary<long, TokenInfo>();
+            if (_tokenCache == null) _tokenCache = new ConcurrentDictionary<string, TokenInfo>();
         }
 
         private class TokenInfo
@@ -23,7 +23,7 @@ namespace BoletoNetCore
             public DateTime Expiration { get; set; }
         }
 
-        public void AddOrUpdateToken(long id, string token, DateTime expiration)
+        public void AddOrUpdateToken(string id, string token, DateTime expiration)
         {
             var tokenInfo = new TokenInfo
             {
@@ -34,7 +34,7 @@ namespace BoletoNetCore
             _tokenCache.AddOrUpdate(id, tokenInfo, (key, existingVal) => tokenInfo);
         }
 
-        public string GetToken(long id)
+        public string GetToken(string id)
         {
             if (_tokenCache.TryGetValue(id, out TokenInfo tokenInfo))
                 if (tokenInfo.Expiration > DateTime.UtcNow)
@@ -45,7 +45,7 @@ namespace BoletoNetCore
             return null;
         }
 
-        public void RemoveToken(long id)
+        public void RemoveToken(string id)
         {
             _tokenCache.TryRemove(id, out _);
         }

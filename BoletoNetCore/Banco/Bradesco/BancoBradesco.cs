@@ -16,6 +16,7 @@ namespace BoletoNetCore
             IdsRetornoCnab400RegistroDetalhe = new List<string> { "1" };
             RemoveAcentosArquivoRemessa = true;
         }
+        public string Subdomain { get; set; }
 
         public override string FormatarNomeArquivoRemessa(int numeroSequencial)
         {

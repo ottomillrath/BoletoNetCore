@@ -16,6 +16,8 @@ namespace BoletoNetCore
             RemoveAcentosArquivoRemessa = true;
         }
 
+        public string Subdomain { get; set; }
+
         public void FormataBeneficiario()
         {
             var contaBancaria = Beneficiario.ContaBancaria;

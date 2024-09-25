@@ -13,11 +13,13 @@ namespace BoletoNetCore
 
         public string FormataCodigoBarraCampoLivre(Boleto boleto)
         {
-            string parte1 = string.Format("{0}{1}{2}",
-                 Utils.FormatCode(boleto.Banco.Beneficiario.Codigo, 6),
-                 boleto.NossoNumero,
-                 Utils.FormatCode(boleto.Carteira, 2));
-            return parte1;
+            return boleto.NossoNumero;
+
+            //string parte1 = string.Format("{0}{1}{2}",
+            //     Utils.FormatCode(boleto.Banco.Beneficiario.Codigo, 6),
+            //     boleto.NossoNumero,
+            //     Utils.FormatCode(boleto.Carteira, 2));
+            //return parte1;
         }
 
         public void FormataNossoNumero(Boleto boleto)
@@ -27,7 +29,6 @@ namespace BoletoNetCore
             string conta = Utils.FormatCode(boleto.Banco.Beneficiario.ContaBancaria.Conta + boleto.Banco.Beneficiario.ContaBancaria.DigitoConta, 8);
             boleto.NossoNumero = Sequencial(boleto);
             boleto.NossoNumeroFormatado = string.Format("{0}/{1}", conta, nossoNumero);
-
         }
          
         private string Mod11(string seq)

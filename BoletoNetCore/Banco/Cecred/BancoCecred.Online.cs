@@ -20,11 +20,25 @@ using System.Text.Json.Nodes;
 using System.Text;
 using System.Text.Encodings.Web;
 using Microsoft.AspNetCore.Mvc.ViewFeatures;
+using System.ComponentModel.DataAnnotations;
 
 namespace BoletoNetCore
 {
     partial class BancoCecred : IBancoOnlineRest // o nome do banco mudou para Ailos, mas mantive Cecred para não alterar a implementação que já existe
     {
+        // se você chegou aqui pq precisa dar manutenção em algo relacionado a esse maravilhoso banco,
+        // eu lhe desejo sorte, abaixo estão algumas coisas para te ajudar nessa jornada:
+        // - apis: https://apihml.ailos.coop.br/devportal/apis (login: dev_zion, senha: dev_zion)
+        // - contato do whatsapp: (47) 99260-7906 (responde uma vez por dia)
+        // - email do suporte: homologacaocobranca@ailos.coop.br
+        // - task original: https://app.clickup.com/t/86893bh1d
+        // - o login é feito em 4 etapas: WSO2, TokenJwt, Login do cooperado (UI) e webhook
+        // - o token usado nas requisições vem pelo webhook e é armazendo no TokenCache
+        // - sim, precisa fazer login do cooperado toda vez e o token dura uma hora
+        // - login do cooperado Sandbox: Evolua, 81061641, aaaaa11111@
+        // - a segunda etapa do login retorna GatewayTimeout em 90% das chamadas, é normal, insista
+        // - o login do cooperado vai dizer que a url do callback é inválida, é mentira, é só tentar login de novo que passa (as vezes mais de uma vez)
+
         public bool Homologacao { get; set; } = true;
 
         #region HttpClient
@@ -57,6 +71,7 @@ namespace BoletoNetCore
         public string ChaveApi { get; set; }
         public string SecretApi { get; set; } 
         public string Token { get; set; }
+        public string TokenWso2 { get; set; }
         public byte[] Certificado { get; set; }
         public string CertificadoSenha { get; set; }
         public uint VersaoApi { get; set; }
@@ -64,10 +79,12 @@ namespace BoletoNetCore
         #endregion
 
         public async Task<string> GerarToken()
-        { 
+        {
+             
             using (TokenCache tokenCache = new TokenCache())
             {
-                this.Token = tokenCache.GetToken(Id); // token é recebido por webhook
+                this.Token = tokenCache.GetToken(Id.ToString()); // token é recebido por webhook
+                this.TokenWso2 = tokenCache.GetToken($"{Id}-WSO2"); // token da primeira etapa da autenticação
             }
 
             if (this.Token != null)
@@ -90,6 +107,7 @@ namespace BoletoNetCore
             X509Certificate2 certificate = new X509Certificate2(Certificado, CertificadoSenha);
             handler.ClientCertificates.Add(certificate);
             var httpClient = new HttpClient(new LoggingHandler(handler));
+            httpClient.Timeout = TimeSpan.FromMinutes(100);
 
             // ETAPA 1: recuperar wso02
             var request = new HttpRequestMessage(HttpMethod.Post, authUrlWso2);
@@ -107,12 +125,17 @@ namespace BoletoNetCore
             var ret = JsonConvert.DeserializeObject<AilosWso2Token>(respString);
             Console.WriteLine($"Etapa1 OK: {ret.AccessToken}");
 
-            // ETAPA 2: token jwt
-            request = new HttpRequestMessage(HttpMethod.Post, authUrlJwt); 
-
-            var requestBody = new
+            using (TokenCache tokenCache = new TokenCache())
             {
-                urlCallback = "https://eobd34eg5ac16vk.m.pipedream.net/token", // TODO: substituir pelo webhook
+                tokenCache.AddOrUpdateToken($"{Id}-WSO2", ret.AccessToken, DateTime.Now.AddHours(1));
+            } 
+
+            // ETAPA 2: token jwt
+            request = new HttpRequestMessage(HttpMethod.Post, authUrlJwt);
+             
+            var requestBody = new
+            { 
+                urlCallback = $"https://ailos-boleto-token.zionerp.com.br/{(this as IBanco).Subdomain}",
                 ailosApiKeyDeveloper = "1f823198-096c-03d2-e063-0a29143552f3",
                 state = Id.ToString()
             };
@@ -137,17 +160,7 @@ namespace BoletoNetCore
 
         public async Task<string> RegistrarBoleto(Boleto boleto)
         {
-            var emissao = new AilosRegistrarBoletoRequest(); 
-
-            emissao.Avalista = new AilosAvalista
-            {
-                EntidadeLegal = new AilosEntidadeLegal
-                {
-                    IdentificadorReceitaFederal = boleto.Avalista.CPFCNPJ,
-                    Nome = boleto.Avalista.Nome,
-                    TipoPessoa = boleto.Avalista.CPFCNPJ.Length == 9 ? 1 : 2 // 1 PF, 2 PJ
-                }
-            };
+            var emissao = new AilosRegistrarBoletoRequest();  
 
             emissao.Instrucoes = new AilosInstrucoes
             {
@@ -175,8 +188,9 @@ namespace BoletoNetCore
 
             emissao.Documento = new AilosDocumento
             {
-                NumeroDocumento = int.Parse(boleto.NumeroDocumento),
-                //DescricaoDocumento = boleto.NumeroDocumento                  obrigatório?
+                NumeroDocumento = int.Parse(boleto.Id),
+                DescricaoDocumento = "Boleto",
+                NossoNumero = boleto.NossoNumero
             };
 
             //(1 = DM – Duplicata Mercantil, 2 = DS – Duplicata de Serviço , 3 = NP – Nota Promissória,
@@ -232,7 +246,7 @@ namespace BoletoNetCore
                 {
                     IdentificadorReceitaFederal = boleto.Pagador.CPFCNPJ,
                     Nome = boleto.Pagador.Nome,
-                    TipoPessoa = boleto.Pagador.CPFCNPJ.Length == 9 ? 1 : 2 // 1 PF, 2 PJ
+                    TipoPessoa = boleto.Pagador.CPFCNPJ.Length == 11 ? 1 : 2 // 1 PF, 2 PJ
                 },
                 Endereco = new AilosEndereco
                 {
@@ -255,7 +269,18 @@ namespace BoletoNetCore
                     Ddd = boleto.Pagador.Telefone.Substring(0, 2),
                     Numero = boleto.Pagador.Telefone.Substring(2)
                 };
-            }
+            } 
+
+            if (!string.IsNullOrEmpty(boleto.Avalista.CPFCNPJ))
+                emissao.Avalista = new AilosAvalista
+                {
+                    EntidadeLegal = new AilosEntidadeLegal
+                    {
+                        IdentificadorReceitaFederal = boleto.Avalista.CPFCNPJ,
+                        Nome = boleto.Avalista.Nome,
+                        TipoPessoa = boleto.Avalista.CPFCNPJ.Length == 11 ? 1 : 2 // 1 PF, 2 PJ
+                    }
+                };
 
             emissao.AvisoSMS = new AilosAvisoSMS()
             {
@@ -273,10 +298,10 @@ namespace BoletoNetCore
             emissao.ValorBoleto = new AilosValorBoleto
             {
                 ValorTitulo = boleto.ValorTitulo
-            }; 
+            };  
 
             var request = new HttpRequestMessage(HttpMethod.Post, $"boletos/gerar/boleto/convenios/{boleto.Banco.Beneficiario.ContaBancaria.OperacaoConta}");
-            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", this.Token);
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", this.TokenWso2);
             request.Headers.Add("x-ailos-authentication", $"Bearer {this.Token}");
             request.Content = new StringContent(Newtonsoft.Json.JsonConvert.SerializeObject(emissao), Encoding.UTF8, "application/json");
 
@@ -286,6 +311,7 @@ namespace BoletoNetCore
             var responseString = await response.Content.ReadAsStringAsync();
 
             var boletoEmitido = await response.Content.ReadFromJsonAsync<AilosRegistraBoletoResponse>();
+
             return boleto.Id;
         }
 
@@ -398,6 +424,9 @@ namespace BoletoNetCore
 
         [JsonPropertyName("especieDocumento")]
         public int EspecieDocumento { get; set; }
+
+        [JsonPropertyName("nossoNumero")]
+        public string NossoNumero { get; set; }
     }
 
     public class AilosEmail
