@@ -13,13 +13,11 @@ namespace BoletoNetCore
 
         public string FormataCodigoBarraCampoLivre(Boleto boleto)
         {
-            return boleto.NossoNumero;
-
-            //string parte1 = string.Format("{0}{1}{2}",
-            //     Utils.FormatCode(boleto.Banco.Beneficiario.Codigo, 6),
-            //     boleto.NossoNumero,
-            //     Utils.FormatCode(boleto.Carteira, 2));
-            //return parte1;
+            string parte1 = string.Format("{0}{1}{2}",
+                 Utils.FormatCode(boleto.Banco.Beneficiario.Codigo, 6),
+                 boleto.NossoNumero,
+                 Utils.FormatCode(boleto.Carteira, 2));
+            return parte1;
         }
 
         public void FormataNossoNumero(Boleto boleto)
