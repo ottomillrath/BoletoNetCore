@@ -185,13 +185,16 @@ namespace BoletoNetCore
             emissao.Vencimento = new AilosVencimento  { DataVencimento = boleto.DataVencimento };
 
             emissao.ValorBoleto = new AilosValorBoleto { ValorTitulo = boleto.ValorTitulo };
-
+             
             emissao.Documento = new AilosDocumento
             {
                 NumeroDocumento = int.Parse(boleto.Id),
                 DescricaoDocumento = "Boleto",
                 NossoNumero = boleto.NossoNumero
             };
+
+            if (Homologacao) 
+                emissao.Documento.NumeroDocumento = (new Random().Next(9000001, 9999991)); // numero do documento duplicado por motivo desconhecido
 
             //(1 = DM – Duplicata Mercantil, 2 = DS – Duplicata de Serviço , 3 = NP – Nota Promissória,
             //4 = MENS - Mensalidade , 5 = NF – Nota Fiscal, 6 = RECI - Recibo , 7 = OUTR – Outros )
