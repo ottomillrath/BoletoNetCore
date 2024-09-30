@@ -221,9 +221,9 @@ namespace BoletoNetCore
             try
             {
                 // Identificação do Título no Banco
-                boleto.NossoNumero = registro.Substring(47, 8);
-                boleto.NossoNumeroDV = registro.Substring(55, 1);
-                boleto.NossoNumeroFormatado = string.Format("{0}/{1}-{2}", boleto.NossoNumero.Substring(0, 2), boleto.NossoNumero.Substring(2, 6), boleto.NossoNumeroDV);
+                boleto.NossoNumero = registro.Substring(70,11);
+                boleto.NossoNumeroDV = registro.Substring(81, 1);
+                boleto.NossoNumeroFormatado = string.Format("{0}-{1}", boleto.NossoNumero, boleto.NossoNumeroDV);
 
                 // Identificação de Ocorrência
                 boleto.CodigoMovimentoRetorno = registro.Substring(108, 2);
@@ -243,9 +243,10 @@ namespace BoletoNetCore
 
                 //Valores do Título
                 boleto.ValorTitulo = Convert.ToDecimal(registro.Substring(152, 13)) / 100;
+                boleto.ValorTarifas = Convert.ToDecimal(registro.Substring(175, 13)) / 100;
                 boleto.ValorAbatimento = Convert.ToDecimal(registro.Substring(227, 13)) / 100;
                 boleto.ValorDesconto = Convert.ToDecimal(registro.Substring(240, 13)) / 100;
-                boleto.ValorPago = Convert.ToDecimal(registro.Substring(253, 13)) / 100;
+                boleto.ValorPagoCredito = Convert.ToDecimal(registro.Substring(253, 13)) / 100;
                 boleto.ValorJurosDia = Convert.ToDecimal(registro.Substring(266, 13)) / 100;
                 boleto.ValorOutrosCreditos = Convert.ToDecimal(registro.Substring(279, 13)) / 100;
 
