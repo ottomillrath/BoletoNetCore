@@ -246,11 +246,13 @@ namespace BoletoNetCore
                 boleto.ValorTarifas = Convert.ToDecimal(registro.Substring(175, 13)) / 100;
                 boleto.ValorAbatimento = Convert.ToDecimal(registro.Substring(227, 13)) / 100;
                 boleto.ValorDesconto = Convert.ToDecimal(registro.Substring(240, 13)) / 100;
-                boleto.ValorPagoCredito = Convert.ToDecimal(registro.Substring(253, 13)) / 100;
+                boleto.ValorPago = Convert.ToDecimal(registro.Substring(253, 13)) / 100;
                 boleto.ValorJurosDia = Convert.ToDecimal(registro.Substring(266, 13)) / 100;
                 boleto.ValorOutrosCreditos = Convert.ToDecimal(registro.Substring(279, 13)) / 100;
 
                 boleto.ValorPago += boleto.ValorJurosDia;
+                
+                boleto.ValorPagoCredito = boleto.ValorPago - boleto.ValorTarifas;
 
                 // Data do Crédito
                 boleto.DataCredito = Utils.ToDateTime(Utils.ToInt32(registro.Substring(328, 8)).ToString("####-##-##"));
