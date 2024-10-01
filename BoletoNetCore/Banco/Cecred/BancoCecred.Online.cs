@@ -35,7 +35,7 @@ namespace BoletoNetCore
         // - o login é feito em 4 etapas: WSO2, TokenJwt, Login do cooperado (UI) e webhook
         // - o token usado nas requisições vem pelo webhook e é armazendo no TokenCache
         // - sim, precisa fazer login do cooperado toda vez e o token dura uma hora
-        // - login do cooperado Sandbox: Evolua, 81061641, aaaaa11111@
+        // - login do cooperado Sandbox: Evolua, 81061641, aaaaa11111@ (para o Da Luz)
         // - a segunda etapa do login retorna GatewayTimeout em 90% das chamadas, é normal, insista
         // - o login do cooperado vai dizer que a url do callback é inválida, é mentira, é só tentar login de novo que passa (as vezes mais de uma vez)
 
@@ -65,8 +65,7 @@ namespace BoletoNetCore
         }
         #endregion 
 
-        #region Chaves de Acesso Api
-
+        #region Chaves de Acesso Api 
         public long Id { get; set; }
         public string ChaveApi { get; set; }
         public string SecretApi { get; set; } 
@@ -78,9 +77,28 @@ namespace BoletoNetCore
         private readonly static string Scopes = "boletos_inclusao boletos_consulta boletos_alteracao";
         #endregion
 
+        /*
+         *  // usado para testar
+         *  string tokenWso2teste = "bbbb1a6e-b94d-3c05-b402-b1ebd0fb3233";
+         *  string tokenTeste = "eyJhbGciOiJIUzUxMiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI0NmQ0YjYxNy0zYjVlLTQzOTYtODdiYy1lM2U3YjU5Nzg4YTEiLCJzdWIiOiJhaUhOcWlrUFBKSStDMXdablhYa3Q3cmJ6N0x0Tzh5UkF6YjltU1BxYityZ3g2YWNkMUR0TTJOTXhycW13ZG4yZHBJUW1zZU03bVR5Y2pnUFJiWWZuVlAyTktGS1FaNm5IN25lMGdaTStjNFhyUkY3RUpoQUF2eCtNUlJvL1RzS3AwR29iK2ZGbHQ4K2kvcFlhTlEzOVF5WitNeU51U2s1dDFwOU1sbGVaTVlsajRmTFN5WGw5dVJwcjNDN0RaSGdtY1pDY0NsVVVwRDFxa0FIaEFIdWhIbkV1Uk5lMDJmTzB2NnVDN3hTTWc2b3FBbjdSODgwalR0OHlkMFV3eUdzYWRkYjZiRzJWUXE1OGg0U0cwU0ZWQUZ1c0tNeHp4eFZkM2ZuQkl3cXRGdENiODErTDFzVGY3a2FpazVVWHVKejkxZSt2L3JEcEVLa3FlQ21NdUdCdDFYTWpNVkJsekVKQnMwdUxGSW5VVlE9IiwibmJmIjoxNzI3NzgyNzYyLCJleHAiOjE3Mjc3ODQ1NjIsImlhdCI6MTcyNzc4Mjc2Mn0.M13xXmIXVfPaecfwof0xwsxZ1kyaNJ6N0tOiPleqYLnzN5awiLrRnnFVi6mG5iT2-0W0M2VJKiztZdtiqHge1Q";
+         */
+
         public async Task<string> GerarToken()
         {
-             
+            /*  // usado para testar
+             *  if (true) 
+             *    {
+             *        using (TokenCache tokenCache = new TokenCache())
+             *        {
+             *            this.Token = tokenTeste;
+             *            this.TokenWso2 = tokenWso2teste;
+             *            tokenCache.AddOrUpdateToken($"{Id}", tokenTeste, DateTime.Now.AddHours(1));
+             *            tokenCache.AddOrUpdateToken($"{Id}-WSO2", tokenWso2teste, DateTime.Now.AddHours(1));
+             *        }
+             *        return tokenTeste;
+             *    }
+             */
+
             using (TokenCache tokenCache = new TokenCache())
             {
                 this.Token = tokenCache.GetToken(Id.ToString()); // token é recebido por webhook
@@ -134,7 +152,7 @@ namespace BoletoNetCore
             request = new HttpRequestMessage(HttpMethod.Post, authUrlJwt);
              
             var requestBody = new
-            { 
+            {
                 urlCallback = $"https://ailos-boleto-token.zionerp.com.br/{(this as IBanco).Subdomain}",
                 ailosApiKeyDeveloper = "1f823198-096c-03d2-e063-0a29143552f3",
                 state = Id.ToString()
@@ -314,7 +332,7 @@ namespace BoletoNetCore
             var responseString = await response.Content.ReadAsStringAsync();
 
             var boletoEmitido = await response.Content.ReadFromJsonAsync<AilosRegistraBoletoResponse>();
-
+            boleto.NossoNumero = boletoEmitido.Boleto.Documento.NossoNumero;
             return boleto.Id;
         }
 
@@ -324,6 +342,8 @@ namespace BoletoNetCore
                 return;
 
             var responseString = await response.Content.ReadAsStringAsync();
+
+            Console.WriteLine($"!!!!!!!!!! ERRO: {responseString}");
 
             if ((response.StatusCode == HttpStatusCode.BadRequest || response.StatusCode == HttpStatusCode.NotFound) && !string.IsNullOrEmpty(responseString))
             {
@@ -456,7 +476,7 @@ namespace BoletoNetCore
         public string Logradouro { get; set; }
 
         [JsonPropertyName("numero")]
-        public string Numero { get; set; }
+        public string Numero { get; set; } // essa porcaria é string na requisição, mas é int na resposta, por isso removi do response
 
         [JsonPropertyName("complemento")]
         public string Complemento { get; set; }
@@ -729,6 +749,29 @@ namespace BoletoNetCore
         public AilosProtesto Protesto { get; set; }
     }
 
+
+    public class AilosBoletoResponse
+    {
+        [JsonPropertyName("contaCorrente")]
+        public AilosContaCorrente ContaCorrente { get; set; }
+
+        [JsonPropertyName("convenioCobranca")]
+        public AilosConvenioCobranca ConvenioCobranca { get; set; }
+
+        [JsonPropertyName("documento")]
+        public AilosDocumento Documento { get; set; }
+
+        [JsonPropertyName("emissao")]
+        public AilosEmissao Emissao { get; set; } 
+
+        [JsonPropertyName("indicadorSituacaoBoleto")]
+        public int IndicadorSituacaoBoleto { get; set; }
+
+        [JsonPropertyName("situacaoProcessoDda")]
+        public int SituacaoProcessoDda { get; set; } 
+    }
+
+
     public class AilosCidade
     {
         [JsonPropertyName("codigo")]
@@ -867,7 +910,7 @@ namespace BoletoNetCore
         public List<AilosDetail> Details { get; set; }
 
         [JsonPropertyName("boleto")]
-        public AilosBoleto Boleto { get; set; }
+        public AilosBoletoResponse Boleto { get; set; }
     }
 
     public class AilosSerasa
