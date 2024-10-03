@@ -15,6 +15,7 @@ using Newtonsoft.Json.Converters;
 using System.Diagnostics;
 using System.Linq;
 using System.Globalization;
+using QRCoder;
 
 namespace BoletoNetCore
 {
@@ -41,7 +42,7 @@ namespace BoletoNetCore
                 handler.ClientCertificates.Add(certificate);
                 this._httpClient = new HttpClient(new LoggingHandler(handler));
                 this._httpClient.BaseAddress = uri;
- 
+
                 return this._httpClient;
             }
         }
@@ -65,7 +66,7 @@ namespace BoletoNetCore
                 ["numeroCliente"] = boleto.Banco.Beneficiario.Codigo,
                 ["codigoModalidade"] = "1",
                 ["nossoNumero"] = boleto.NossoNumero,
-            }; 
+            };
 
             var uri = QueryHelpers.AddQueryString("boletos", query);
             var request = new HttpRequestMessage(HttpMethod.Get, uri);
@@ -125,7 +126,7 @@ namespace BoletoNetCore
             var x = await SolicitarMovimentacao(TipoMovimentacao.AVencer, int.Parse(boleto.Banco.Beneficiario.Codigo), new DateTime(2024, 07, 01), DateTime.Now);
             var y = await ConsultarStatusSolicitacaoMovimentacao(int.Parse(boleto.Banco.Beneficiario.Codigo), 123);
             var k = await DownloadArquivoMovimentacao(int.Parse(boleto.Banco.Beneficiario.Codigo), 123, 30025254);
-        } 
+        }
 
         public static int AjustaTipoJurosSicoob(TipoJuros tipo)
         {
@@ -186,7 +187,7 @@ namespace BoletoNetCore
             var emissao = new BoletoSicoobApi()
             {
                 // na V3 precisa enviar o digito verificador do código do beneficiário junto com o código (999999-9 = 9999999)
-                NumeroContrato = int.Parse(string.Format("{0}{1}",  boleto.Banco.Beneficiario.Codigo, boleto.Banco.Beneficiario.CodigoDV)),
+                NumeroContrato = int.Parse(string.Format("{0}{1}", boleto.Banco.Beneficiario.Codigo, boleto.Banco.Beneficiario.CodigoDV)),
                 // Modalidade = TipoFormaCadastramento.ComRegistro,
                 NumeroContaCorrente = int.Parse(boleto.Banco.Beneficiario.ContaBancaria.Conta + boleto.Banco.Beneficiario.ContaBancaria.DigitoConta),
                 EspecieDocumento = boleto.EspecieDocumento,
@@ -260,13 +261,20 @@ namespace BoletoNetCore
             // Jean: Em homologação, sempre recebe o mesmo retorno (hardcoded)
             var stringResponse = await response.Content.ReadAsStringAsync();
             var br = JsonConvert.DeserializeObject<ResponseSingleSicoobApi>(stringResponse, jsonSettings);
-                      
-            boleto.PixQrCode = br.Resultado?.QrCode;
+
+
+            boleto.PixEmv = br.Resultado?.QrCode;
+            using (QRCodeGenerator qrGenerator = new QRCodeGenerator())
+            using (QRCodeData qrCodeData = qrGenerator.CreateQrCode(br.Resultado.QrCode, QRCodeGenerator.ECCLevel.H))
+            using (Base64QRCode qrCode = new Base64QRCode(qrCodeData))
+            {
+                boleto.PixQrCode = qrCode.GetGraphic(1);
+            }
             boleto.PdfBase64 = br.Resultado?.PdfBoleto;
             boleto.CodigoBarra.CodigoDeBarras = br.Resultado?.CodigoBarras;
             boleto.NossoNumero = br.Resultado?.NossoNumero.ToString();
             boleto.CodigoBarra.LinhaDigitavel = br.Resultado?.LinhaDigitavel;
-            if (!string.IsNullOrEmpty(boleto.CodigoBarra.LinhaDigitavel)) 
+            if (!string.IsNullOrEmpty(boleto.CodigoBarra.LinhaDigitavel))
                 boleto.CodigoBarra.CampoLivre = $"{boleto.CodigoBarra.LinhaDigitavel.Substring(4, 5)}" +
                     $"{boleto.CodigoBarra.LinhaDigitavel.Substring(10, 10)}" +
                     $"{boleto.CodigoBarra.LinhaDigitavel.Substring(21, 10)}";
@@ -292,10 +300,10 @@ namespace BoletoNetCore
                 List<string> mensagens = new List<string>();
 
                 if (bad.Mensagens != null && bad.Mensagens.Length > 0)
-                foreach (var x in bad.Mensagens)
-                {
-                    mensagens.Add(string.Format("{0} - {1}", x.Codigo, x.Mensagem));
-                }
+                    foreach (var x in bad.Mensagens)
+                    {
+                        mensagens.Add(string.Format("{0} - {1}", x.Codigo, x.Mensagem));
+                    }
 
                 throw BoletoNetCoreException.ErroAoRegistrarTituloOnline(new Exception(string.Join("|", mensagens).Trim()));
             }
@@ -317,7 +325,7 @@ namespace BoletoNetCore
 					//Modalidade = TipoFormaCadastramento.ComRegistro
                 }
             };
-            
+
             request.Content = new StringContent(JsonConvert.SerializeObject(data, Formatting.None, new JsonSerializerSettings
             {
                 NullValueHandling = NullValueHandling.Ignore
@@ -343,7 +351,7 @@ namespace BoletoNetCore
             request.Headers.Add("Authorization", "Bearer " + Token);
             request.Headers.Add("client_id", ChaveApi);
             request.Headers.Add("Accept", "application/json");
-;
+            ;
             request.Content = new StringContent(JsonConvert.SerializeObject(data, Formatting.None, new JsonSerializerSettings
             {
                 NullValueHandling = NullValueHandling.Ignore,
@@ -447,378 +455,378 @@ namespace BoletoNetCore
         {
             throw new NotImplementedException();
         }
-        
-        
-    #region "online classes"
 
-    class SicoobDateTimeConverterApi : IsoDateTimeConverter
-    {
-        public SicoobDateTimeConverterApi()
+
+        #region "online classes"
+
+        class SicoobDateTimeConverterApi : IsoDateTimeConverter
         {
-            DateTimeFormat = "yyyy-MM-dd";
+            public SicoobDateTimeConverterApi()
+            {
+                DateTimeFormat = "yyyy-MM-dd";
+            }
         }
-    }
-
-    class BaseResponseSicoobApi
-    {
-        [JsonProperty("mensagens")]
-        public ResponseMensagemSicoobApi[] Mensagens { get; set; }
-    }
- 
-    class ResponseSingleSicoobApi : BaseResponseSicoobApi
-    {
-        [JsonProperty("resultado")]
-        public BoletoSicoobApi Resultado { get; set; }
-    }
-
-    public class ResponseBaixaSicoobApi
-    {
-        [JsonProperty("numeroCliente")]
-        public long NumeroContrato { get; set; }
-
-        [JsonProperty("modalidade")]
-        public long Modalidade { get; set; } 
-    }
-    
-    class ResponseMensagemSicoobApi
-    {
-        [JsonProperty("codigo")]
-        public string Codigo { get; set; }
-
-        [JsonProperty("mensagem")]
-        public string Mensagem { get; set; }
-    }
-
-    [JsonObject(MemberSerialization.OptIn)]
-    class AutenticacaoSicoobResponse
-    {
-        [JsonProperty("access_token")]
-        public string AccessToken { get; set; }
-    }
 
-    [JsonObject(MemberSerialization.OptIn)]
-    class BoletoSicoobApi
-    {
-        [JsonProperty("numeroCliente")]
-        public int NumeroContrato { get; set; }
+        class BaseResponseSicoobApi
+        {
+            [JsonProperty("mensagens")]
+            public ResponseMensagemSicoobApi[] Mensagens { get; set; }
+        }
 
-        [JsonProperty("codigoModalidade")]
-        public static TipoFormaCadastramento Modalidade { get { return TipoFormaCadastramento.ComRegistro; /* 1 - SIMPLES COM REGISTRO */ } }
+        class ResponseSingleSicoobApi : BaseResponseSicoobApi
+        {
+            [JsonProperty("resultado")]
+            public BoletoSicoobApi Resultado { get; set; }
+        }
 
-        [JsonProperty("numeroContaCorrente")]
-        public int NumeroContaCorrente { get; set; }
+        public class ResponseBaixaSicoobApi
+        {
+            [JsonProperty("numeroCliente")]
+            public long NumeroContrato { get; set; }
 
-        [JsonProperty("codigoEspecieDocumento")]
-        [JsonConverter(typeof(TipoEspecieDocumentoConverter))]
-        public TipoEspecieDocumento EspecieDocumento { get; set; }
+            [JsonProperty("modalidade")]
+            public long Modalidade { get; set; }
+        }
 
-        [JsonProperty("dataEmissao")]
-        [JsonConverter(typeof(SicoobDateTimeConverterApi))]
-        public DateTime DataEmissao { get; set; }
+        class ResponseMensagemSicoobApi
+        {
+            [JsonProperty("codigo")]
+            public string Codigo { get; set; }
 
-        [JsonProperty("nossoNumero")]
-        public int? NossoNumero { get; set; }
+            [JsonProperty("mensagem")]
+            public string Mensagem { get; set; }
+        }
 
-        [JsonProperty("seuNumero")]
-        public string SeuNumero { get; set; }
+        [JsonObject(MemberSerialization.OptIn)]
+        class AutenticacaoSicoobResponse
+        {
+            [JsonProperty("access_token")]
+            public string AccessToken { get; set; }
+        }
 
-        [JsonProperty("identificacaoBoletoEmpresa")]
-        public string IdentificacaoBoletoEmpresa { get; set; }
+        [JsonObject(MemberSerialization.OptIn)]
+        class BoletoSicoobApi
+        {
+            [JsonProperty("numeroCliente")]
+            public int NumeroContrato { get; set; }
 
-        [JsonProperty("identificacaoEmissaoBoleto")]
-        public int IdentificacaoEmissaoBoleto { get; set; }
+            [JsonProperty("codigoModalidade")]
+            public static TipoFormaCadastramento Modalidade { get { return TipoFormaCadastramento.ComRegistro; /* 1 - SIMPLES COM REGISTRO */ } }
 
-        [JsonProperty("identificacaoDistribuicaoBoleto")]
-        public int IdentificacaoDistribuicaoBoleto { get; set; }
+            [JsonProperty("numeroContaCorrente")]
+            public int NumeroContaCorrente { get; set; }
 
-        [JsonProperty("valor")]
-        public decimal Valor { get; set; }
+            [JsonProperty("codigoEspecieDocumento")]
+            [JsonConverter(typeof(TipoEspecieDocumentoConverter))]
+            public TipoEspecieDocumento EspecieDocumento { get; set; }
 
-        [JsonProperty("dataVencimento")]
-        [JsonConverter(typeof(SicoobDateTimeConverterApi))]
-        public DateTime DataVencimento { get; set; }
+            [JsonProperty("dataEmissao")]
+            [JsonConverter(typeof(SicoobDateTimeConverterApi))]
+            public DateTime DataEmissao { get; set; }
 
-        [JsonProperty("dataLimitePagamento")]
-        [JsonConverter(typeof(SicoobDateTimeConverterApi))]
-        public DateTime? DataLimitePagamento { get; set; }
+            [JsonProperty("nossoNumero")]
+            public int? NossoNumero { get; set; }
 
-        [JsonProperty("valorAbatimento")]
-        public decimal? ValorAbatimento { get; set; }
+            [JsonProperty("seuNumero")]
+            public string SeuNumero { get; set; }
 
-        [JsonProperty("tipoDesconto")]
-        public TipoDesconto TipoDesconto { get; set; }
+            [JsonProperty("identificacaoBoletoEmpresa")]
+            public string IdentificacaoBoletoEmpresa { get; set; }
 
-        [JsonProperty("dataPrimeiroDesconto")]
-        [JsonConverter(typeof(SicoobDateTimeConverterApi))]
-        public DateTime? DataPrimeiroDesconto { get; set; }
+            [JsonProperty("identificacaoEmissaoBoleto")]
+            public int IdentificacaoEmissaoBoleto { get; set; }
 
-        [JsonProperty("valorPrimeiroDesconto")]
-        public decimal? ValorPrimeiroDesconto { get; set; }
+            [JsonProperty("identificacaoDistribuicaoBoleto")]
+            public int IdentificacaoDistribuicaoBoleto { get; set; }
 
-        [JsonProperty("dataSegundoDesconto")]
-        [JsonConverter(typeof(SicoobDateTimeConverterApi))]
-        public DateTime? DataSegundoDesconto { get; set; }
+            [JsonProperty("valor")]
+            public decimal Valor { get; set; }
 
-        [JsonProperty("valorSegundoDesconto")]
-        public decimal? ValorSegundoDesconto { get; set; }
+            [JsonProperty("dataVencimento")]
+            [JsonConverter(typeof(SicoobDateTimeConverterApi))]
+            public DateTime DataVencimento { get; set; }
 
-        [JsonProperty("dataTerceiroDesconto")]
-        [JsonConverter(typeof(SicoobDateTimeConverterApi))]
-        public DateTime? DataTerceiroDesconto { get; set; }
+            [JsonProperty("dataLimitePagamento")]
+            [JsonConverter(typeof(SicoobDateTimeConverterApi))]
+            public DateTime? DataLimitePagamento { get; set; }
 
-        [JsonProperty("valorTerceiroDesconto")]
-        public decimal? ValorTerceiroDesconto { get; set; }
+            [JsonProperty("valorAbatimento")]
+            public decimal? ValorAbatimento { get; set; }
 
-        [JsonProperty("tipoMulta")]
-        public int TipoMulta { get; set; }
+            [JsonProperty("tipoDesconto")]
+            public TipoDesconto TipoDesconto { get; set; }
 
-        [JsonProperty("dataMulta")]
-        [JsonConverter(typeof(SicoobDateTimeConverterApi))]
-        public DateTime? DataMulta { get; set; }
+            [JsonProperty("dataPrimeiroDesconto")]
+            [JsonConverter(typeof(SicoobDateTimeConverterApi))]
+            public DateTime? DataPrimeiroDesconto { get; set; }
 
-        [JsonProperty("valorMulta")]
-        public decimal? ValorMulta { get; set; }
+            [JsonProperty("valorPrimeiroDesconto")]
+            public decimal? ValorPrimeiroDesconto { get; set; }
 
-        [JsonProperty("tipoJurosMora")]
-        public int TipoJurosMora { get; set; }
+            [JsonProperty("dataSegundoDesconto")]
+            [JsonConverter(typeof(SicoobDateTimeConverterApi))]
+            public DateTime? DataSegundoDesconto { get; set; }
 
-        [JsonProperty("dataJurosMora")]
-        [JsonConverter(typeof(SicoobDateTimeConverterApi))]
-        public DateTime? DataJurosMora { get; set; }
+            [JsonProperty("valorSegundoDesconto")]
+            public decimal? ValorSegundoDesconto { get; set; }
 
-        [JsonProperty("valorJurosMora")]
-        public decimal? ValorJurosMora { get; set; }
+            [JsonProperty("dataTerceiroDesconto")]
+            [JsonConverter(typeof(SicoobDateTimeConverterApi))]
+            public DateTime? DataTerceiroDesconto { get; set; }
 
-        [JsonProperty("numeroParcela")]
-        public int NumeroParcela { get; set; }
+            [JsonProperty("valorTerceiroDesconto")]
+            public decimal? ValorTerceiroDesconto { get; set; }
 
-        [JsonProperty("aceite")]
-        public bool? Aceite { get; set; }
+            [JsonProperty("tipoMulta")]
+            public int TipoMulta { get; set; }
 
-        [JsonProperty("codigoNegativacao")]
-        public TipoNegativacao? CodigoNegativacao { get; set; }
+            [JsonProperty("dataMulta")]
+            [JsonConverter(typeof(SicoobDateTimeConverterApi))]
+            public DateTime? DataMulta { get; set; }
 
-        [JsonProperty("numeroDiasNegativacao")]
-        public int? NumeroDiasNegativacao { get; set; }
+            [JsonProperty("valorMulta")]
+            public decimal? ValorMulta { get; set; }
 
-        [JsonProperty("codigoProtesto")]
-        public int? CodigoProtesto { get; set; }
+            [JsonProperty("tipoJurosMora")]
+            public int TipoJurosMora { get; set; }
 
-        [JsonProperty("numeroDiasProtesto")]
-        public int? NumeroDiasProtesto { get; set; }
+            [JsonProperty("dataJurosMora")]
+            [JsonConverter(typeof(SicoobDateTimeConverterApi))]
+            public DateTime? DataJurosMora { get; set; }
 
-        [JsonProperty("pagador")]
-        public PagadorSicoobApi Pagador { get; set; }
+            [JsonProperty("valorJurosMora")]
+            public decimal? ValorJurosMora { get; set; }
 
-        [JsonProperty("beneficiarioFinal")]
-        public BeneficiarioFinalSicoobApi BeneficiarioFinal { get; set; }
+            [JsonProperty("numeroParcela")]
+            public int NumeroParcela { get; set; }
 
-        [JsonProperty("mensagensInstrucao")]
-        public string[] MensagensInstrucao { get; set; }
+            [JsonProperty("aceite")]
+            public bool? Aceite { get; set; }
 
-        [JsonProperty("gerarPdf")]
-        public bool? GerarPdf { get; set; }
+            [JsonProperty("codigoNegativacao")]
+            public TipoNegativacao? CodigoNegativacao { get; set; }
 
-        [JsonProperty("rateioCreditos")]
-        public RateioCreditoSicoobApi[] RateioCreditos { get; set; }
+            [JsonProperty("numeroDiasNegativacao")]
+            public int? NumeroDiasNegativacao { get; set; }
 
-        [JsonProperty("codigoCadastrarPIX")]
-        public TipoCadastroPix? CodigoCadastrarPIX { get; set; }
+            [JsonProperty("codigoProtesto")]
+            public int? CodigoProtesto { get; set; }
 
-        [JsonProperty("numeroContratoCobranca")]
-        public int? NumeroContratoCobranca { get; set; }
+            [JsonProperty("numeroDiasProtesto")]
+            public int? NumeroDiasProtesto { get; set; }
 
-        //propriedades retorno
+            [JsonProperty("pagador")]
+            public PagadorSicoobApi Pagador { get; set; }
 
-        [JsonProperty("codigoBarras")]
-        public string CodigoBarras { get; set; }
+            [JsonProperty("beneficiarioFinal")]
+            public BeneficiarioFinalSicoobApi BeneficiarioFinal { get; set; }
 
-        [JsonProperty("linhaDigitavel")]
-        public string LinhaDigitavel { get; set; }
+            [JsonProperty("mensagensInstrucao")]
+            public string[] MensagensInstrucao { get; set; }
 
-        [JsonProperty("quantidadeDiasFloat")]
-        public int? QuantidadeDiasFloat { get; set; }
+            [JsonProperty("gerarPdf")]
+            public bool? GerarPdf { get; set; }
 
-        [JsonProperty("pdfBoleto")]
-        public string PdfBoleto { get; set; }
+            [JsonProperty("rateioCreditos")]
+            public RateioCreditoSicoobApi[] RateioCreditos { get; set; }
 
-        [JsonProperty("qrCode")]
-        public string QrCode { get; set; }
+            [JsonProperty("codigoCadastrarPIX")]
+            public TipoCadastroPix? CodigoCadastrarPIX { get; set; }
 
-        [JsonProperty("situacaoBoleto")]
-        public string SituacaoBoleto { get; set; }
+            [JsonProperty("numeroContratoCobranca")]
+            public int? NumeroContratoCobranca { get; set; }
 
-        [JsonProperty("listaHistorico")]
-        public ListaHistoricoSicoob[] ListaHistorico { get; set; }
-    }
+            //propriedades retorno
 
-    public partial class ListaHistoricoSicoob
-    {
-        [JsonProperty("dataHistorico")]
-        [JsonConverter(typeof(SicoobDateTimeConverterApi))]
-        public DateTime DataHistorico { get; set; }
+            [JsonProperty("codigoBarras")]
+            public string CodigoBarras { get; set; }
 
-        [JsonProperty("tipoHistorico")]
-        public string TipoHistorico { get; set; }
+            [JsonProperty("linhaDigitavel")]
+            public string LinhaDigitavel { get; set; }
 
-        [JsonProperty("descricaoHistorico")]
-        public string DescricaoHistorico { get; set; }
-    }
+            [JsonProperty("quantidadeDiasFloat")]
+            public int? QuantidadeDiasFloat { get; set; }
 
-    public class PagadorSicoobApi
-    {
-        [JsonProperty("numeroCpfCnpj")]
-        public string NumeroCpfCnpj { get; set; }
+            [JsonProperty("pdfBoleto")]
+            public string PdfBoleto { get; set; }
 
-        [JsonProperty("nome")]
-        public string Nome { get; set; }
+            [JsonProperty("qrCode")]
+            public string QrCode { get; set; }
 
-        [JsonProperty("endereco")]
-        public string Endereco { get; set; }
+            [JsonProperty("situacaoBoleto")]
+            public string SituacaoBoleto { get; set; }
 
-        [JsonProperty("bairro")]
-        public string Bairro { get; set; }
+            [JsonProperty("listaHistorico")]
+            public ListaHistoricoSicoob[] ListaHistorico { get; set; }
+        }
 
-        [JsonProperty("cidade")]
-        public string Cidade { get; set; }
+        public partial class ListaHistoricoSicoob
+        {
+            [JsonProperty("dataHistorico")]
+            [JsonConverter(typeof(SicoobDateTimeConverterApi))]
+            public DateTime DataHistorico { get; set; }
 
-        [JsonProperty("cep")]
-        public string Cep { get; set; }
+            [JsonProperty("tipoHistorico")]
+            public string TipoHistorico { get; set; }
 
-        [JsonProperty("uf")]
-        public string Uf { get; set; }
+            [JsonProperty("descricaoHistorico")]
+            public string DescricaoHistorico { get; set; }
+        }
 
-        [JsonProperty("email")]
-        public string Email { get; set; }
-    }
+        public class PagadorSicoobApi
+        {
+            [JsonProperty("numeroCpfCnpj")]
+            public string NumeroCpfCnpj { get; set; }
 
-    public class BeneficiarioFinalSicoobApi
-    {
-        [JsonProperty("numeroCpfCnpj")]
-        public string NumeroCpfCnpj { get; set; }
+            [JsonProperty("nome")]
+            public string Nome { get; set; }
 
-        [JsonProperty("nome")]
-        public string Nome { get; set; }
-    }
+            [JsonProperty("endereco")]
+            public string Endereco { get; set; }
 
-    public class MensagensInstrucaoSicoobApi
-    {
-        [JsonProperty("tipoInstrucao")]
-        public int TipoInstrucao { get { return 3; /* Corpo de Instruções da Ficha de Compensação do Bloqueto */ } }
+            [JsonProperty("bairro")]
+            public string Bairro { get; set; }
 
-        [JsonProperty("mensagens")]
-        public string[] Mensagens { get; set; }
-    }
+            [JsonProperty("cidade")]
+            public string Cidade { get; set; }
 
-    public class RateioCreditoSicoobApi
-    {
-        [JsonProperty("numeroBanco")]
-        public int NumeroBanco { get; set; }
+            [JsonProperty("cep")]
+            public string Cep { get; set; }
 
-        [JsonProperty("numeroAgencia")]
-        public int NumeroAgencia { get; set; }
+            [JsonProperty("uf")]
+            public string Uf { get; set; }
 
-        [JsonProperty("numeroContaCorrente")]
-        public int NumeroContaCorrente { get; set; }
+            [JsonProperty("email")]
+            public string Email { get; set; }
+        }
 
-        [JsonProperty("contaPrincipal")]
-        public bool ContaPrincipal { get; set; }
+        public class BeneficiarioFinalSicoobApi
+        {
+            [JsonProperty("numeroCpfCnpj")]
+            public string NumeroCpfCnpj { get; set; }
 
-        [JsonProperty("codigoTipoValorRateio")]
-        public int CodigoTipoValorRateio { get { return 1; /*1 - Percentual*/} }
+            [JsonProperty("nome")]
+            public string Nome { get; set; }
+        }
 
-        [JsonProperty("valorRateio")]
-        public decimal ValorRateio { get; set; }
+        public class MensagensInstrucaoSicoobApi
+        {
+            [JsonProperty("tipoInstrucao")]
+            public int TipoInstrucao { get { return 3; /* Corpo de Instruções da Ficha de Compensação do Bloqueto */ } }
 
-        [JsonProperty("codigoTipoCalculoRateio")]
-        public int CodigoTipoCalculoRateio { get { return 1; /*1 - Valor Cobrado*/} }
+            [JsonProperty("mensagens")]
+            public string[] Mensagens { get; set; }
+        }
 
-        [JsonProperty("numeroCpfCnpjTitular")]
-        public string NumeroCpfCnpjTitular { get; set; }
+        public class RateioCreditoSicoobApi
+        {
+            [JsonProperty("numeroBanco")]
+            public int NumeroBanco { get; set; }
 
-        [JsonProperty("nomeTitular")]
-        public string NomeTitular { get; set; }
+            [JsonProperty("numeroAgencia")]
+            public int NumeroAgencia { get; set; }
 
-        [JsonProperty("codigoFinalidadeTed")]
-        public int CodigoFinalidadeTed { get; set; }
+            [JsonProperty("numeroContaCorrente")]
+            public int NumeroContaCorrente { get; set; }
 
-        [JsonProperty("codigoTipoContaDestinoTed")]
-        [JsonConverter(typeof(TipoContaConverter))]
-        public TipoConta CodigoTipoContaDestinoTed { get; set; }
+            [JsonProperty("contaPrincipal")]
+            public bool ContaPrincipal { get; set; }
 
-        [JsonProperty("quantidadeDiasFloat")]
-        public int QuantidadeDiasFloat { get; set; }
+            [JsonProperty("codigoTipoValorRateio")]
+            public int CodigoTipoValorRateio { get { return 1; /*1 - Percentual*/} }
 
-        [JsonProperty("dataFloatCredito")]
-        [JsonConverter(typeof(SicoobDateTimeConverterApi))]
-        public DateTime DataFloatCredito { get; set; }
-    }
+            [JsonProperty("valorRateio")]
+            public decimal ValorRateio { get; set; }
 
-    public class BaixaBoletoSicoobApi
-    {
-        [JsonProperty("numeroCliente")]
-        public int NumeroContrato { get; set; }
+            [JsonProperty("codigoTipoCalculoRateio")]
+            public int CodigoTipoCalculoRateio { get { return 1; /*1 - Valor Cobrado*/} }
 
-        [JsonProperty("codigoModalidade")]
-        public static TipoFormaCadastramento Modalidade { get { return TipoFormaCadastramento.ComRegistro; /* 1 - SIMPLES COM REGISTRO */ } }
+            [JsonProperty("numeroCpfCnpjTitular")]
+            public string NumeroCpfCnpjTitular { get; set; }
 
-        [JsonProperty("nossoNumero")]
-        public int NossoNumero { get; set; }
+            [JsonProperty("nomeTitular")]
+            public string NomeTitular { get; set; }
 
-        [JsonProperty("seuNumero")]
-        public string SeuNumero { get; set; }
-    }
+            [JsonProperty("codigoFinalidadeTed")]
+            public int CodigoFinalidadeTed { get; set; }
 
-    public class SolicitarMovimentacaoSicoobApi
-    {
-        [JsonProperty("numeroCliente")]
-        public int NumeroContrato { get; set; }
+            [JsonProperty("codigoTipoContaDestinoTed")]
+            [JsonConverter(typeof(TipoContaConverter))]
+            public TipoConta CodigoTipoContaDestinoTed { get; set; }
 
-        [JsonProperty("tipoMovimento")]
-        public TipoMovimentacao TipoMovimento { get; set; }
+            [JsonProperty("quantidadeDiasFloat")]
+            public int QuantidadeDiasFloat { get; set; }
 
-        [JsonProperty("dataInicial")]
-        [JsonConverter(typeof(SicoobDateTimeConverterApi))]
-        public DateTime DataInicial { get; set; }
+            [JsonProperty("dataFloatCredito")]
+            [JsonConverter(typeof(SicoobDateTimeConverterApi))]
+            public DateTime DataFloatCredito { get; set; }
+        }
 
-        [JsonProperty("dataFinal")]
-        [JsonConverter(typeof(SicoobDateTimeConverterApi))]
-        public DateTime DataFinal { get; set; }
-    }
+        public class BaixaBoletoSicoobApi
+        {
+            [JsonProperty("numeroCliente")]
+            public int NumeroContrato { get; set; }
 
-    public class SolicitarMovimentacaoResultado
-    {
-        [JsonProperty("quantidadeTotalRegistros")]
-        public string QuantidadeTotalRegistros { get; set; }
+            [JsonProperty("codigoModalidade")]
+            public static TipoFormaCadastramento Modalidade { get { return TipoFormaCadastramento.ComRegistro; /* 1 - SIMPLES COM REGISTRO */ } }
 
-        [JsonProperty("quantidadeRegistrosArquivo")]
-        public int QuantidadeRegistrosArquivo { get; set; }
+            [JsonProperty("nossoNumero")]
+            public int NossoNumero { get; set; }
 
-        [JsonProperty("quantidadeArquivo")]
-        public int QuantidadeArquivo { get; set; }
+            [JsonProperty("seuNumero")]
+            public string SeuNumero { get; set; }
+        }
 
-        [JsonProperty("idArquivos")]
-        public int[] IdArquivos { get; set; }
-        
-        [JsonProperty("mensagem")]
-        public string Mensagem { get; set; }
+        public class SolicitarMovimentacaoSicoobApi
+        {
+            [JsonProperty("numeroCliente")]
+            public int NumeroContrato { get; set; }
 
-        [JsonProperty("codigoSolicitacao")]
-        public int CodigoSolicitacao { get; set; }
-        
-        [JsonProperty("arquivo")]
-        public string Arquivo { get; set; }
-        
-        [JsonProperty("nomeArquivo")]
-        public string NomeArquivo { get; set; }
-    }
+            [JsonProperty("tipoMovimento")]
+            public TipoMovimentacao TipoMovimento { get; set; }
 
-    class SolicitarMovimentacaoResponseSicoobApi : BaseResponseSicoobApi
-    {
-        [JsonProperty("resultado")]
-        public SolicitarMovimentacaoResultado Resultado { get; set; }
-    }
-    #endregion
+            [JsonProperty("dataInicial")]
+            [JsonConverter(typeof(SicoobDateTimeConverterApi))]
+            public DateTime DataInicial { get; set; }
+
+            [JsonProperty("dataFinal")]
+            [JsonConverter(typeof(SicoobDateTimeConverterApi))]
+            public DateTime DataFinal { get; set; }
+        }
+
+        public class SolicitarMovimentacaoResultado
+        {
+            [JsonProperty("quantidadeTotalRegistros")]
+            public string QuantidadeTotalRegistros { get; set; }
+
+            [JsonProperty("quantidadeRegistrosArquivo")]
+            public int QuantidadeRegistrosArquivo { get; set; }
+
+            [JsonProperty("quantidadeArquivo")]
+            public int QuantidadeArquivo { get; set; }
+
+            [JsonProperty("idArquivos")]
+            public int[] IdArquivos { get; set; }
+
+            [JsonProperty("mensagem")]
+            public string Mensagem { get; set; }
+
+            [JsonProperty("codigoSolicitacao")]
+            public int CodigoSolicitacao { get; set; }
+
+            [JsonProperty("arquivo")]
+            public string Arquivo { get; set; }
+
+            [JsonProperty("nomeArquivo")]
+            public string NomeArquivo { get; set; }
+        }
+
+        class SolicitarMovimentacaoResponseSicoobApi : BaseResponseSicoobApi
+        {
+            [JsonProperty("resultado")]
+            public SolicitarMovimentacaoResultado Resultado { get; set; }
+        }
+        #endregion
     }
 }
 
