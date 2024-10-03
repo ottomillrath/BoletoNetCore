@@ -20,9 +20,8 @@ namespace BoletoNetCore
         {
             string nossoNumero = boleto.NossoNumero;
             boleto.NossoNumeroDV = Mod11(Sequencial(boleto)).ToString();
-            string conta = Utils.FormatCode(boleto.Banco.Beneficiario.ContaBancaria.Conta + boleto.Banco.Beneficiario.ContaBancaria.DigitoConta, 8);
             boleto.NossoNumero = Sequencial(boleto);
-            boleto.NossoNumeroFormatado = string.Format("{0}/{1}", conta, nossoNumero);
+            boleto.NossoNumeroFormatado = string.Format("01 / {0}", nossoNumero);
         }
          
         private string Mod11(string seq)

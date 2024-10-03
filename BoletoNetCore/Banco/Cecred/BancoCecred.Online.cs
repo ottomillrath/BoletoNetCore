@@ -333,6 +333,8 @@ namespace BoletoNetCore
 
             var boletoEmitido = await response.Content.ReadFromJsonAsync<AilosRegistraBoletoResponse>();
             boleto.NossoNumero = boletoEmitido.Boleto.Documento.NossoNumero;
+            boleto.CodigoBarra.CodigoDeBarras = boletoEmitido.Boleto.CodigoBarras.CodigoBarras;
+            boleto.CodigoBarra.LinhaDigitavel = boletoEmitido.Boleto.CodigoBarras.LinhaDigitavel; 
             return boleto.Id;
         }
 
@@ -768,7 +770,10 @@ namespace BoletoNetCore
         public int IndicadorSituacaoBoleto { get; set; }
 
         [JsonPropertyName("situacaoProcessoDda")]
-        public int SituacaoProcessoDda { get; set; } 
+        public int SituacaoProcessoDda { get; set; }
+
+        [JsonPropertyName("codigoBarras")]
+        public AilosCodigoBarras CodigoBarras { get; set; }
     }
 
 
