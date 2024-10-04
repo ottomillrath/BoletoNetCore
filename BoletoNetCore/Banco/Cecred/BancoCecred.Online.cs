@@ -77,27 +77,26 @@ namespace BoletoNetCore
         private readonly static string Scopes = "boletos_inclusao boletos_consulta boletos_alteracao";
         #endregion
 
-        /*
-         *  // usado para testar
-         *  string tokenWso2teste = "bbbb1a6e-b94d-3c05-b402-b1ebd0fb3233";
-         *  string tokenTeste = "eyJhbGciOiJIUzUxMiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI0NmQ0YjYxNy0zYjVlLTQzOTYtODdiYy1lM2U3YjU5Nzg4YTEiLCJzdWIiOiJhaUhOcWlrUFBKSStDMXdablhYa3Q3cmJ6N0x0Tzh5UkF6YjltU1BxYityZ3g2YWNkMUR0TTJOTXhycW13ZG4yZHBJUW1zZU03bVR5Y2pnUFJiWWZuVlAyTktGS1FaNm5IN25lMGdaTStjNFhyUkY3RUpoQUF2eCtNUlJvL1RzS3AwR29iK2ZGbHQ4K2kvcFlhTlEzOVF5WitNeU51U2s1dDFwOU1sbGVaTVlsajRmTFN5WGw5dVJwcjNDN0RaSGdtY1pDY0NsVVVwRDFxa0FIaEFIdWhIbkV1Uk5lMDJmTzB2NnVDN3hTTWc2b3FBbjdSODgwalR0OHlkMFV3eUdzYWRkYjZiRzJWUXE1OGg0U0cwU0ZWQUZ1c0tNeHp4eFZkM2ZuQkl3cXRGdENiODErTDFzVGY3a2FpazVVWHVKejkxZSt2L3JEcEVLa3FlQ21NdUdCdDFYTWpNVkJsekVKQnMwdUxGSW5VVlE9IiwibmJmIjoxNzI3NzgyNzYyLCJleHAiOjE3Mjc3ODQ1NjIsImlhdCI6MTcyNzc4Mjc2Mn0.M13xXmIXVfPaecfwof0xwsxZ1kyaNJ6N0tOiPleqYLnzN5awiLrRnnFVi6mG5iT2-0W0M2VJKiztZdtiqHge1Q";
-         */
+        
+         // usado para testar
+         string tokenWso2teste = "f8277900-eb83-35cd-9531-3cc03d68b07e";
+         string tokenTeste = "eyJhbGciOiJIUzUxMiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiJjZGVmYmFjYy1lYTlkLTQ2NWUtYWY5Zi05NzUzZWFiMjQ4NWQiLCJzdWIiOiJhaUhOcWlrUFBKSStDMXdablhYa3Q3cmJ6N0x0Tzh5UkF6YjltU1BxYityZ3g2YWNkMUR0TTJOTXhycW13ZG4yZHBJUW1zZU03bVR5Y2pnUFJiWWZuVlAyTktGS1FaNm5IN25lMGdaTStjNFhyUkY3RUpoQUF2eCtNUlJvL1RzS3AwR29iK2ZGbHQ4K2kvcFlhTlEzOVF5WitNeU51U2s1dDFwOU1sbGVaTVlsajRmTFN5WGw5dVJwcjNDN0RaSGdtY1pDY0NsVVVwRDFxa0FIaEFIdWhIbkV1Uk5lMDJmTzB2NnVDN3hTTWc2b3FBbjdSODgwalR0OHlkMFV3eUdzYWRkYjZiRzJWUXE1OGg0U0cwU0ZWQUZ1c0tNeHp4eFZkM2ZuQkl3cXRGdENiODErTDFzVGY3a2FpazVVWHVKejkxZSt2L3JEcEVLa3FlQ21NdUdCdDFYTWpNVkJsekVKQnMwdUxGSW5VVlE9IiwibmJmIjoxNzI4MDUxODkwLCJleHAiOjE3MjgwNTM2OTAsImlhdCI6MTcyODA1MTg5MH0.iVGtAKYR8AmAvF92hc4Hg79e8_55DpD4iPpRZMlI7HGrqMufFqR8R0M5tvJN4K5NubmaWbUESgFyzMAMaa2mWQ";
+        
 
         public async Task<string> GerarToken()
         {
-            /*  // usado para testar
-             *  if (true) 
-             *    {
-             *        using (TokenCache tokenCache = new TokenCache())
-             *        {
-             *            this.Token = tokenTeste;
-             *            this.TokenWso2 = tokenWso2teste;
-             *            tokenCache.AddOrUpdateToken($"{Id}", tokenTeste, DateTime.Now.AddHours(1));
-             *            tokenCache.AddOrUpdateToken($"{Id}-WSO2", tokenWso2teste, DateTime.Now.AddHours(1));
-             *        }
-             *        return tokenTeste;
-             *    }
-             */
+            // usado para testar
+            if (true) 
+               {
+                   using (TokenCache tokenCache = new TokenCache())
+                   {
+                       this.Token = tokenTeste;
+                       this.TokenWso2 = tokenWso2teste;
+                       tokenCache.AddOrUpdateToken($"{Id}", tokenTeste, DateTime.Now.AddHours(1));
+                       tokenCache.AddOrUpdateToken($"{Id}-WSO2", tokenWso2teste, DateTime.Now.AddHours(1));
+                   }
+                   return tokenTeste;
+               } 
 
             using (TokenCache tokenCache = new TokenCache())
             {
@@ -150,10 +149,11 @@ namespace BoletoNetCore
 
             // ETAPA 2: token jwt
             request = new HttpRequestMessage(HttpMethod.Post, authUrlJwt);
-             
+
             var requestBody = new
             {
-                urlCallback = $"https://ailos-boleto-token.zionerp.com.br/{(this as IBanco).Subdomain}",
+                urlCallback = $"https://eobd34eg5ac16vk.m.pipedream.net/token",
+                //urlCallback = $"https://ailos-boleto-token.zionerp.com.br/{(this as IBanco).Subdomain}",
                 ailosApiKeyDeveloper = "1f823198-096c-03d2-e063-0a29143552f3",
                 state = Id.ToString()
             };
@@ -196,7 +196,7 @@ namespace BoletoNetCore
 
             emissao.ConvenioCobranca = new AilosConvenioCobranca
             {
-                NumeroConvenioCobranca = int.Parse(boleto.Banco.Beneficiario.ContaBancaria.OperacaoConta),
+                NumeroConvenioCobranca = int.Parse(boleto.Banco.Beneficiario.Codigo),
                 CodigoCarteiraCobranca = int.Parse(boleto.Carteira)
             };
 
@@ -321,7 +321,7 @@ namespace BoletoNetCore
                 ValorTitulo = boleto.ValorTitulo
             };  
 
-            var request = new HttpRequestMessage(HttpMethod.Post, $"boletos/gerar/boleto/convenios/{boleto.Banco.Beneficiario.ContaBancaria.OperacaoConta}");
+            var request = new HttpRequestMessage(HttpMethod.Post, $"boletos/gerar/boleto/convenios/{boleto.Banco.Beneficiario.Codigo}");
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", this.TokenWso2);
             request.Headers.Add("x-ailos-authentication", $"Bearer {this.Token}");
             request.Content = new StringContent(Newtonsoft.Json.JsonConvert.SerializeObject(emissao), Encoding.UTF8, "application/json");
@@ -331,10 +331,13 @@ namespace BoletoNetCore
 
             var responseString = await response.Content.ReadAsStringAsync();
 
-            var boletoEmitido = await response.Content.ReadFromJsonAsync<AilosRegistraBoletoResponse>();
-            boleto.NossoNumero = boletoEmitido.Boleto.Documento.NossoNumero;
+            var boletoEmitido = await response.Content.ReadFromJsonAsync<AilosRegistraBoletoResponse>(); 
+            boleto.NossoNumero = boletoEmitido.Boleto.Documento.NossoNumero.Substring(0,16);
+            boleto.NossoNumeroDV = boletoEmitido.Boleto.Documento.NossoNumero.Substring(16, 1);
             boleto.CodigoBarra.CodigoDeBarras = boletoEmitido.Boleto.CodigoBarras.CodigoBarras;
-            boleto.CodigoBarra.LinhaDigitavel = boletoEmitido.Boleto.CodigoBarras.LinhaDigitavel; 
+            boleto.CodigoBarra.LinhaDigitavel = boletoEmitido.Boleto.CodigoBarras.LinhaDigitavel;
+            boleto.CodigoBarra.CampoLivre = $"{boleto.CodigoBarra.CodigoDeBarras.Substring(4, 5)}{boleto.CodigoBarra.CodigoDeBarras.Substring(10, 10)}{boleto.CodigoBarra.CodigoDeBarras.Substring(21, 10)}";
+
             return boleto.Id;
         }
 

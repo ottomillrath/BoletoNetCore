@@ -12,7 +12,10 @@ namespace BoletoNetCore
         internal static Lazy<ICarteira<BancoCecred>> Instance { get; } = new Lazy<ICarteira<BancoCecred>>(() => new BancoCecredCarteira1());
 
         public string FormataCodigoBarraCampoLivre(Boleto boleto)
-        { 
+        {
+            if (!string.IsNullOrEmpty(boleto.CodigoBarra.CampoLivre))
+                return boleto.CodigoBarra.CampoLivre;
+
             return boleto.NossoNumero.PadLeft(25, '0');
         }
 
