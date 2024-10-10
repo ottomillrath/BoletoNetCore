@@ -1,4 +1,4 @@
-using BoletoNetCore.Util;
+using BoletoNetCore.Extensions; 
 using System;
 
 namespace BoletoNetCore
@@ -80,7 +80,10 @@ namespace BoletoNetCore
 		{
 			get
 			{
-				string codigoSemDv = string.Format("{0}{1}{2}{3}{4}",
+                if (CodigoBanco == "085") // ailos
+                    return CodigoDeBarras.CalcularDVAilos();
+                 
+                string codigoSemDv = string.Format("{0}{1}{2}{3}{4}",
 									  CodigoBanco,
 									  Moeda,
 									  FatorVencimento,

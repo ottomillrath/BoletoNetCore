@@ -333,8 +333,10 @@ namespace BoletoNetCore
             var boletoEmitido = await response.Content.ReadFromJsonAsync<AilosRegistraBoletoResponse>(); 
             boleto.NossoNumero = boletoEmitido.Boleto.Documento.NossoNumero.Substring(0,16);
             boleto.NossoNumeroDV = boletoEmitido.Boleto.Documento.NossoNumero.Substring(16, 1);
+            boleto.NossoNumeroFormatado = boletoEmitido.Boleto.Documento.NossoNumero;
             boleto.CodigoBarra.CodigoDeBarras = boletoEmitido.Boleto.CodigoBarras.CodigoBarras;
             boleto.CodigoBarra.LinhaDigitavel = boletoEmitido.Boleto.CodigoBarras.LinhaDigitavel;
+            boleto.CodigoBarra.DigitoVerificador = boletoEmitido.
             boleto.CodigoBarra.CampoLivre = $"{boleto.CodigoBarra.CodigoDeBarras.Substring(4, 5)}{boleto.CodigoBarra.CodigoDeBarras.Substring(10, 10)}{boleto.CodigoBarra.CodigoDeBarras.Substring(21, 10)}";
 
             return boleto.Id;

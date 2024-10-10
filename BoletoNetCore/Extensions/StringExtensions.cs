@@ -229,5 +229,40 @@ namespace BoletoNetCore.Extensions
 
             return digitoFinal.ToString();
         }
+
+        public static string CalcularDVAilos(this string codigo)
+        { 
+            int[] pesos = { 4, 3, 2, 9, 8, 7, 6, 5 };
+
+            int soma = 0;
+            int indicePeso = 0;
+             
+            for (int i = codigo.Length - 1; i >= 0; i--)
+            {
+                int digito = int.Parse(codigo[i].ToString());
+                soma += digito * pesos[indicePeso];
+                 
+                indicePeso = (indicePeso + 1) % pesos.Length;
+            }
+             
+            int resto = soma % 11;
+             
+            int dv;
+            if (resto == 0 || resto == 1)
+            {
+                dv = 0;
+            }
+            else if (resto == 10)
+            {
+                dv = 1;
+            }
+            else
+            {
+                dv = 11 - resto;
+            }
+
+            return dv.ToString();
+        }
+
     }
 }
