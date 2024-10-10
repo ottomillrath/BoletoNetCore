@@ -336,7 +336,6 @@ namespace BoletoNetCore
             boleto.NossoNumeroFormatado = boletoEmitido.Boleto.Documento.NossoNumero;
             boleto.CodigoBarra.CodigoDeBarras = boletoEmitido.Boleto.CodigoBarras.CodigoBarras;
             boleto.CodigoBarra.LinhaDigitavel = boletoEmitido.Boleto.CodigoBarras.LinhaDigitavel;
-            boleto.CodigoBarra.DigitoVerificador = boletoEmitido.
             boleto.CodigoBarra.CampoLivre = $"{boleto.CodigoBarra.CodigoDeBarras.Substring(4, 5)}{boleto.CodigoBarra.CodigoDeBarras.Substring(10, 10)}{boleto.CodigoBarra.CodigoDeBarras.Substring(21, 10)}";
 
             return boleto.Id;
