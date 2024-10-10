@@ -63,7 +63,7 @@ namespace BoletoNetCore
         {
             var query = new Dictionary<string, string>()
             {
-                ["numeroCliente"] = boleto.Banco.Beneficiario.Codigo,
+                ["numeroCliente"] = string.Format("{0}{1}", boleto.Banco.Beneficiario.Codigo, boleto.Banco.Beneficiario.CodigoDV),
                 ["codigoModalidade"] = "1",
                 ["nossoNumero"] = boleto.NossoNumero,
             };
@@ -264,11 +264,14 @@ namespace BoletoNetCore
 
 
             boleto.PixEmv = br.Resultado?.QrCode;
-            using (QRCodeGenerator qrGenerator = new QRCodeGenerator())
-            using (QRCodeData qrCodeData = qrGenerator.CreateQrCode(br.Resultado.QrCode, QRCodeGenerator.ECCLevel.H))
-            using (Base64QRCode qrCode = new Base64QRCode(qrCodeData))
+            if (!string.IsNullOrEmpty(boleto.PixEmv))
             {
-                boleto.PixQrCode = qrCode.GetGraphic(1);
+                using (QRCodeGenerator qrGenerator = new QRCodeGenerator())
+                using (QRCodeData qrCodeData = qrGenerator.CreateQrCode(br.Resultado.QrCode, QRCodeGenerator.ECCLevel.H))
+                using (Base64QRCode qrCode = new Base64QRCode(qrCodeData))
+                {
+                    boleto.PixQrCode = qrCode.GetGraphic(1);
+                }
             }
             boleto.PdfBase64 = br.Resultado?.PdfBoleto;
             boleto.CodigoBarra.CodigoDeBarras = br.Resultado?.CodigoBarras;
