@@ -4,7 +4,7 @@ using System.Collections.Generic;
 using System.Net;
 using System.Net.Http;
 using Newtonsoft.Json;
-
+using BoletoNetCore.Extensions;
 using System.Threading.Tasks;
 using BoletoNetCore.Exceptions;
 using Microsoft.AspNetCore.WebUtilities;
@@ -277,6 +277,7 @@ namespace BoletoNetCore
             boleto.CodigoBarra.CodigoDeBarras = br.Resultado?.CodigoBarras;
             boleto.NossoNumero = br.Resultado?.NossoNumero.ToString();
             boleto.CodigoBarra.LinhaDigitavel = br.Resultado?.LinhaDigitavel;
+            FormataNossoNumero(boleto);
             if (!string.IsNullOrEmpty(boleto.CodigoBarra.LinhaDigitavel))
                 boleto.CodigoBarra.CampoLivre = $"{boleto.CodigoBarra.LinhaDigitavel.Substring(4, 5)}" +
                     $"{boleto.CodigoBarra.LinhaDigitavel.Substring(10, 10)}" +
@@ -428,7 +429,13 @@ namespace BoletoNetCore
 
         public void FormataNossoNumero(Boleto boleto)
         {
-            throw new NotImplementedException();
+            var beneficiario = boleto.Banco.Beneficiario;
+            boleto.NossoNumero = boleto.NossoNumero.PadLeft(7, '0');
+
+            // Base para calcular DV: Agencia (4 caracteres) Código do Beneficiário com dígito (10 caracteres) Nosso Número (7 caracteres)
+            var baseCalculoDV = $"{beneficiario.ContaBancaria.Agencia}{beneficiario.Codigo.PadLeft(9, '0')}{beneficiario.CodigoDV}{boleto.NossoNumero}";
+            boleto.NossoNumeroDV = baseCalculoDV.CalcularDVSicoob();
+            boleto.NossoNumeroFormatado = $"{boleto.NossoNumero}-{boleto.NossoNumeroDV}";
         }
 
         public void ValidaBoleto(Boleto boleto)
