@@ -79,10 +79,7 @@ namespace BoletoNetCore
 		public string DigitoVerificador
 		{
 			get
-			{
-                if (CodigoBanco == "085") // ailos
-                    return CodigoDeBarras.CalcularDVAilos();
-                 
+            { 
                 string codigoSemDv = string.Format("{0}{1}{2}{3}{4}",
 									  CodigoBanco,
 									  Moeda,
