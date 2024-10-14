@@ -323,14 +323,10 @@ namespace BoletoNetCore
             request.Headers.Add("client_id", ChaveApi);
             request.Headers.Add("Accept", "application/json");
 
-            BaixaBoletoSicoobApi[] data = new BaixaBoletoSicoobApi[]
+            BaixaBoletoSicoobApi data = new BaixaBoletoSicoobApi
             {
-                new(){
-                    NumeroContrato = int.Parse(boleto.Banco.Beneficiario.Codigo),
-
-					//Modalidade = TipoFormaCadastramento.ComRegistro
-                    NossoNumero = nossonumero,
-                }
+                NumeroContrato = int.Parse(string.Format("{0}{1}", boleto.Banco.Beneficiario.Codigo, boleto.Banco.Beneficiario.CodigoDV)),
+                //Modalidade = TipoFormaCadastramento.ComRegistro
             };
 
             request.Content = new StringContent(JsonConvert.SerializeObject(data, Formatting.None, new JsonSerializerSettings
@@ -779,12 +775,6 @@ namespace BoletoNetCore
 
             [JsonProperty("codigoModalidade")]
             public static TipoFormaCadastramento Modalidade { get { return TipoFormaCadastramento.ComRegistro; /* 1 - SIMPLES COM REGISTRO */ } }
-
-            [JsonProperty("nossoNumero")]
-            public int NossoNumero { get; set; }
-
-            [JsonProperty("seuNumero")]
-            public string SeuNumero { get; set; }
         }
 
         public class SolicitarMovimentacaoSicoobApi
