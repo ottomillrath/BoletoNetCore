@@ -317,7 +317,8 @@ namespace BoletoNetCore
 
         public async Task<string> CancelarBoleto(Boleto boleto)
         {
-            var request = new HttpRequestMessage(HttpMethod.Patch, $"boletos/{boleto.NossoNumero}{boleto.NossoNumeroDV}/baixar");
+            var nossonumero = int.Parse($"{boleto.NossoNumero}{boleto.NossoNumeroDV}");
+            var request = new HttpRequestMessage(HttpMethod.Post, $"boletos/{nossonumero}/baixar");
             request.Headers.Add("Authorization", "Bearer " + Token);
             request.Headers.Add("client_id", ChaveApi);
             request.Headers.Add("Accept", "application/json");
@@ -326,7 +327,9 @@ namespace BoletoNetCore
             {
                 new(){
                     NumeroContrato = int.Parse(boleto.Banco.Beneficiario.Codigo),
+
 					//Modalidade = TipoFormaCadastramento.ComRegistro
+                    NossoNumero = nossonumero,
                 }
             };
 
