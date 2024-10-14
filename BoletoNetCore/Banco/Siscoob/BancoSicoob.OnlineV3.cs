@@ -65,7 +65,7 @@ namespace BoletoNetCore
             {
                 ["numeroCliente"] = string.Format("{0}{1}", boleto.Banco.Beneficiario.Codigo, boleto.Banco.Beneficiario.CodigoDV),
                 ["codigoModalidade"] = "1",
-                ["nossoNumero"] = boleto.NossoNumero,
+                ["nossoNumero"] = string.Format("{0}{1}", boleto.NossoNumero, boleto.NossoNumeroDV),
             };
 
             var uri = QueryHelpers.AddQueryString("boletos", query);
@@ -317,7 +317,7 @@ namespace BoletoNetCore
 
         public async Task<string> CancelarBoleto(Boleto boleto)
         {
-            var request = new HttpRequestMessage(HttpMethod.Patch, $"boletos/{boleto.NossoNumero}/baixar");
+            var request = new HttpRequestMessage(HttpMethod.Patch, $"boletos/{boleto.NossoNumero}{boleto.NossoNumeroDV}/baixar");
             request.Headers.Add("Authorization", "Bearer " + Token);
             request.Headers.Add("client_id", ChaveApi);
             request.Headers.Add("Accept", "application/json");
@@ -429,12 +429,9 @@ namespace BoletoNetCore
 
         public void FormataNossoNumero(Boleto boleto)
         {
-            var beneficiario = boleto.Banco.Beneficiario;
-            boleto.NossoNumero = boleto.NossoNumero.PadLeft(7, '0');
-
-            // Base para calcular DV: Agencia (4 caracteres) Código do Beneficiário com dígito (10 caracteres) Nosso Número (7 caracteres)
-            var baseCalculoDV = $"{beneficiario.ContaBancaria.Agencia}{beneficiario.Codigo.PadLeft(9, '0')}{beneficiario.CodigoDV}{boleto.NossoNumero}";
-            boleto.NossoNumeroDV = baseCalculoDV.CalcularDVSicoob();
+            var fullNosso = boleto.NossoNumero.PadLeft(8, '0');
+            boleto.NossoNumero = fullNosso.Substring(0, 7);
+            boleto.NossoNumeroDV = fullNosso.Substring(7, 1);
             boleto.NossoNumeroFormatado = $"{boleto.NossoNumero}-{boleto.NossoNumeroDV}";
         }
 
