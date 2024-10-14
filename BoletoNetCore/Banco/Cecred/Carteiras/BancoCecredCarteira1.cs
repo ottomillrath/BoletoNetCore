@@ -20,11 +20,8 @@ namespace BoletoNetCore
         }
 
         public void FormataNossoNumero(Boleto boleto)
-        {
-            string nossoNumero = boleto.NossoNumero;
-            boleto.NossoNumeroDV = Mod11(Sequencial(boleto)).ToString();
-            boleto.NossoNumero = Sequencial(boleto);
-            boleto.NossoNumeroFormatado = string.Format("01 / {0}", nossoNumero);
+        { 
+            boleto.NossoNumeroFormatado = string.Format("01 / {0}", boleto.NossoNumeroFormatado); // Carteira / NN
         }
          
         private string Mod11(string seq)
