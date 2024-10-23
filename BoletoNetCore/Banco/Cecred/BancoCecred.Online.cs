@@ -180,7 +180,7 @@ namespace BoletoNetCore
 
             var operacao = (this as IBanco).Beneficiario.ContaBancaria.OperacaoConta;
 
-            if (string.IsNullOrEmpty(operacao) || !operacao.Contains(":"))
+            if (string.IsNullOrEmpty(operacao) || !operacao.Contains(":")) // essa é uma solução temporária, vamos criar uma tela para solicitar esses valores e salvar em uma config
             {
                 throw BoletoNetCoreException.ErroAoRegistrarTituloOnline(new Exception("Preencha a operação do boleto com o login e senha do cooperado no formato login:senha (somente números)"));
             }
@@ -189,7 +189,7 @@ namespace BoletoNetCore
 
             var formData = new FormUrlEncodedContent(new[]
             {
-                new KeyValuePair<string, string>("Login.CodigoCooperativa", "14"),
+                new KeyValuePair<string, string>("Login.CodigoCooperativa", "14"), // 14 é a cooperativa Evolua
                 new KeyValuePair<string, string>("Login.CodigoConta", login[0]),
                 new KeyValuePair<string, string>("Login.Senha", login[1])
             }); 
