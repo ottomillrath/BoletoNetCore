@@ -21,6 +21,7 @@ using System.Text;
 using System.Text.Encodings.Web;
 using Microsoft.AspNetCore.Mvc.ViewFeatures;
 using System.ComponentModel.DataAnnotations;
+using System.Threading;
 
 namespace BoletoNetCore
 {
@@ -76,27 +77,9 @@ namespace BoletoNetCore
         public uint VersaoApi { get; set; }
         private readonly static string Scopes = "boletos_inclusao boletos_consulta boletos_alteracao";
         #endregion
-
-        
-         // usado para testar
-         //string tokenWso2teste = "f8277900-eb83-35cd-9531-3cc03d68b07e";
-         //string tokenTeste = "eyJhbGciOiJIUzUxMiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiJjZGVmYmFjYy1lYTlkLTQ2NWUtYWY5Zi05NzUzZWFiMjQ4NWQiLCJzdWIiOiJhaUhOcWlrUFBKSStDMXdablhYa3Q3cmJ6N0x0Tzh5UkF6YjltU1BxYityZ3g2YWNkMUR0TTJOTXhycW13ZG4yZHBJUW1zZU03bVR5Y2pnUFJiWWZuVlAyTktGS1FaNm5IN25lMGdaTStjNFhyUkY3RUpoQUF2eCtNUlJvL1RzS3AwR29iK2ZGbHQ4K2kvcFlhTlEzOVF5WitNeU51U2s1dDFwOU1sbGVaTVlsajRmTFN5WGw5dVJwcjNDN0RaSGdtY1pDY0NsVVVwRDFxa0FIaEFIdWhIbkV1Uk5lMDJmTzB2NnVDN3hTTWc2b3FBbjdSODgwalR0OHlkMFV3eUdzYWRkYjZiRzJWUXE1OGg0U0cwU0ZWQUZ1c0tNeHp4eFZkM2ZuQkl3cXRGdENiODErTDFzVGY3a2FpazVVWHVKejkxZSt2L3JEcEVLa3FlQ21NdUdCdDFYTWpNVkJsekVKQnMwdUxGSW5VVlE9IiwibmJmIjoxNzI4MDUxODkwLCJleHAiOjE3MjgwNTM2OTAsImlhdCI6MTcyODA1MTg5MH0.iVGtAKYR8AmAvF92hc4Hg79e8_55DpD4iPpRZMlI7HGrqMufFqR8R0M5tvJN4K5NubmaWbUESgFyzMAMaa2mWQ";
          
         public async Task<string> GerarToken()
-        {
-            // usado para testar
-            //if (true) 
-            //   {
-            //       using (TokenCache tokenCache = new TokenCache())
-            //       {
-            //           this.Token = tokenTeste;
-            //           this.TokenWso2 = tokenWso2teste;
-            //           tokenCache.AddOrUpdateToken($"{Id}", tokenTeste, DateTime.Now.AddHours(1));
-            //           tokenCache.AddOrUpdateToken($"{Id}-WSO2", tokenWso2teste, DateTime.Now.AddHours(1));
-            //       }
-            //       return tokenTeste;
-            //   } 
-
+        {  
             using (TokenCache tokenCache = new TokenCache())
             {
                 this.Token = tokenCache.GetToken(Id.ToString()); // token é recebido por webhook
@@ -110,13 +93,12 @@ namespace BoletoNetCore
             
             // se não tem token e precisa gerar um
             string authUrlWso2 = "https://apiendpoint.ailos.coop.br/token";
-            string authUrlJwt = "https://apiendpoint.ailos.coop.br/ailos/identity/api/v1/autenticacao/login/obter/id";
-            string loginUrl = "https://apiendpoint.ailos.coop.br/ailos/identity/api/v1/login/index?id=";
+            string authUrlJwt = "https://apiendpoint.ailos.coop.br/ailos/identity/api/v1/autenticacao/login/obter/id"; 
+
             if (Homologacao)
             {
                 authUrlWso2 = "https://apiendpointhml.ailos.coop.br/token";
-                authUrlJwt = "https://apiendpointhml.ailos.coop.br/ailos/identity/api/v1/autenticacao/login/obter/id";
-                loginUrl = "https://apiendpointhml.ailos.coop.br/ailos/identity/api/v1/login/index?id=";
+                authUrlJwt = "https://apiendpointhml.ailos.coop.br/ailos/identity/api/v1/autenticacao/login/obter/id"; 
             }
 
             var handler = new HttpClientHandler();
@@ -150,8 +132,7 @@ namespace BoletoNetCore
             request = new HttpRequestMessage(HttpMethod.Post, authUrlJwt);
 
             var requestBody = new
-            {
-                //urlCallback = $"https://eobd34eg5ac16vk.m.pipedream.net/token",
+            { 
                 urlCallback = $"https://ailos-boleto-token.zionerp.com.br/{(this as IBanco).Subdomain}",
                 ailosApiKeyDeveloper = Homologacao ? "1f823198-096c-03d2-e063-0a29143552f3" : "1f035782-dabf-066c-e063-0a29357c870d",
                 state = Id.ToString()
@@ -169,10 +150,54 @@ namespace BoletoNetCore
 
             Console.WriteLine($"Etapa2 OK: {tokenJwt}");
 
-            // ETAPA 3 login do cooperado
-            // retorna um erro para o front mostrar a tela de login
+            // ETAPA 3 login do cooperado 
             // https://apiendpointhml.ailos.coop.br/ailos/identity/api/v1/login/index?id=token 
-            throw new TokenNotFoundException($"{loginUrl}{System.Web.HttpUtility.UrlEncode(tokenJwt)}");
+
+            var tentativasEtapa3 = 0;
+            var sucessoEtapa3 = false;
+            do
+            {
+                tentativasEtapa3++;
+                sucessoEtapa3 = await GeraTokenEtapa3(tokenJwt); 
+            }
+            while (tentativasEtapa3 < 3 && sucessoEtapa3 == false);
+
+            if (sucessoEtapa3)
+            {
+                Thread.Sleep(2000);
+                return await GerarToken(); // volta lá no começo para recuperar do cache (e não repetir o código todo)
+            }
+
+            throw BoletoNetCoreException.ErroAoRegistrarTituloOnline(new Exception("Não foi possível efetuar o login do cooperado!"));
+        }
+
+        public async Task<bool> GeraTokenEtapa3(string tokenJwt)
+        {  
+            string loginUrl = Homologacao ? "https://apiendpointhml.ailos.coop.br/ailos/identity/api/v1/login/index?id=" : "https://apiendpoint.ailos.coop.br/ailos/identity/api/v1/login/index?id=";
+            string url = $"{loginUrl}{System.Web.HttpUtility.UrlEncode(tokenJwt)}";
+
+            HttpClient client = new HttpClient();
+
+            var operacao = (this as IBanco).Beneficiario.ContaBancaria.OperacaoConta;
+
+            if (string.IsNullOrEmpty(operacao) || !operacao.Contains(":"))
+            {
+                throw BoletoNetCoreException.ErroAoRegistrarTituloOnline(new Exception("Preencha a operação do boleto com o login e senha do cooperado no formato login:senha (somente números)"));
+            }
+
+            var login = operacao.Split(":"); 
+
+            var formData = new FormUrlEncodedContent(new[]
+            {
+                new KeyValuePair<string, string>("Login.CodigoCooperativa", "14"),
+                new KeyValuePair<string, string>("Login.CodigoConta", login[0]),
+                new KeyValuePair<string, string>("Login.Senha", login[1])
+            }); 
+             
+            HttpResponseMessage response = await client.PostAsync(url, formData);
+            string responseBody = await response.Content.ReadAsStringAsync();
+
+            return responseBody.Contains("Parabéns");
         }
 
         public async Task<string> RegistrarBoleto(Boleto boleto)
