@@ -37,7 +37,7 @@ namespace BoletoNetCore
         public string GetToken(string id)
         {
             if (_tokenCache.TryGetValue(id, out TokenInfo tokenInfo))
-                if (tokenInfo.Expiration > DateTime.UtcNow)
+                if (tokenInfo.Expiration > DateTime.Now)
                     return tokenInfo.Token;
                 else
                     RemoveToken(id);
@@ -52,7 +52,7 @@ namespace BoletoNetCore
 
         public void CleanExpiredTokens()
         {
-            var expiredTokens = _tokenCache.Where(kvp => kvp.Value.Expiration <= DateTime.UtcNow).Select(kvp => kvp.Key).ToList();
+            var expiredTokens = _tokenCache.Where(x => x.Value.Expiration <= DateTime.Now).Select(x => x.Key).ToList();
 
             foreach (var id in expiredTokens)
                 RemoveToken(id);
