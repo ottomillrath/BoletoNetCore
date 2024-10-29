@@ -78,8 +78,26 @@ namespace BoletoNetCore
         private readonly static string Scopes = "boletos_inclusao boletos_consulta boletos_alteracao";
         #endregion
          
+        public string GerarTokenTeste()
+        {
+            Token = "eyJhbGciOiJIUzUxMiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI3MjI5YmM0OS02YzEwLTQ2MmUtYTIzYS1kOTMyNGU3ZDE4M2MiLCJzdWIiOiJhaUhOcWlrUFBKSStDMXdablhYa3Q3cmJ6N0x0Tzh5UkF6YjltU1BxYityZ3g2YWNkMUR0TTJOTXhycW13ZG4yZHBJUW1zZU03bVR5Y2pnUFJiWWZuVlAyTktGS1FaNm5IN25lMGdaTStjNFhyUkY3RUpoQUF2eCtNUlJvL1RzS3AwR29iK2ZGbHQ4K2kvcFlhTlEzOVF5WitNeU51U2s1dDFwOU1sbGVaTVlsajRmTFN5WGw5dVJwcjNDN0RaSGdtY1pDY0NsVVVwRDFxa0FIaEFIdWhGeWRoK3pIV0ZId2FrZE55eVRyV1BJcW9RKzNMNmg3bG1sREYzWEd3M05BczlsN1NMUzJkOWhCUXZKazNLY1o0RUtWUU1jYnloZkZHWGE4Mmh3OWorWnUvVnUzNVdMRW9seHlIeUZFcTlMU0g4M2Nsa3ppblpoMmFVbVZWUjVxeGlwcEJyRWdsdXVxcktVbFhPOEZZZkk9IiwibmJmIjoxNzMwMjIzMTk1LCJleHAiOjE3MzAyMjQ5OTUsImlhdCI6MTczMDIyMzE5NX0.mYrjaZKDjxJBei1GB99aTrxp4JMHDNyPjHwi7tecUVVTTTUVRG0C1sA87iAO8gIl_Y1187kWY9-6ugKnQfoM5A";
+            
+            TokenWso2 = "97ce2b6e-a25b-3fa1-bb9f-cbee88294f60";
+
+            using (TokenCache tokenCache = new TokenCache())
+            {
+                tokenCache.AddOrUpdateToken($"{Id}-WSO2", TokenWso2, DateTime.Now.AddHours(1));
+                tokenCache.AddOrUpdateToken(Id.ToString(), Token, DateTime.Now.AddHours(1));
+            }
+
+            return Token;
+        }
+
         public async Task<string> GerarToken()
-        {  
+        {
+            // somente para teste:
+            // return GerarTokenTeste();
+
             using (TokenCache tokenCache = new TokenCache())
             {
                 this.Token = tokenCache.GetToken(Id.ToString()); // token é recebido por webhook
@@ -93,12 +111,14 @@ namespace BoletoNetCore
             
             // se não tem token e precisa gerar um
             string authUrlWso2 = "https://apiendpoint.ailos.coop.br/token";
-            string authUrlJwt = "https://apiendpoint.ailos.coop.br/ailos/identity/api/v1/autenticacao/login/obter/id"; 
+            string authUrlJwt = "https://apiendpoint.ailos.coop.br/ailos/identity/api/v1/autenticacao/login/obter/id";
+            string loginUrl = "https://apiendpoint.ailos.coop.br/ailos/identity/api/v1/login/index?id=";
 
             if (Homologacao)
             {
                 authUrlWso2 = "https://apiendpointhml.ailos.coop.br/token";
-                authUrlJwt = "https://apiendpointhml.ailos.coop.br/ailos/identity/api/v1/autenticacao/login/obter/id"; 
+                authUrlJwt = "https://apiendpointhml.ailos.coop.br/ailos/identity/api/v1/autenticacao/login/obter/id";
+                loginUrl = "https://apiendpointhml.ailos.coop.br/ailos/identity/api/v1/login/index?id=";
             }
 
             var handler = new HttpClientHandler();
@@ -133,7 +153,8 @@ namespace BoletoNetCore
 
             var requestBody = new
             { 
-                urlCallback = $"https://ailos-boleto-token.zionerp.com.br/{(this as IBanco).Subdomain}",
+                urlCallBack = "https://eobd34eg5ac16vk.m.pipedream.net/token", 
+                //urlCallback = $"https://ailos-boleto-token.zionerp.com.br/{(this as IBanco).Subdomain}", 
                 ailosApiKeyDeveloper = Homologacao ? "1f823198-096c-03d2-e063-0a29143552f3" : "1f035782-dabf-066c-e063-0a29357c870d",
                 state = Id.ToString()
             };
@@ -158,7 +179,7 @@ namespace BoletoNetCore
             do
             {
                 tentativasEtapa3++;
-                sucessoEtapa3 = await GeraTokenEtapa3(tokenJwt); 
+                sucessoEtapa3 = await GeraTokenEtapa3(loginUrl, tokenJwt); 
             }
             while (tentativasEtapa3 < 3 && sucessoEtapa3 == false);
 
@@ -167,37 +188,56 @@ namespace BoletoNetCore
                 Thread.Sleep(2000);
                 return await GerarToken(); // volta lá no começo para recuperar do cache (e não repetir o código todo)
             }
+            else
+            {   // caso de erro, mostra a tela de login
+                throw new TokenNotFoundException($"{loginUrl}{System.Web.HttpUtility.UrlEncode(tokenJwt)}");
+            }
 
             throw BoletoNetCoreException.ErroAoRegistrarTituloOnline(new Exception("Não foi possível efetuar o login do cooperado!"));
         }
 
-        public async Task<bool> GeraTokenEtapa3(string tokenJwt)
-        {  
-            string loginUrl = Homologacao ? "https://apiendpointhml.ailos.coop.br/ailos/identity/api/v1/login/index?id=" : "https://apiendpoint.ailos.coop.br/ailos/identity/api/v1/login/index?id=";
-            string url = $"{loginUrl}{System.Web.HttpUtility.UrlEncode(tokenJwt)}";
-
-            HttpClient client = new HttpClient();
-
-            var operacao = (this as IBanco).Beneficiario.ContaBancaria.OperacaoConta;
-
-            if (string.IsNullOrEmpty(operacao) || !operacao.Contains(":")) // essa é uma solução temporária, vamos criar uma tela para solicitar esses valores e salvar em uma config
+        public async Task<bool> GeraTokenEtapa3(string loginUrl, string tokenJwt)
+        {
+            try
             {
-                throw BoletoNetCoreException.ErroAoRegistrarTituloOnline(new Exception("Preencha a operação do boleto com o login e senha do cooperado no formato login:senha (somente números)"));
+                string url = $"{loginUrl}{System.Web.HttpUtility.UrlEncode(tokenJwt)}";
+
+                Console.WriteLine($"Etapa3: {url}");
+
+                HttpClient client = new HttpClient();
+
+                var operacao = (this as IBanco).Beneficiario.ContaBancaria.OperacaoConta;
+
+                if (string.IsNullOrEmpty(operacao) || !operacao.Contains(":")) // essa é uma solução temporária, vamos criar uma tela para solicitar esses valores e salvar em uma config
+                {
+                    throw BoletoNetCoreException.ErroAoRegistrarTituloOnline(new Exception("Preencha a operação do boleto com o login e senha do cooperado no formato login:senha (somente números)"));
+                }
+
+                var login = operacao.Split(":");
+
+                var formData = new FormUrlEncodedContent(new[]
+                {
+                    new KeyValuePair<string, string>("Login.CodigoCooperativa", "14"), // 14 é a cooperativa Evolua
+                    new KeyValuePair<string, string>("Login.CodigoConta", login[0]),
+                    new KeyValuePair<string, string>("Login.Senha", login[1])
+                });
+
+                HttpResponseMessage response = await client.PostAsync(url, formData);
+                string responseBody = await response.Content.ReadAsStringAsync();
+
+                if (responseBody.Contains("Parabéns"))
+                {
+                    Console.WriteLine($"Etapa3 OK: login efetuado");
+                    return true;
+                }
+
+                Console.WriteLine($"Etapa3 Erro: autenticação manual");
+                return false;
             }
-
-            var login = operacao.Split(":"); 
-
-            var formData = new FormUrlEncodedContent(new[]
+            catch
             {
-                new KeyValuePair<string, string>("Login.CodigoCooperativa", "14"), // 14 é a cooperativa Evolua
-                new KeyValuePair<string, string>("Login.CodigoConta", login[0]),
-                new KeyValuePair<string, string>("Login.Senha", login[1])
-            }); 
-             
-            HttpResponseMessage response = await client.PostAsync(url, formData);
-            string responseBody = await response.Content.ReadAsStringAsync();
-
-            return responseBody.Contains("Parabéns");
+                return false;
+            }
         }
 
         public async Task<string> RegistrarBoleto(Boleto boleto)
