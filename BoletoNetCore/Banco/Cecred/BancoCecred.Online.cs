@@ -80,9 +80,9 @@ namespace BoletoNetCore
          
         public string GerarTokenTeste()
         {
-            Token = "eyJhbGciOiJIUzUxMiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI3MjI5YmM0OS02YzEwLTQ2MmUtYTIzYS1kOTMyNGU3ZDE4M2MiLCJzdWIiOiJhaUhOcWlrUFBKSStDMXdablhYa3Q3cmJ6N0x0Tzh5UkF6YjltU1BxYityZ3g2YWNkMUR0TTJOTXhycW13ZG4yZHBJUW1zZU03bVR5Y2pnUFJiWWZuVlAyTktGS1FaNm5IN25lMGdaTStjNFhyUkY3RUpoQUF2eCtNUlJvL1RzS3AwR29iK2ZGbHQ4K2kvcFlhTlEzOVF5WitNeU51U2s1dDFwOU1sbGVaTVlsajRmTFN5WGw5dVJwcjNDN0RaSGdtY1pDY0NsVVVwRDFxa0FIaEFIdWhGeWRoK3pIV0ZId2FrZE55eVRyV1BJcW9RKzNMNmg3bG1sREYzWEd3M05BczlsN1NMUzJkOWhCUXZKazNLY1o0RUtWUU1jYnloZkZHWGE4Mmh3OWorWnUvVnUzNVdMRW9seHlIeUZFcTlMU0g4M2Nsa3ppblpoMmFVbVZWUjVxeGlwcEJyRWdsdXVxcktVbFhPOEZZZkk9IiwibmJmIjoxNzMwMjIzMTk1LCJleHAiOjE3MzAyMjQ5OTUsImlhdCI6MTczMDIyMzE5NX0.mYrjaZKDjxJBei1GB99aTrxp4JMHDNyPjHwi7tecUVVTTTUVRG0C1sA87iAO8gIl_Y1187kWY9-6ugKnQfoM5A";
-            
-            TokenWso2 = "97ce2b6e-a25b-3fa1-bb9f-cbee88294f60";
+            Token = "eyJhbGciOiJIUzUxMiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiIzYjk4Y2QwZi1kNDM0LTRmZDgtODczMi1mOTEzODgxMTBmN2MiLCJzdWIiOiJhaUhOcWlrUFBKSStDMXdablhYa3Q3cmJ6N0x0Tzh5UkF6YjltU1BxYityZ3g2YWNkMUR0TTJOTXhycW13ZG4yZHBJUW1zZU03bVR5Y2pnUFJiWWZuVlAyTktGS1FaNm5IN25lMGdaTStjNFhyUkY3RUpoQUF2eCtNUlJvL1RzS3AwR29iK2ZGbHQ4K2kvcFlhTlEzOVF5WitNeU51U2s1dDFwOU1sbGVaTVlsajRmTFN5WGw5dVJwcjNDN0RaSGdtY1pDY0NsVVVwRDFxa0FIaEFIdWhGeWRoK3pIV0ZId2FrZE55eVRyV1BJcW9RKzNMNmg3bG1sREYzWEd3M05BczlsN1NMUzJkOWhCUXZKazNLY1o0RUtWUU1jYnloZkZHWGE4Mmh3OWorWnUvVnUzNVdMRW9seHlIeUZFcTlMU0g4M2Nsa3ppblpoMmFVbVZWUjVxeGlwcEJyRWdsdXVxcktVbFhPOEZZZkk9IiwibmJmIjoxNzMwMjI1NDEyLCJleHAiOjE3MzAyMjcyMTIsImlhdCI6MTczMDIyNTQxMn0.0TVz4kNP-6HfuV-hlmJbxZ-9U87uuNMpo0v7NmpPyuW_JE2FayDO3-537DwZNAkWT3mrU5FtuVqVtRp80ukF7g";
+
+            TokenWso2 = "4d19b3fe-8f6a-3a3d-bcf7-96e11a0ce336";
 
             using (TokenCache tokenCache = new TokenCache())
             {
@@ -153,7 +153,7 @@ namespace BoletoNetCore
 
             var requestBody = new
             { 
-                //urlCallBack = "https://eobd34eg5ac16vk.m.pipedream.net/token", 
+                //urlCallBack = "https://eobd34eg5ac16vk.m.pipedream.net/token", // teste
                 urlCallback = $"https://ailos-boleto-token.zionerp.com.br/{(this as IBanco).Subdomain}", 
                 ailosApiKeyDeveloper = Homologacao ? "1f823198-096c-03d2-e063-0a29143552f3" : "1f035782-dabf-066c-e063-0a29357c870d",
                 state = Id.ToString()
@@ -425,16 +425,18 @@ namespace BoletoNetCore
         }
 
         public async Task<string> ConsultarStatus(Boleto boleto)
-        { 
-            var cedente = boleto.Banco.Beneficiario.Codigo;
-            var nossoNumero = boleto.NossoNumero + boleto.NossoNumeroDV;
-             
-            var url = $"boletos/consultar/boleto/convenios/{cedente}/{nossoNumero}"; 
+        {  
+            var url = $"boletos/consultar/boleto/convenios/{boleto.Banco.Beneficiario.Codigo}/{boleto.Id}"; 
 
             var request = new HttpRequestMessage(HttpMethod.Get, url);
-            request.Headers.Add("token", this.Token);
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", this.TokenWso2);
+            request.Headers.Add("x-ailos-authentication", $"Bearer {this.Token}");
             var response = await this.httpClient.SendAsync(request);
             await this.CheckHttpResponseError(response);
+
+            if (response.StatusCode == HttpStatusCode.NoContent)
+                return "Sem retorno do banco";
+
             var ret = await response.Content.ReadFromJsonAsync<AilosConsultaBoletoResponse>();
             
             return ret.Boleto.IndicadorSituacaoBoleto.ToString();
