@@ -153,8 +153,8 @@ namespace BoletoNetCore
 
             var requestBody = new
             { 
-                urlCallBack = "https://eobd34eg5ac16vk.m.pipedream.net/token", 
-                //urlCallback = $"https://ailos-boleto-token.zionerp.com.br/{(this as IBanco).Subdomain}", 
+                //urlCallBack = "https://eobd34eg5ac16vk.m.pipedream.net/token", 
+                urlCallback = $"https://ailos-boleto-token.zionerp.com.br/{(this as IBanco).Subdomain}", 
                 ailosApiKeyDeveloper = Homologacao ? "1f823198-096c-03d2-e063-0a29143552f3" : "1f035782-dabf-066c-e063-0a29357c870d",
                 state = Id.ToString()
             };
