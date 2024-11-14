@@ -67,7 +67,7 @@ namespace BoletoNetCore
         #endregion 
 
         #region Chaves de Acesso Api 
-        public long Id { get; set; }
+        public string Id { get; set; }
         public string ChaveApi { get; set; }
         public string SecretApi { get; set; } 
         public string Token { get; set; }

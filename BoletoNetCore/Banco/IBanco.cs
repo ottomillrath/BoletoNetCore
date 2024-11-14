@@ -162,7 +162,7 @@ namespace BoletoNetCore
         /// Id da conta
         /// Usado no TokenCache para recuperar os tokens armazenados
         /// </summary>
-        public long Id { get; set; }
+        public string Id { get; set; }
         
         /// <summary>
         /// Chave de Acesso (ApiKey), geralmente utilizado para gerar o token de autenticacao

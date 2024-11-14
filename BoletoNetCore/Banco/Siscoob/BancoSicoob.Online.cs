@@ -26,7 +26,7 @@ namespace BoletoNetCore
         private string m_certificadoSenha;
         private uint m_versaoApi;
 
-        public long Id { get; set; }
+        public string Id { get; set; }
 
         public string ChaveApi
         {
