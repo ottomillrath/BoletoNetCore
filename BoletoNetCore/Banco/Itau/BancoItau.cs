@@ -25,7 +25,7 @@ namespace BoletoNetCore
             if (!CarteiraFactory<BancoItau>.CarteiraEstaImplementada(contaBancaria.CarteiraComVariacaoPadrao))
                 throw BoletoNetCoreException.CarteiraNaoImplementada(contaBancaria.CarteiraComVariacaoPadrao);
 
-            contaBancaria.FormatarDados("ATÉ O VENCIMENTO EM QUALQUER BANCO. APÓS O VENCIMENTO SOMENTE NO ITAÚ.", "", "", 5);
+            contaBancaria.FormatarDados("ATÉ O VENCIMENTO EM QUALQUER BANCO. APÓS O VENCIMENTO SOMENTE NO ITAÚ.", contaBancaria.MensagemFixaTopoBoleto, contaBancaria.MensagemFixaPagador, 5);
             Beneficiario.Codigo = string.Format("{0}{1}{2}", contaBancaria.Agencia.PadLeft(4, '0'), contaBancaria.Conta.PadLeft(7, '0'), contaBancaria.DigitoConta);
             Beneficiario.CodigoFormatado = $"{contaBancaria.Agencia} / {contaBancaria.Conta}-{contaBancaria.DigitoConta}";
         }

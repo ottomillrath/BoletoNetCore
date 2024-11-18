@@ -49,17 +49,21 @@ namespace BoletoNetCore
         {
             get
             {
-                if (this._httpClient == null)
+                var handler = new HttpClientHandler();
+                Uri uri;
+                if (Homologacao)
                 {
-                    var handler = new HttpClientHandler();
-                    X509Certificate2 certificate = new X509Certificate2(Certificado, CertificadoSenha);
-                    handler.ClientCertificates.Add(certificate);
-                    this._httpClient = new HttpClient(new LoggingHandler(handler));
-                    this._httpClient.BaseAddress = new Uri("https://apiendpoint.ailos.coop.br/ailos/cobranca/api/v1/");
-
-                    if (Homologacao)
-                        this._httpClient.BaseAddress = new Uri("https://apiendpointhml.ailos.coop.br/ailos/cobranca/api/v1/");
+                    uri = new Uri("https://apiendpointhml.ailos.coop.br/ailos/cobranca/api/v1/");
                 }
+                else
+                {
+                    uri = new Uri("https://apiendpoint.ailos.coop.br/ailos/cobranca/api/v1/");
+                }
+
+                X509Certificate2 certificate = new X509Certificate2(Certificado, CertificadoSenha);
+                handler.ClientCertificates.Add(certificate);
+                this._httpClient = new HttpClient(new LoggingHandler(handler));
+                this._httpClient.BaseAddress = uri;
 
                 return this._httpClient;
             }
@@ -69,7 +73,7 @@ namespace BoletoNetCore
         #region Chaves de Acesso Api 
         public string Id { get; set; }
         public string ChaveApi { get; set; }
-        public string SecretApi { get; set; } 
+        public string SecretApi { get; set; }
         public string Token { get; set; }
         public string TokenWso2 { get; set; }
         public byte[] Certificado { get; set; }
@@ -77,7 +81,7 @@ namespace BoletoNetCore
         public uint VersaoApi { get; set; }
         private readonly static string Scopes = "boletos_inclusao boletos_consulta boletos_alteracao";
         #endregion
-         
+
         public string GerarTokenTeste()
         {
             Token = "eyJhbGciOiJIUzUxMiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiIzYjk4Y2QwZi1kNDM0LTRmZDgtODczMi1mOTEzODgxMTBmN2MiLCJzdWIiOiJhaUhOcWlrUFBKSStDMXdablhYa3Q3cmJ6N0x0Tzh5UkF6YjltU1BxYityZ3g2YWNkMUR0TTJOTXhycW13ZG4yZHBJUW1zZU03bVR5Y2pnUFJiWWZuVlAyTktGS1FaNm5IN25lMGdaTStjNFhyUkY3RUpoQUF2eCtNUlJvL1RzS3AwR29iK2ZGbHQ4K2kvcFlhTlEzOVF5WitNeU51U2s1dDFwOU1sbGVaTVlsajRmTFN5WGw5dVJwcjNDN0RaSGdtY1pDY0NsVVVwRDFxa0FIaEFIdWhGeWRoK3pIV0ZId2FrZE55eVRyV1BJcW9RKzNMNmg3bG1sREYzWEd3M05BczlsN1NMUzJkOWhCUXZKazNLY1o0RUtWUU1jYnloZkZHWGE4Mmh3OWorWnUvVnUzNVdMRW9seHlIeUZFcTlMU0g4M2Nsa3ppblpoMmFVbVZWUjVxeGlwcEJyRWdsdXVxcktVbFhPOEZZZkk9IiwibmJmIjoxNzMwMjI1NDEyLCJleHAiOjE3MzAyMjcyMTIsImlhdCI6MTczMDIyNTQxMn0.0TVz4kNP-6HfuV-hlmJbxZ-9U87uuNMpo0v7NmpPyuW_JE2FayDO3-537DwZNAkWT3mrU5FtuVqVtRp80ukF7g";
@@ -108,7 +112,7 @@ namespace BoletoNetCore
             {
                 return this.Token;
             }
-            
+
             // se não tem token e precisa gerar um
             string authUrlWso2 = "https://apiendpoint.ailos.coop.br/token";
             string authUrlJwt = "https://apiendpoint.ailos.coop.br/ailos/identity/api/v1/autenticacao/login/obter/id";
@@ -149,15 +153,15 @@ namespace BoletoNetCore
             using (TokenCache tokenCache = new TokenCache())
             {
                 tokenCache.AddOrUpdateToken($"{Id}-WSO2", ret.AccessToken, DateTime.Now.AddHours(1));
-            } 
+            }
 
             // ETAPA 2: token jwt
             request = new HttpRequestMessage(HttpMethod.Post, authUrlJwt);
 
             var requestBody = new
-            { 
+            {
                 //urlCallBack = "https://eobd34eg5ac16vk.m.pipedream.net/token", // teste
-                urlCallback = $"https://ailos-boleto-token.zionerp.com.br/{(this as IBanco).Subdomain}", 
+                urlCallback = $"https://ailos-boleto-token.zionerp.com.br/{(this as IBanco).Subdomain}",
                 ailosApiKeyDeveloper = Homologacao ? "1f823198-096c-03d2-e063-0a29143552f3" : "1f035782-dabf-066c-e063-0a29357c870d",
                 state = Id.ToString()
             };
@@ -182,7 +186,7 @@ namespace BoletoNetCore
             do
             {
                 tentativasEtapa3++;
-                sucessoEtapa3 = await GeraTokenEtapa3(loginUrl, tokenJwt); 
+                sucessoEtapa3 = await GeraTokenEtapa3(loginUrl, tokenJwt);
             }
             while (tentativasEtapa3 < 3 && sucessoEtapa3 == false);
 
@@ -245,19 +249,19 @@ namespace BoletoNetCore
 
         public async Task<string> RegistrarBoleto(Boleto boleto)
         {
-            var emissao = new AilosRegistrarBoletoRequest();  
+            var emissao = new AilosRegistrarBoletoRequest();
 
             emissao.Instrucoes = new AilosInstrucoes
             {
                 TipoJurosMora = (boleto.ValorJurosDia == 0 ? 3 : 1), // Valor em Reais
                 ValorJurosMora = boleto.ValorJurosDia,
 
-                TipoMulta = (boleto.ValorMulta == 0 ? 3 : 1), 
+                TipoMulta = (boleto.ValorMulta == 0 ? 3 : 1),
                 ValorMulta = boleto.ValorMulta,
 
                 TipoDesconto = (boleto.ValorDesconto == 0 ? 3 : 1),
-                ValorDesconto = boleto.ValorDesconto, 
-                 
+                ValorDesconto = boleto.ValorDesconto,
+
                 DiasProtesto = boleto.DiasProtesto
             };
 
@@ -267,10 +271,10 @@ namespace BoletoNetCore
                 CodigoCarteiraCobranca = int.Parse(boleto.Carteira)
             };
 
-            emissao.Vencimento = new AilosVencimento  { DataVencimento = boleto.DataVencimento };
+            emissao.Vencimento = new AilosVencimento { DataVencimento = boleto.DataVencimento };
 
             emissao.ValorBoleto = new AilosValorBoleto { ValorTitulo = boleto.ValorTitulo };
-             
+
             emissao.Documento = new AilosDocumento
             {
                 NumeroDocumento = int.Parse(boleto.Id),
@@ -278,7 +282,7 @@ namespace BoletoNetCore
                 NossoNumero = boleto.NossoNumero
             };
 
-            if (Homologacao) 
+            if (Homologacao)
                 emissao.Documento.NumeroDocumento = (new Random().Next(9000001, 9999991)); // numero do documento duplicado por motivo desconhecido
 
             //(1 = DM – Duplicata Mercantil, 2 = DS – Duplicata de Serviço , 3 = NP – Nota Promissória,
@@ -308,7 +312,7 @@ namespace BoletoNetCore
                     break;
             }
 
-            emissao.Emissao = new AilosEmissao {  DataEmissaoDocumento = DateTime.Now };
+            emissao.Emissao = new AilosEmissao { DataEmissaoDocumento = DateTime.Now };
 
             //(2 = Cooperado emite e Expede , 3 = Cooperativa emite e Expede)
             switch (boleto.Banco.Beneficiario.ContaBancaria.TipoDistribuicao)
@@ -347,7 +351,7 @@ namespace BoletoNetCore
                     Uf = boleto.Pagador.Endereco.UF
                 },
                 Dda = true,
-                MensagemPagador = new List<string> { boleto.MensagemInstrucoesCaixaFormatado }, 
+                MensagemPagador = new List<string> { boleto.MensagemInstrucoesCaixaFormatado },
             };
 
             if (!string.IsNullOrEmpty(boleto.Pagador.Telefone))
@@ -357,7 +361,7 @@ namespace BoletoNetCore
                     Ddd = boleto.Pagador.Telefone.Substring(0, 2),
                     Numero = boleto.Pagador.Telefone.Substring(2)
                 };
-            } 
+            }
 
             if (!string.IsNullOrEmpty(boleto.Avalista.CPFCNPJ))
                 emissao.Avalista = new AilosAvalista
@@ -386,7 +390,7 @@ namespace BoletoNetCore
             emissao.ValorBoleto = new AilosValorBoleto
             {
                 ValorTitulo = boleto.ValorTitulo
-            };  
+            };
 
             var request = new HttpRequestMessage(HttpMethod.Post, $"boletos/gerar/boleto/convenios/{boleto.Banco.Beneficiario.Codigo}");
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", this.TokenWso2);
@@ -398,8 +402,8 @@ namespace BoletoNetCore
 
             var responseString = await response.Content.ReadAsStringAsync();
 
-            var boletoEmitido = await response.Content.ReadFromJsonAsync<AilosRegistraBoletoResponse>(); 
-            boleto.NossoNumero = boletoEmitido.Boleto.Documento.NossoNumero.Substring(0,16);
+            var boletoEmitido = await response.Content.ReadFromJsonAsync<AilosRegistraBoletoResponse>();
+            boleto.NossoNumero = boletoEmitido.Boleto.Documento.NossoNumero.Substring(0, 16);
             boleto.NossoNumeroDV = boletoEmitido.Boleto.Documento.NossoNumero.Substring(16, 1);
             boleto.NossoNumeroFormatado = boletoEmitido.Boleto.Documento.NossoNumero;
             boleto.CodigoBarra.CodigoDeBarras = boletoEmitido.Boleto.CodigoBarras.CodigoBarras;
@@ -428,8 +432,8 @@ namespace BoletoNetCore
         }
 
         public async Task<string> ConsultarStatus(Boleto boleto)
-        {  
-            var url = $"boletos/consultar/boleto/convenios/{boleto.Banco.Beneficiario.Codigo}/{boleto.Id}"; 
+        {
+            var url = $"boletos/consultar/boleto/convenios/{boleto.Banco.Beneficiario.Codigo}/{boleto.Id}";
 
             var request = new HttpRequestMessage(HttpMethod.Get, url);
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", this.TokenWso2);
@@ -441,7 +445,7 @@ namespace BoletoNetCore
                 return "Sem retorno do banco";
 
             var ret = await response.Content.ReadFromJsonAsync<AilosConsultaBoletoResponse>();
-            
+
             return ret.Boleto.IndicadorSituacaoBoleto.ToString();
         }
 
@@ -712,7 +716,7 @@ namespace BoletoNetCore
         [JsonPropertyName("dataVencimento")]
         public DateTime DataVencimento { get; set; }
     }
-     
+
     public class Avalista
     {
         [JsonPropertyName("entidadeLegalResponse")]
@@ -837,7 +841,7 @@ namespace BoletoNetCore
         public AilosDocumento Documento { get; set; }
 
         [JsonPropertyName("emissao")]
-        public AilosEmissao Emissao { get; set; } 
+        public AilosEmissao Emissao { get; set; }
 
         [JsonPropertyName("indicadorSituacaoBoleto")]
         public int IndicadorSituacaoBoleto { get; set; }
@@ -887,7 +891,7 @@ namespace BoletoNetCore
 
         [JsonPropertyName("cooperativa")]
         public AilosCooperativa Cooperativa { get; set; }
-    } 
+    }
 
     public class AilosCooperativa
     {
@@ -906,7 +910,7 @@ namespace BoletoNetCore
         [JsonPropertyName("message")]
         public string Message { get; set; }
     }
-     
+
     public class AilosEntidadeLegalResponse
     {
         [JsonPropertyName("identificadorReceitaFederal")]
@@ -951,7 +955,7 @@ namespace BoletoNetCore
         [JsonPropertyName("valorAbatimento")]
         public int ValorAbatimento { get; set; }
     }
-     
+
     public class AilosPagamento
     {
         [JsonPropertyName("indicadorPagamento")]
@@ -968,7 +972,7 @@ namespace BoletoNetCore
 
         [JsonPropertyName("dataBaixadoBoleto")]
         public DateTime DataBaixadoBoleto { get; set; }
-    } 
+    }
 
     public class AilosProtesto
     {

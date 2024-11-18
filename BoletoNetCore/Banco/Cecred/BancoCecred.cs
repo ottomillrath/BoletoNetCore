@@ -26,7 +26,7 @@ namespace BoletoNetCore
             ContaBancaria contaBancaria = Beneficiario.ContaBancaria;
             if (!CarteiraFactory<BancoCecred>.CarteiraEstaImplementada(contaBancaria.CarteiraComVariacaoPadrao))
                 throw BoletoNetCoreException.CarteiraNaoImplementada(contaBancaria.CarteiraComVariacaoPadrao);
-            contaBancaria.FormatarDados("Pagar preferencialmente nas cooperativas do Sistema Ailos.", "", "", 7);
+            contaBancaria.FormatarDados("Pagar preferencialmente nas cooperativas do Sistema Ailos.", contaBancaria.MensagemFixaTopoBoleto, contaBancaria.MensagemFixaPagador, 7);
             Beneficiario.CodigoFormatado = contaBancaria.Agencia + "-" + contaBancaria.DigitoAgencia + " / " + Beneficiario.ContaBancaria.Conta + "-" + Beneficiario.ContaBancaria.DigitoConta;
         }
 

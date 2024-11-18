@@ -29,7 +29,7 @@ namespace BoletoNetCore
             if (!CarteiraFactory<BancoBrasil>.CarteiraEstaImplementada(contaBancaria.CarteiraComVariacaoPadrao))
                 throw BoletoNetCoreException.CarteiraNaoImplementada(contaBancaria.CarteiraComVariacaoPadrao);
 
-            contaBancaria.FormatarDados("PAGÁVEL EM QUALQUER BANCO.", "", "", 8);
+            contaBancaria.FormatarDados("PAGÁVEL EM QUALQUER BANCO.", contaBancaria.MensagemFixaTopoBoleto, contaBancaria.MensagemFixaPagador, 8);
 
             if (Beneficiario.Codigo.Length != 7)
                 throw BoletoNetCoreException.CodigoBeneficiarioInvalido(Beneficiario.Codigo, 7);

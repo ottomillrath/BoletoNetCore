@@ -30,7 +30,7 @@ namespace BoletoNetCore
             if (!CarteiraFactory<BancoBradesco>.CarteiraEstaImplementada(contaBancaria.CarteiraComVariacaoPadrao))
                 throw BoletoNetCoreException.CarteiraNaoImplementada(contaBancaria.CarteiraComVariacaoPadrao);
 
-            contaBancaria.FormatarDados("PAGÁVEL PREFERENCIALMENTE NA REDE BRADESCO OU BRADESCO EXPRESSO.", "", "", 7);
+            contaBancaria.FormatarDados("PAGï¿½VEL PREFERENCIALMENTE NA REDE BRADESCO OU BRADESCO EXPRESSO.", contaBancaria.MensagemFixaTopoBoleto, contaBancaria.MensagemFixaPagador, 7);
 
             var codigoBeneficiario = Beneficiario.Codigo;
             Beneficiario.Codigo = codigoBeneficiario.Length <= 20 ? codigoBeneficiario.PadLeft(20, '0') : throw BoletoNetCoreException.CodigoBeneficiarioInvalido(codigoBeneficiario, 20);
