@@ -16,6 +16,8 @@ namespace BoletoNetCore.Exceptions
 
         }
 
+        public static BoletoNetCoreException CertificadoNaoInformado()
+            => new BoletoNetCoreException("Certificado não informado.");
         public static BoletoNetCoreException ErroAoRegistrarTituloOnline(Exception ex) 
             => new BoletoNetCoreException($"Erro ao Registrar Titulo Online: {ex.Message}", ex);
 

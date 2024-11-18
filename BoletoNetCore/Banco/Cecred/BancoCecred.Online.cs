@@ -122,6 +122,9 @@ namespace BoletoNetCore
             }
 
             var handler = new HttpClientHandler();
+            if (Certificado == null || Certificado.Length == 0)
+                throw BoletoNetCoreException.CertificadoNaoInformado();
+
             X509Certificate2 certificate = new X509Certificate2(Certificado, CertificadoSenha);
             handler.ClientCertificates.Add(certificate);
             var httpClient = new HttpClient(new LoggingHandler(handler));
