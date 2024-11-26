@@ -275,11 +275,11 @@ namespace BoletoNetCore
 
             emissao.ValorBoleto = new AilosValorBoleto { ValorTitulo = boleto.ValorTitulo };
 
-            emissao.Documento = new AilosDocumento
+            emissao.Documento = new AilosDocumentoRequest
             {
                 NumeroDocumento = int.Parse(boleto.Id),
                 DescricaoDocumento = "Boleto",
-                NossoNumero = boleto.NossoNumero
+                // NossoNumero = boleto.NossoNumero
             };
 
             if (Homologacao)
@@ -353,6 +353,14 @@ namespace BoletoNetCore
                 Dda = true,
                 MensagemPagador = new List<string> { boleto.MensagemInstrucoesCaixaFormatado },
             };
+            if (emissao.Pagador.EntidadeLegal.Nome.Length > 50)
+            {
+                emissao.Pagador.EntidadeLegal.Nome = emissao.Pagador.EntidadeLegal.Nome[..50];
+            }
+            if (emissao.Pagador.Endereco.Complemento.Length > 40)
+            {
+                emissao.Pagador.Endereco.Complemento = emissao.Pagador.Endereco.Complemento[..40];
+            }
 
             if (!string.IsNullOrEmpty(boleto.Pagador.Telefone))
             {
@@ -446,7 +454,18 @@ namespace BoletoNetCore
 
             var ret = await response.Content.ReadFromJsonAsync<AilosConsultaBoletoResponse>();
 
-            return ret.Boleto.IndicadorSituacaoBoleto.ToString();
+            // deixei compativel com Itau
+            switch (ret.Boleto.IndicadorSituacaoBoleto)
+            {
+                case 0: // Em aberto
+                    return "Em Aberto";
+                case 3: // BAixado
+                    return "Baixada";
+                case 5: // Liquidado
+                    return "Paga";
+                default:
+                    return "Situação desconhecida";
+            }
         }
 
         public Task<string> CancelarBoleto(Boleto boleto)
@@ -516,6 +535,21 @@ namespace BoletoNetCore
         public int CodigoCarteiraCobranca { get; set; }
     }
 
+    public class AilosDocumentoRequest
+    {
+        [JsonPropertyName("numeroDocumento")]
+        public int NumeroDocumento { get; set; }
+
+        [JsonPropertyName("descricaoDocumento")]
+        public string DescricaoDocumento { get; set; }
+
+        [JsonPropertyName("especieDocumento")]
+        public int EspecieDocumento { get; set; }
+
+        // [JsonPropertyName("nossoNumero")]
+        // public string NossoNumero { get; set; }
+    }
+
     public class AilosDocumento
     {
         [JsonPropertyName("numeroDocumento")]
@@ -565,6 +599,30 @@ namespace BoletoNetCore
 
         [JsonPropertyName("cidade")]
         public string Cidade { get; set; }
+
+        [JsonPropertyName("uf")]
+        public string Uf { get; set; }
+    }
+
+    public class AilosEnderecoResponse
+    {
+        [JsonPropertyName("cep")]
+        public string Cep { get; set; }
+
+        [JsonPropertyName("logradouro")]
+        public string Logradouro { get; set; }
+
+        [JsonPropertyName("numero")]
+        public int Numero { get; set; } // essa porcaria é string na requisição, mas é int na resposta, por isso removi do response
+
+        [JsonPropertyName("complemento")]
+        public string Complemento { get; set; }
+
+        [JsonPropertyName("bairro")]
+        public string Bairro { get; set; }
+
+        [JsonPropertyName("cidade")]
+        public AilosCidade Cidade { get; set; }
 
         [JsonPropertyName("uf")]
         public string Uf { get; set; }
@@ -642,6 +700,27 @@ namespace BoletoNetCore
         public bool Dda { get; set; }
     }
 
+    public class AilosPagadorResponse
+    {
+        [JsonPropertyName("entidadeLegal")]
+        public AilosEntidadeLegal EntidadeLegal { get; set; }
+
+        [JsonPropertyName("telefone")]
+        public AilosTelefone Telefone { get; set; }
+
+        [JsonPropertyName("emails")]
+        public List<AilosEmail> Emails { get; set; }
+
+        [JsonPropertyName("endereco")]
+        public AilosEnderecoResponse Endereco { get; set; }
+
+        [JsonPropertyName("mensagemPagador")]
+        public List<string> MensagemPagador { get; set; }
+
+        [JsonPropertyName("dda")]
+        public bool Dda { get; set; }
+    }
+
     public class AilosPagamentoDivergente
     {
         [JsonPropertyName("tipoPagamentoDivergente")]
@@ -657,7 +736,7 @@ namespace BoletoNetCore
         public AilosConvenioCobranca ConvenioCobranca { get; set; }
 
         [JsonPropertyName("documento")]
-        public AilosDocumento Documento { get; set; }
+        public AilosDocumentoRequest Documento { get; set; }
 
         [JsonPropertyName("emissao")]
         public AilosEmissao Emissao { get; set; }
@@ -762,7 +841,7 @@ namespace BoletoNetCore
         public List<AilosEmail> Emails { get; set; }
 
         [JsonPropertyName("endereco")]
-        public AilosEndereco Endereco { get; set; }
+        public AilosEnderecoResponse Endereco { get; set; }
     }
 
     public class AilosBoleto
@@ -783,7 +862,7 @@ namespace BoletoNetCore
         public AilosEmissao Emissao { get; set; }
 
         [JsonPropertyName("pagador")]
-        public AilosPagador Pagador { get; set; }
+        public AilosPagadorResponse Pagador { get; set; }
 
         [JsonPropertyName("vencimento")]
         public AilosVencimento Vencimento { get; set; }
@@ -929,7 +1008,7 @@ namespace BoletoNetCore
         public int TipoDesconto { get; set; }
 
         [JsonPropertyName("valorDesconto")]
-        public int ValorDesconto { get; set; }
+        public decimal ValorDesconto { get; set; }
 
         [JsonPropertyName("percentualDesconto")]
         public int PercentualDesconto { get; set; }
@@ -938,22 +1017,22 @@ namespace BoletoNetCore
         public int TipoMulta { get; set; }
 
         [JsonPropertyName("valorMulta")]
-        public int ValorMulta { get; set; }
+        public decimal ValorMulta { get; set; }
 
         [JsonPropertyName("percentualMulta")]
-        public int PercentualMulta { get; set; }
+        public decimal PercentualMulta { get; set; }
 
         [JsonPropertyName("tipoJurosMora")]
         public int TipoJurosMora { get; set; }
 
         [JsonPropertyName("valorJurosMora")]
-        public int ValorJurosMora { get; set; }
+        public decimal ValorJurosMora { get; set; }
 
         [JsonPropertyName("percentualJurosMora")]
-        public int PercentualJurosMora { get; set; }
+        public decimal PercentualJurosMora { get; set; }
 
         [JsonPropertyName("valorAbatimento")]
-        public int ValorAbatimento { get; set; }
+        public decimal ValorAbatimento { get; set; }
     }
 
     public class AilosPagamento
