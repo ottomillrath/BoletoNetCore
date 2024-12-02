@@ -413,6 +413,7 @@ namespace BoletoNetCore
             var boletoEmitido = await response.Content.ReadFromJsonAsync<AilosRegistraBoletoResponse>();
             boleto.NossoNumero = boletoEmitido.Boleto.Documento.NossoNumero.Substring(0, 16);
             boleto.NossoNumeroDV = boletoEmitido.Boleto.Documento.NossoNumero.Substring(16, 1);
+            FormataNossoNumero(boleto);
             boleto.NossoNumeroFormatado = boletoEmitido.Boleto.Documento.NossoNumero;
             boleto.CodigoBarra.CodigoDeBarras = boletoEmitido.Boleto.CodigoBarras.CodigoBarras;
             boleto.CodigoBarra.LinhaDigitavel = boletoEmitido.Boleto.CodigoBarras.LinhaDigitavel;
