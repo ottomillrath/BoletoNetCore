@@ -253,17 +253,38 @@ namespace BoletoNetCore
 
             emissao.Instrucoes = new AilosInstrucoes
             {
-                TipoJurosMora = (boleto.ValorJurosDia == 0 ? 3 : 1), // Valor em Reais
-                ValorJurosMora = boleto.ValorJurosDia,
-
-                TipoMulta = (boleto.ValorMulta == 0 ? 3 : 1),
-                ValorMulta = boleto.ValorMulta,
-
-                TipoDesconto = (boleto.ValorDesconto == 0 ? 3 : 1),
-                ValorDesconto = boleto.ValorDesconto,
-
-                DiasProtesto = boleto.DiasProtesto
+                DiasProtesto = boleto.DiasProtesto,
+                TipoJurosMora = 3,
+                TipoDesconto = 3,
+                TipoMulta = 3,
             };
+
+            if (boleto.ValorJurosDia > 0)
+            {
+                emissao.Instrucoes.TipoJurosMora = 1;
+                emissao.Instrucoes.ValorJurosMora = boleto.ValorJurosDia;
+            }
+            else if (boleto.PercentualJurosDia > 0)
+            {
+                emissao.Instrucoes.TipoJurosMora = 2;
+                var perc = Math.Round(boleto.PercentualJurosDia * 30, 2);
+                emissao.Instrucoes.PercentualJurosMora = perc;
+            }
+
+            if (boleto.ValorMulta > 0) {
+                emissao.Instrucoes.TipoMulta = 1;
+                emissao.Instrucoes.ValorMulta = boleto.ValorMulta;
+            }
+            else if (boleto.PercentualMulta > 0)
+            {
+                emissao.Instrucoes.TipoMulta = 2;
+                emissao.Instrucoes.PercentualMulta = boleto.PercentualMulta;
+            }
+
+            if (boleto.ValorDesconto > 0) {
+                emissao.Instrucoes.TipoDesconto = 1;
+                emissao.Instrucoes.ValorDesconto = boleto.ValorDesconto;
+            }
 
             emissao.ConvenioCobranca = new AilosConvenioCobranca
             {
