@@ -21,7 +21,7 @@ namespace BoletoNetCore
 
         public void FormataNossoNumero(Boleto boleto)
         { 
-            boleto.NossoNumeroFormatado = string.Format("01 / {0}", boleto.NossoNumeroFormatado); // Carteira / NN
+            boleto.NossoNumeroFormatado = string.Format("{0}{1}", boleto.NossoNumero, boleto.NossoNumeroDV); // Carteira / NN
         }
          
         private string Mod11(string seq)

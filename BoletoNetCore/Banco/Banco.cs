@@ -72,7 +72,15 @@ namespace BoletoNetCore
             }
             else if (boleto.ImprimirValoresAuxiliares == true && boleto.PercentualJurosDia > 0)
             {
-                boleto.MensagemInstrucoesCaixaFormatado += $"Cobrar juros de {boleto.PercentualJurosDia.ToString("N2")}% por dia de atraso APÓS {boleto.DataJuros.ToString("dd/MM/yyyy")}{StringExtensions.NewLineCRLF}";
+                if (boleto.Banco.Codigo == 85)
+                {// evolua ou desevolua 
+                    var perc = Math.Round(boleto.PercentualJurosDia * 30, 2);
+                    boleto.MensagemInstrucoesCaixaFormatado += $"Cobrar juros de {perc.ToString("N2")}% ao mês{StringExtensions.NewLineCRLF}";
+                }
+                else
+                {
+                    boleto.MensagemInstrucoesCaixaFormatado += $"Cobrar juros de {boleto.PercentualJurosDia.ToString("N2")}% por dia de atraso APÓS {boleto.DataJuros.ToString("dd/MM/yyyy")}{StringExtensions.NewLineCRLF}";
+                }
             }
 
             //MULTA
