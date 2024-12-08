@@ -16,6 +16,9 @@ namespace BoletoNetCore.Exceptions
 
         }
 
+        public static BoletoNetCoreException ErroGerarToken(Exception ex)
+            => new BoletoNetCoreException("Erro ao gerar token.", ex);
+
         public static BoletoNetCoreException CertificadoNaoInformado()
             => new BoletoNetCoreException("Certificado não informado.");
         public static BoletoNetCoreException ErroAoRegistrarTituloOnline(Exception ex) 
