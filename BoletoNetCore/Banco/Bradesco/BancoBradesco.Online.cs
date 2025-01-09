@@ -1,21 +1,15 @@
+using BoletoNetCore.Exceptions;
+using Jose;
+using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Json;
-using System.Text.Json.Serialization;
-using System.Threading.Tasks;
-using Org.BouncyCastle.OpenSsl;
-using Org.BouncyCastle.Security;
-using BoletoNetCore.Exceptions;
-using System.Security.Cryptography.X509Certificates;
-using Org.BouncyCastle.Bcpg.OpenPgp;
 using System.Security.Cryptography;
-using System.Security.Claims;
+using System.Security.Cryptography.X509Certificates;
 using System.Text;
-using System.Drawing;
-using Jose;
-using Newtonsoft.Json;
+using System.Threading.Tasks;
 
 namespace BoletoNetCore
 {
