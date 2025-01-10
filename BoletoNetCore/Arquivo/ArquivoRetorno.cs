@@ -2,6 +2,8 @@ using System;
 using System.IO;
 using System.Linq;
 
+#nullable enable
+
 namespace BoletoNetCore
 {
     public class ArquivoRetorno
@@ -46,7 +48,7 @@ namespace BoletoNetCore
                 {
                     while (!arquivoRetorno.EndOfStream)
                     {
-                        var registro = arquivoRetorno.ReadLine();
+                        var registro = arquivoRetorno.ReadLine()!;
                         if (TipoArquivo == TipoArquivo.CNAB240)
                         {
                             LerLinhaDoArquivoRetornoCNAB240(registro);
@@ -71,39 +73,37 @@ namespace BoletoNetCore
             Boletos.Clear();
             try
             {
-                using (StreamReader arquivoRetorno = new StreamReader(arquivo, System.Text.Encoding.UTF8))
+                using StreamReader arquivoRetorno = new(arquivo, System.Text.Encoding.UTF8);
+                if (arquivoRetorno.EndOfStream)
+                    throw new Exception("Arquivo de retorno vazio");
+
+                //busca o primeiro registro do arquivo
+                var registro = arquivoRetorno.ReadLine()!;
+
+                //atribui o tipo de acordo com o conteúdo do arquivo
+                TipoArquivo = registro.Length == 240 ? TipoArquivo.CNAB240 : TipoArquivo.CNAB400;
+
+                //instacia o banco de acordo com o codigo/id do banco presente no arquivo de retorno
+                Banco = BoletoNetCore.Banco.Instancia(Utils.ToInt32(registro.Substring(TipoArquivo == TipoArquivo.CNAB240 ? 0 : 76, 3)));
+
+                if (TipoArquivo == TipoArquivo.CNAB400 && Banco.IdsRetornoCnab400RegistroDetalhe.Count == 0)
+                    throw new Exception("Banco " + Banco.Codigo.ToString() + " não implementou os Ids do Registro Retorno do CNAB400.");
+
+                //define a posicao do reader para o início
+                arquivoRetorno.DiscardBufferedData();
+                arquivoRetorno.BaseStream.Seek(0, SeekOrigin.Begin);
+
+                while (!arquivoRetorno.EndOfStream)
                 {
-                    if (arquivoRetorno.EndOfStream)
-                        return;
-
-                    //busca o primeiro registro do arquivo
-                    var registro = arquivoRetorno.ReadLine();
-
-                    //atribui o tipo de acordo com o conteúdo do arquivo
-                    TipoArquivo = registro.Length == 240 ? TipoArquivo.CNAB240 : TipoArquivo.CNAB400;
-
-                    //instacia o banco de acordo com o codigo/id do banco presente no arquivo de retorno
-                    Banco = BoletoNetCore.Banco.Instancia(Utils.ToInt32(registro.Substring(TipoArquivo == TipoArquivo.CNAB240 ? 0 : 76, 3)));
-
-                    if (TipoArquivo == TipoArquivo.CNAB400 && Banco.IdsRetornoCnab400RegistroDetalhe.Count == 0)
-                        throw new Exception("Banco " + Banco.Codigo.ToString() + " não implementou os Ids do Registro Retorno do CNAB400.");
-
-                    //define a posicao do reader para o início
-                    arquivoRetorno.DiscardBufferedData();
-                    arquivoRetorno.BaseStream.Seek(0, SeekOrigin.Begin);
-
-                    while (!arquivoRetorno.EndOfStream)
+                    registro = arquivoRetorno.ReadLine()!;
+                    if (TipoArquivo == TipoArquivo.CNAB240)
                     {
-                        registro = arquivoRetorno.ReadLine();
-                        if (TipoArquivo == TipoArquivo.CNAB240)
-                        {
-                            LerLinhaDoArquivoRetornoCNAB240(registro);
-                        }
-                        else
-                        if (TipoArquivo == TipoArquivo.CNAB400)
-                        {
-                            LerLinhaDoArquivoRetornoCNAB400(registro);
-                        }
+                        LerLinhaDoArquivoRetornoCNAB240(registro);
+                    }
+                    else
+                    if (TipoArquivo == TipoArquivo.CNAB400)
+                    {
+                        LerLinhaDoArquivoRetornoCNAB400(registro);
                     }
                 }
             }
@@ -141,7 +141,7 @@ namespace BoletoNetCore
             if (tipoRegistro == "3" & tipoSegmento == "U")
             {
                 // Segmento U - Continuação do segmento T anterior (localiza o último boleto da lista)
-                Boleto boleto = Boletos.LastOrDefault();
+                Boleto? boleto = Boletos.LastOrDefault();
                 // Se não encontrou um boleto válido, ocorreu algum problema, pois deveria ter criado um novo objeto no registro que foi analisado anteriormente.
                 if (boleto == null)
                     throw new Exception("Objeto boleto não identificado");
@@ -196,7 +196,7 @@ namespace BoletoNetCore
 
             // Se for um novo boleto, cria um novo objeto, caso contrário, seleciona o último boleto
             // Estamos considerando que, quando houver mais de um registro para o mesmo boleto, no arquivo retorno, os registros serão apresentados na sequencia.
-            Boleto boleto = null;
+            Boleto? boleto = null;
             if (novoBoleto)
             {
                 boleto = new Boleto(this.Banco, _ignorarCarteiraBoleto);
