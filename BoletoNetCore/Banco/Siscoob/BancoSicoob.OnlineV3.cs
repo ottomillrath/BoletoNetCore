@@ -162,6 +162,18 @@ namespace BoletoNetCore
             };
         }
 
+        public static decimal AjustaValorMultaSicoob(decimal valorMulta, decimal percentualMulta, TipoCodigoMulta tipoMulta)
+        {
+            return tipoMulta switch
+            {
+                TipoCodigoMulta.Isento => 0m,
+                TipoCodigoMulta.Valor => valorMulta,
+                TipoCodigoMulta.Percentual => percentualMulta,
+                TipoCodigoMulta.DispensarCobrancaMulta => 0m,
+                _ => throw new NotImplementedException(),
+            };
+        }
+
         public static int AjustaTipoImpressaoBoletoSicoob(TipoImpressaoBoleto tipo)
         {
             return tipo switch
@@ -208,7 +220,7 @@ namespace BoletoNetCore
                                                          // DataTerceiroDesconto = ,
                                                          // ValorTerceiroDesconto = ,
                 TipoMulta = AjustaTipoMultaSicoob(boleto.TipoCodigoMulta),
-                ValorMulta = boleto.ValorMulta,
+                ValorMulta = AjustaValorMultaSicoob(boleto.ValorMulta, boleto.PercentualMulta, boleto.TipoCodigoMulta),
                 TipoJurosMora = AjustaTipoJurosSicoob(boleto.TipoJuros),
                 ValorJurosMora = boleto.ValorJurosDia,
                 NumeroParcela = 1,
