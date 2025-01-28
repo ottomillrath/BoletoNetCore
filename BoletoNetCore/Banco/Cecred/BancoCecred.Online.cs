@@ -144,17 +144,27 @@ namespace BoletoNetCore
             var base64 = Convert.ToBase64String(System.Text.ASCIIEncoding.ASCII.GetBytes(authenticationString));
             request.Headers.Authorization = new AuthenticationHeaderValue("Basic", base64);
 
-            var response = await httpClient.SendAsync(request);
-            await this.CheckHttpResponseError(response);
-            var respString = await response.Content.ReadAsStringAsync();
-            var ret = JsonConvert.DeserializeObject<AilosWso2Token>(respString);
-            Console.WriteLine($"Etapa1 OK: {ret.AccessToken}");
-
-            using (TokenCache tokenCache = new TokenCache())
+            var accessToken = "";
+            try
             {
-                tokenCache.AddOrUpdateToken($"{Id}-WSO2", ret.AccessToken, DateTime.Now.AddHours(1));
-            }
+                var response = await httpClient.SendAsync(request);
+                await this.CheckHttpResponseError(response);
+                var respString = await response.Content.ReadAsStringAsync();
+                var ret = JsonConvert.DeserializeObject<AilosWso2Token>(respString);
+                Console.WriteLine($"Etapa1 OK: {ret.AccessToken}");
+                accessToken = ret.AccessToken;
 
+                using TokenCache tokenCache = new();
+                tokenCache.AddOrUpdateToken($"{Id}-WSO2", accessToken, DateTime.Now.AddHours(1));
+            }
+            catch (Exception ex)
+            {
+                using TokenCache tokenCache = new();
+                tokenCache.RemoveToken($"{Id}-WSO2");
+                tokenCache.RemoveToken(Id.ToString());
+                Console.WriteLine($"Erro ao gerar token ailos [1]: {ex.Message}");
+                throw BoletoNetCoreException.ErroAoRegistrarTituloOnline(new Exception("Não foi possível efetuar o login do cooperado!"));
+            }
             // ETAPA 2: token jwt
             request = new HttpRequestMessage(HttpMethod.Post, authUrlJwt);
 
@@ -168,15 +178,27 @@ namespace BoletoNetCore
 
             request.Content = new StringContent(Newtonsoft.Json.JsonConvert.SerializeObject(requestBody), Encoding.UTF8, "application/json");
 
-            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ret.AccessToken);
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
             request.Content.Headers.ContentType = new MediaTypeHeaderValue("application/json");
             httpClient.DefaultRequestHeaders.Add("Accept", "text/plain");
 
-            response = await httpClient.SendAsync(request);
-            await this.CheckHttpResponseError(response);
-            var tokenJwt = await response.Content.ReadAsStringAsync();
+            var tokenJwt = "";
+            try
+            {
+                var response = await httpClient.SendAsync(request);
+                await this.CheckHttpResponseError(response);
+                tokenJwt = await response.Content.ReadAsStringAsync();
 
-            Console.WriteLine($"Etapa2 OK: {tokenJwt}");
+                Console.WriteLine($"Etapa2 OK: {tokenJwt}");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Erro ao gerar token ailos [2]: {ex.Message}");
+                using TokenCache tokenCache = new();
+                tokenCache.RemoveToken($"{Id}-WSO2");
+                tokenCache.RemoveToken(Id.ToString());
+                throw BoletoNetCoreException.ErroAoRegistrarTituloOnline(new Exception("Não foi possível efetuar o login do cooperado!"));
+            }
 
             // ETAPA 3 login do cooperado 
             // https://apiendpointhml.ailos.coop.br/ailos/identity/api/v1/login/index?id=token 
@@ -271,7 +293,8 @@ namespace BoletoNetCore
                 emissao.Instrucoes.PercentualJurosMora = perc;
             }
 
-            if (boleto.ValorMulta > 0) {
+            if (boleto.ValorMulta > 0)
+            {
                 emissao.Instrucoes.TipoMulta = 1;
                 emissao.Instrucoes.ValorMulta = boleto.ValorMulta;
             }
@@ -281,7 +304,8 @@ namespace BoletoNetCore
                 emissao.Instrucoes.PercentualMulta = boleto.PercentualMulta;
             }
 
-            if (boleto.ValorDesconto > 0) {
+            if (boleto.ValorDesconto > 0)
+            {
                 emissao.Instrucoes.TipoDesconto = 1;
                 emissao.Instrucoes.ValorDesconto = boleto.ValorDesconto;
             }
