@@ -13,6 +13,8 @@ using System.Threading;
 using Microsoft.AspNetCore.WebUtilities;
 using System.Text.Json.Nodes;
 using Newtonsoft.Json.Linq;
+using BoletoNetCore.Extensions;
+using Microsoft.VisualBasic;
 
 public static class Helper
 {
@@ -66,6 +68,7 @@ namespace BoletoNetCore
         public bool Homologacao { get; set; } = true;
         // implementar este flow id de alguma forma, por enquanto deixar fixo
         private string flowID = "d7cd52b3-6c4b-46db-94e7-13850cacae8b";
+        private string v3Url { get; set; } = "https://boletos.cloud.itau.com.br/boletos/v3/";
         #region HttpClient
         private HttpClient _httpClient;
         private HttpClient httpClient
@@ -78,6 +81,7 @@ namespace BoletoNetCore
                 if (Homologacao)
                 {
                     uri = new Uri("https://devportal.itau.com.br/sandboxapi/cash_management_ext_v2/v2/");
+                    v3Url = "https://sandbox.devportal.itau.com.br/itau-ep9-gtw-boletos-boletos-v3-ext-aws/v1/";
                 }
                 else
                 {
@@ -135,6 +139,11 @@ namespace BoletoNetCore
             {
                 return "";
             }
+        }
+
+        private string GetV3Url(string path)
+        {
+            return $"{v3Url}{path}";
         }
 
         /// <summary>
@@ -392,19 +401,121 @@ namespace BoletoNetCore
             return correlation;
         }
 
-        public Task<int> SolicitarMovimentacao(TipoMovimentacao tipo, int numeroContrato, DateTime inicio, DateTime fim)
+        public async Task<int> SolicitarMovimentacao(TipoMovimentacao tipo, int numeroContrato, DateTime inicio, DateTime fim)
         {
-            throw new NotImplementedException();
+            var query = new Dictionary<string, string>()
+            {
+                ["agencia"] = Beneficiario.ContaBancaria.Agencia,
+                ["conta"] = Beneficiario.ContaBancaria.Conta.PadLeft(7, '0'),
+                ["dac"] = Beneficiario.ContaBancaria.DigitoConta,
+                ["mes_referencia"] = inicio.ToString("MMyyyy"),
+            };
+            var uri = QueryHelpers.AddQueryString(GetV3Url("francesas"), query);
+            var request = new HttpRequestMessage(HttpMethod.Get, uri);
+            request.Headers.Add("Authorization", "Bearer " + Token);
+            request.Headers.Add("x-itau-apikey", ChaveApi);
+            request.Headers.Add("x-itau-flowID", flowID);
+            request.Headers.Add("x-itau-correlationid", System.Guid.NewGuid().ToString());
+            request.Headers.Add("Accept", "application/json");
+            var response = await this.httpClient.SendAsync(request);
+            if (!response.IsSuccessStatusCode)
+            {
+                if (response.StatusCode == HttpStatusCode.BadRequest || response.StatusCode == HttpStatusCode.UnprocessableEntity || (response.StatusCode == HttpStatusCode.NotFound && response.Content.Headers.ContentType.MediaType == "application/json"))
+                {
+                    var bad = JsonConvert.DeserializeObject<BadRequestItauApi>(await response.Content.ReadAsStringAsync());
+                    throw new Exception(string.Format("{0}: {1}", bad.Codigo, bad.Mensagem).Trim());
+                }
+            }
+
+            var resp = JsonConvert.DeserializeObject<SolicitarMovimentacaoResponse>(await response.Content.ReadAsStringAsync());
+            var hasPosicao = false;
+            foreach (DateTime day in DateTimeExtensions.EachDay(inicio, fim))
+            {
+                var posicao = resp.Data.FirstOrDefault(d => d.Posicao.DataPosicao == day.ToString("yyyy-MM-dd"));
+                if (posicao != null)
+                {
+                    hasPosicao = true;
+                    break;
+                }
+            }
+            if (!hasPosicao)
+            {
+                throw new Exception("Posição não encontrada");
+            }
+            return 1;
         }
 
-        public Task<int[]> ConsultarStatusSolicitacaoMovimentacao(int numeroContrato, int codigoSolicitacao)
+        public async Task<int[]> ConsultarStatusSolicitacaoMovimentacao(int numeroContrato, int codigoSolicitacao)
         {
-            throw new NotImplementedException();
+            return new int[] { 1 };
         }
 
-        public Task<string> DownloadArquivoMovimentacao(int numeroContrato, int codigoSolicitacao, int idArquivo)
+        private async Task<DownloadArquivoRetornoItem[]> downloadArquivo(string uri)
         {
-            throw new NotImplementedException();
+            var items = new List<DownloadArquivoRetornoItem>();
+
+            var request = new HttpRequestMessage(HttpMethod.Get, uri);
+            request.Headers.Add("Authorization", "Bearer " + Token);
+            request.Headers.Add("x-itau-apikey", ChaveApi);
+            request.Headers.Add("x-itau-flowID", flowID);
+            request.Headers.Add("x-itau-correlationid", System.Guid.NewGuid().ToString());
+            request.Headers.Add("Accept", "application/json");
+            var response = await this.httpClient.SendAsync(request);
+            if (!response.IsSuccessStatusCode)
+            {
+                return items.ToArray();
+            }
+
+            var resp = JsonConvert.DeserializeObject<ItauMovimentacaoFrancesaResponse>(await response.Content.ReadAsStringAsync());
+            foreach (var item in resp.Data)
+            {
+                items.Add(new DownloadArquivoRetornoItem()
+                {
+                    NossoNumero = item.NossoNumero,
+                    CodigoBarras = "",
+                    DataLiquidacao = dateFromString(item.DataMovimentacao),
+                    DataMovimentoLiquidacao = dateFromString(item.DataMovimentacao),
+                    DataPrevisaoCredito = dateFromString(item.DataMovimentacao),
+                    DataVencimentoTitulo = dateFromString(item.DataVencimento),
+                    NumeroTitulo = 0,
+                    ValorTitulo = decimalFromString(item.ValorTitulo),
+                    ValorLiquido = decimalFromString(item.ValorLiquidoLancado),
+                    ValorTarifaMovimento = decimalFromString(item.ValorDecrescimo),
+                    SeuNumero = item.SeuNumero,
+                });
+            }
+            if (!string.IsNullOrEmpty(resp.Pagination.Links.Next))
+            {
+                items.AddRange(await downloadArquivo(resp.Pagination.Links.Next));
+            }
+
+            return items.ToArray();
+        }
+
+        private DateTime dateFromString(string date)
+        {
+            return DateTime.ParseExact(date, "yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture);
+        }
+
+        private decimal decimalFromString(string value)
+        {
+            return decimal.Parse(value, System.Globalization.CultureInfo.InvariantCulture);
+        }
+
+        public async Task<DownloadArquivoRetornoItem[]> DownloadArquivoMovimentacao(int numeroContrato, int codigoSolicitacao, int idArquivo, DateTime inicio, DateTime fim)
+        {
+            var items = new List<DownloadArquivoRetornoItem>();
+            var url = string.Format("francesas/{0}{1}{2}/movimentacoes", Beneficiario.ContaBancaria.Agencia, Beneficiario.ContaBancaria.Conta.PadLeft(7, '0'), Beneficiario.ContaBancaria.DigitoConta);
+            foreach (DateTime day in DateTimeExtensions.EachDay(inicio, fim))
+            {
+                var query = new Dictionary<string, string>()
+                {
+                    ["data"] = day.ToString("yyyy-MM-dd")
+                };
+                var uri = QueryHelpers.AddQueryString(GetV3Url(url), query);
+                items.AddRange(await downloadArquivo(uri));
+            }
+            return items.ToArray();
         }
 
         public async Task<ItauWebhookCreateResponse> CreateWebhook(string url, string urlOauth, string clientId, string clientSecret)
@@ -422,7 +533,7 @@ namespace BoletoNetCore
                 },
             };
 
-            var request = new HttpRequestMessage(HttpMethod.Post, "https://boletos.cloud.itau.com.br/boletos/v3/notificacoes_boletos")
+            var request = new HttpRequestMessage(HttpMethod.Post, GetV3Url("notificacoes_boletos"))
             {
                 Content = new StringContent(JsonConvert.SerializeObject(data, Formatting.None, new JsonSerializerSettings
                 {
@@ -448,7 +559,7 @@ namespace BoletoNetCore
 
         public async Task<ItauWebhookGetResponse> GetWebhooks()
         {
-            var request = new HttpRequestMessage(HttpMethod.Get, $"https://boletos.cloud.itau.com.br/boletos/v3/notificacoes_boletos?id_beneficiario={Beneficiario.Codigo}");
+            var request = new HttpRequestMessage(HttpMethod.Get, GetV3Url($"notificacoes_boletos?id_beneficiario={Beneficiario.Codigo}"));
             request.Headers.Add("Authorization", "Bearer " + Token);
             request.Headers.Add("x-itau-apikey", ChaveApi);
             request.Headers.Add("x-itau-flowID", flowID);
@@ -468,7 +579,7 @@ namespace BoletoNetCore
 
         public async Task<bool> DeleteWebhook(string id)
         {
-            var request = new HttpRequestMessage(HttpMethod.Delete, $"https://boletos.cloud.itau.com.br/boletos/v3/notificacoes_boletos/{id}");
+            var request = new HttpRequestMessage(HttpMethod.Delete, GetV3Url($"notificacoes_boletos/{id}"));
             request.Headers.Add("Authorization", "Bearer " + Token);
             request.Headers.Add("x-itau-apikey", ChaveApi);
             request.Headers.Add("x-itau-flowID", flowID);
@@ -488,6 +599,149 @@ namespace BoletoNetCore
     }
 
     #region "online classes"
+    // Root myDeserializedClass = JsonConvert.DeserializeObject<Root>(myJsonResponse);
+    public class ItauMovimentacaoFrancesaItem
+    {
+        [JsonProperty("agencia")]
+        public int Agencia { get; set; }
+
+        [JsonProperty("conta")]
+        public int Conta { get; set; }
+
+        [JsonProperty("data_movimentacao")]
+        public string DataMovimentacao { get; set; }
+
+        [JsonProperty("numero_carteira")]
+        public int NumeroCarteira { get; set; }
+
+        [JsonProperty("codigo_status")]
+        public string CodigoStatus { get; set; }
+
+        [JsonProperty("nosso_numero")]
+        public string NossoNumero { get; set; }
+
+        [JsonProperty("seu_numero")]
+        public string SeuNumero { get; set; }
+
+        [JsonProperty("dac_titulo")]
+        public int DacTitulo { get; set; }
+
+        [JsonProperty("tipo_cobranca")]
+        public string TipoCobranca { get; set; }
+
+        [JsonProperty("pagador")]
+        public string Pagador { get; set; }
+
+        [JsonProperty("agencia_recebedora")]
+        public int AgenciaRecebedora { get; set; }
+
+        [JsonProperty("data_movimentacao_titulo_carteira")]
+        public string DataMovimentacaoTituloCarteira { get; set; }
+
+        [JsonProperty("data_inclusao_titulo_cobranca")]
+        public string DataInclusaoTituloCobranca { get; set; }
+
+        [JsonProperty("data_vencimento")]
+        public string DataVencimento { get; set; }
+
+        [JsonProperty("valor_titulo")]
+        public string ValorTitulo { get; set; }
+
+        [JsonProperty("valor_liquido_lancado")]
+        public string ValorLiquidoLancado { get; set; }
+
+        [JsonProperty("valor_acrescimo")]
+        public string ValorAcrescimo { get; set; }
+
+        [JsonProperty("valor_decrescimo")]
+        public string ValorDecrescimo { get; set; }
+
+        [JsonProperty("indicador_pagamento_reserva_administrativa")]
+        public string IndicadorPagamentoReservaAdministrativa { get; set; }
+
+        [JsonProperty("indicador_rateio_credito")]
+        public bool IndicadorRateioCredito { get; set; }
+
+        [JsonProperty("dac_agencia_conta_beneficiario")]
+        public int DacAgenciaContaBeneficiario { get; set; }
+
+        [JsonProperty("operacoes_cobranca")]
+        public List<ItauMovimentacaoFrancesaOperacoesCobranca> OperacoesCobranca { get; set; }
+    }
+
+    public class ItauMovimentacaoFrancesaLinks
+    {
+        [JsonProperty("first")]
+        public string First { get; set; }
+
+        [JsonProperty("last")]
+        public string Last { get; set; }
+
+        [JsonProperty("previous")]
+        public object Previous { get; set; }
+
+        [JsonProperty("next")]
+        public string Next { get; set; }
+    }
+
+    public class ItauMovimentacaoFrancesaOperacoesCobranca
+    {
+        [JsonProperty("codigo")]
+        public string Codigo { get; set; }
+
+        [JsonProperty("descricao")]
+        public string Descricao { get; set; }
+
+        [JsonProperty("valor")]
+        public string Valor { get; set; }
+    }
+
+    public class ItauMovimentacaoFrancesaPagination
+    {
+        [JsonProperty("links")]
+        public ItauMovimentacaoFrancesaLinks Links { get; set; }
+
+        [JsonProperty("total_elements")]
+        public int TotalElements { get; set; }
+
+        [JsonProperty("total_pages")]
+        public int TotalPages { get; set; }
+
+        [JsonProperty("page_size")]
+        public int PageSize { get; set; }
+
+        [JsonProperty("page")]
+        public int Page { get; set; }
+    }
+
+    public class ItauMovimentacaoFrancesaResponse
+    {
+        [JsonProperty("data")]
+        public List<ItauMovimentacaoFrancesaItem> Data { get; set; }
+
+        [JsonProperty("pagination")]
+        public ItauMovimentacaoFrancesaPagination Pagination { get; set; }
+    }
+
+
+    public class SolicitarMovimentacaoItem
+    {
+        [JsonProperty("posicao")]
+        public SolicitarMovimentacaoItemPosicao Posicao { get; set; }
+    }
+
+    public class SolicitarMovimentacaoItemPosicao
+    {
+        [JsonProperty("data_posicao")]
+        public string DataPosicao { get; set; }
+    }
+
+    public class SolicitarMovimentacaoResponse
+    {
+        [JsonProperty("data")]
+        public List<SolicitarMovimentacaoItem> Data { get; set; }
+    }
+
     class BadRequestItauApi
     {
         [JsonProperty("codigo")]

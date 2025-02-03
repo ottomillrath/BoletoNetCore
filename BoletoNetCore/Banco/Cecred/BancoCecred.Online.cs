@@ -529,7 +529,7 @@ namespace BoletoNetCore
             throw new NotImplementedException();
         }
 
-        public Task<string> DownloadArquivoMovimentacao(int numeroContrato, int codigoSolicitacao, int idArquivo)
+        public Task<DownloadArquivoRetornoItem[]> DownloadArquivoMovimentacao(int numeroContrato, int codigoSolicitacao, int idArquivo, DateTime inicio, DateTime fim)
         {
             throw new NotImplementedException();
         }

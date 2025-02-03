@@ -16,6 +16,8 @@ using System.Diagnostics;
 using System.Linq;
 using System.Globalization;
 using QRCoder;
+using System.IO;
+using System.IO.Compression;
 
 namespace BoletoNetCore
 {
@@ -125,7 +127,7 @@ namespace BoletoNetCore
         {
             var x = await SolicitarMovimentacao(TipoMovimentacao.AVencer, int.Parse(boleto.Banco.Beneficiario.Codigo), new DateTime(2024, 07, 01), DateTime.Now);
             var y = await ConsultarStatusSolicitacaoMovimentacao(int.Parse(boleto.Banco.Beneficiario.Codigo), 123);
-            var k = await DownloadArquivoMovimentacao(int.Parse(boleto.Banco.Beneficiario.Codigo), 123, 30025254);
+            var k = await DownloadArquivoMovimentacao(int.Parse(boleto.Banco.Beneficiario.Codigo), 123, 30025254, new DateTime(2024, 07, 01), DateTime.Now);
         }
 
         public static int AjustaTipoJurosSicoob(TipoJuros tipo)
@@ -400,7 +402,7 @@ namespace BoletoNetCore
             return ret.Resultado.IdArquivos;
         }
 
-        public async Task<string> DownloadArquivoMovimentacao(int numeroContrato, int codigoSolicitacao, int idArquivo)
+        public async Task<DownloadArquivoRetornoItem[]> DownloadArquivoMovimentacao(int numeroContrato, int codigoSolicitacao, int idArquivo, DateTime inicio, DateTime fim)
         {
             var query = new Dictionary<string, string>()
             {
@@ -417,7 +419,43 @@ namespace BoletoNetCore
             var response = await this.httpClient.SendAsync(request);
             await this.CheckHttpResponseError(response);
             var ret = JsonConvert.DeserializeObject<SolicitarMovimentacaoResponseSicoobApi>(await response.Content.ReadAsStringAsync());
-            return ret.Resultado.Arquivo;
+            byte[] byteArray = Convert.FromBase64String(ret.Resultado.Arquivo);
+            List<DownloadArquivoRetornoItem> items = new List<DownloadArquivoRetornoItem>();
+            using (MemoryStream ms = new(byteArray))
+            {
+                using (ZipArchive zipArchive = new(ms))
+                {
+                    foreach (var entry in zipArchive.Entries)
+                    {
+                        var serializer = new JsonSerializer();
+                        var fms = entry.Open();
+                        using var sr = new StreamReader(fms);
+                        using var reader = new JsonTextReader(sr);
+                        var objt = serializer.Deserialize<JObject[]>(reader);
+                        foreach (var row in objt)
+                        {
+                            DownloadArquivoRetornoItem item = new()
+                            {
+                                SiglaMovimento = row["siglaMovimento"].Value<string>(),
+                                NumeroTitulo = row["numeroTitulo"].Value<long>(),
+                                SeuNumero = row["seuNumero"].Value<string>(),
+                                DataVencimentoTitulo = row["dataVencimentoTitulo"].Value<DateTime>(),
+                                ValorTitulo = row["valorTitulo"].Value<decimal>(),
+                                CodigoBarras = row["codigoBarras"].Value<string>(),
+                                ValorTarifaMovimento = row["valorTarifaMovimento"].Value<decimal>(),
+                                ValorAbatimento = row["valorAbatimento"].Value<decimal>(),
+                                DataMovimentoLiquidacao = row["dataMovimentoLiquidacao"].Value<DateTime>(),
+                                DataLiquidacao = row["dataLiquidacao"].Value<DateTime>(),
+                                DataPrevisaoCredito = row["dataPrevisaoCredito"].Value<DateTime>(),
+                                ValorDesconto = row["valorDesconto"].Value<decimal>(),
+                                ValorMora = row["valorMora"].Value<decimal>(),
+                                ValorLiquido = row["valorLiquido"].Value<decimal>(),
+                            };
+                        }
+                    }
+                }
+            }
+            return items.ToArray();
         }
 
         public Beneficiario Beneficiario { get; set; }

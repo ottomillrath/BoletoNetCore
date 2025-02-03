@@ -154,9 +154,9 @@ namespace BoletoNetCore
             return Cliente.ConsultarStatusSolicitacaoMovimentacao(numeroContrato, codigoSolicitacao);
         }
 
-        public Task<string> DownloadArquivoMovimentacao(int numeroContrato, int codigoSolicitacao, int idArquivo)
+        public Task<DownloadArquivoRetornoItem[]> DownloadArquivoMovimentacao(int numeroContrato, int codigoSolicitacao, int idArquivo, DateTime inicio, DateTime fim)
         {
-            return Cliente.DownloadArquivoMovimentacao(numeroContrato, codigoSolicitacao, idArquivo);
+            return Cliente.DownloadArquivoMovimentacao(numeroContrato, codigoSolicitacao, idArquivo, inicio, fim);
         }
     }
 }
