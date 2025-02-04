@@ -450,11 +450,13 @@ namespace BoletoNetCore
             return new int[] { 1 };
         }
 
-        private async Task<DownloadArquivoRetornoItem[]> downloadArquivo(string uri)
+        private async Task<DownloadArquivoRetornoItem[]> downloadArquivo(string uri, int page = 0)
         {
             var items = new List<DownloadArquivoRetornoItem>();
 
-            var request = new HttpRequestMessage(HttpMethod.Get, uri);
+            var url = string.Format("{0}&page={1}", uri, page);
+
+            var request = new HttpRequestMessage(HttpMethod.Get, url);
             request.Headers.Add("Authorization", "Bearer " + Token);
             request.Headers.Add("x-itau-apikey", ChaveApi);
             request.Headers.Add("x-itau-flowID", flowID);
@@ -469,24 +471,27 @@ namespace BoletoNetCore
             var resp = JsonConvert.DeserializeObject<ItauMovimentacaoFrancesaResponse>(await response.Content.ReadAsStringAsync());
             foreach (var item in resp.Data)
             {
-                items.Add(new DownloadArquivoRetornoItem()
+                if (item.CodigoStatus == "L" || item.CodigoStatus == "BL")
                 {
-                    NossoNumero = item.NossoNumero,
-                    CodigoBarras = "",
-                    DataLiquidacao = dateFromString(item.DataMovimentacao),
-                    DataMovimentoLiquidacao = dateFromString(item.DataMovimentacao),
-                    DataPrevisaoCredito = dateFromString(item.DataMovimentacao),
-                    DataVencimentoTitulo = dateFromString(item.DataVencimento),
-                    NumeroTitulo = 0,
-                    ValorTitulo = decimalFromString(item.ValorTitulo),
-                    ValorLiquido = decimalFromString(item.ValorLiquidoLancado),
-                    ValorTarifaMovimento = decimalFromString(item.ValorDecrescimo),
-                    SeuNumero = item.SeuNumero,
-                });
+                    items.Add(new DownloadArquivoRetornoItem()
+                    {
+                        NossoNumero = item.NossoNumero,
+                        CodigoBarras = "",
+                        DataLiquidacao = dateFromString(item.DataMovimentacao),
+                        DataMovimentoLiquidacao = dateFromString(item.DataMovimentacao),
+                        DataPrevisaoCredito = dateFromString(item.DataMovimentacao),
+                        DataVencimentoTitulo = dateFromString(item.DataVencimento),
+                        NumeroTitulo = 0,
+                        ValorTitulo = decimalFromString(item.ValorTitulo),
+                        ValorLiquido = decimalFromString(item.ValorLiquidoLancado),
+                        ValorTarifaMovimento = decimalFromString(item.ValorDecrescimo),
+                        SeuNumero = item.SeuNumero,
+                    });
+                }
             }
             if (!string.IsNullOrEmpty(resp.Pagination.Links.Next))
             {
-                items.AddRange(await downloadArquivo(resp.Pagination.Links.Next));
+                items.AddRange(await downloadArquivo(uri, page + 1));
             }
 
             return items.ToArray();
