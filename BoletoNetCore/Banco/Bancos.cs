@@ -12,6 +12,7 @@ namespace BoletoNetCore
         Bradesco = 237,
         Itau = 341,
         Safra = 422,
+        StarkBank = 462,
         Sicredi = 748,
         Sicoob = 756,
         Cresol = 133,

@@ -77,5 +77,8 @@ namespace BoletoNetCore.Exceptions
 
         public static Exception NossoNumeroDigitoInvalido(string nossoNumeroDigito, int digitos)
             => new BoletoNetCoreException($"O dígito do nosso número ({nossoNumeroDigito}) deve conter {digitos} dígitos.");
+
+        public static Exception ChavePrivadaNaoInformada()
+            => new BoletoNetCoreException("Chave privada não informada.");
     }
 }

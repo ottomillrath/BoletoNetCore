@@ -24,6 +24,7 @@ namespace BoletoNetCore
     internal sealed class BancoSicoobOnlineV3 : IBancoOnlineRest
     {
         public bool Homologacao { get; set; } = true;
+        public byte[] PrivateKey { get; set; }
         private readonly static string Scopes = "boletos_inclusao boletos_consulta boletos_alteracao";
 
         #region HttpClient
@@ -51,6 +52,7 @@ namespace BoletoNetCore
         #endregion
 
         public string Id { get; set; }
+        public string WorkspaceId { get; set; }
         public string Subdomain { get; set; }
         public string ChaveApi { get; set; }
         public string SecretApi { get; set; }

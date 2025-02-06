@@ -66,6 +66,7 @@ namespace BoletoNetCore
     partial class BancoItau : IBancoOnlineRest
     {
         public bool Homologacao { get; set; } = true;
+        public byte[] PrivateKey { get; set; }
         // implementar este flow id de alguma forma, por enquanto deixar fixo
         private string flowID = "d7cd52b3-6c4b-46db-94e7-13850cacae8b";
         private string v3Url { get; set; } = "https://boletos.cloud.itau.com.br/boletos/v3/";
@@ -99,6 +100,7 @@ namespace BoletoNetCore
         #endregion
 
         public string Id { get; set; }
+        public string WorkspaceId { get; set; }
         public string ChaveApi { get; set; }
 
         public string SecretApi { get; set; }

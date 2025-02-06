@@ -18,6 +18,7 @@ namespace BoletoNetCore
     partial class BancoCresol : IBancoOnlineRest
     {
         public bool Homologacao { get; set; } = true;
+        public byte[] PrivateKey { get; set; }
         #region HttpClient
         private HttpClient _httpClient;
         private HttpClient httpClient
@@ -45,6 +46,7 @@ namespace BoletoNetCore
         #endregion
 
         public string Id { get; set; }
+        public string WorkspaceId { get; set; }
         public string ChaveApi { get; set; }
 
         public string SecretApi { get; set; }

@@ -14,7 +14,7 @@ using BoletoNetCore.Enums;
 using Newtonsoft.Json.Converters;
 
 namespace BoletoNetCore
-{ 
+{
     partial class BancoSicoob : IBancoOnlineRest
     {
         #region props
@@ -25,8 +25,11 @@ namespace BoletoNetCore
         private byte[] m_certificado;
         private string m_certificadoSenha;
         private uint m_versaoApi;
+        public byte[] m_privateKey { get; set; }
 
         public string Id { get; set; }
+
+        public string WorkspaceId { get; set; }
 
         public string ChaveApi
         {
@@ -38,7 +41,8 @@ namespace BoletoNetCore
             }
         }
 
-        public string SecretApi { 
+        public string SecretApi
+        {
             get => m_secretApi;
             set
             {
@@ -47,7 +51,8 @@ namespace BoletoNetCore
             }
         }
 
-        public string Token {
+        public string Token
+        {
             get => m_token;
             set
             {
@@ -66,7 +71,8 @@ namespace BoletoNetCore
             }
         }
 
-        public byte[] Certificado {
+        public byte[] Certificado
+        {
             get => m_certificado;
             set
             {
@@ -75,7 +81,8 @@ namespace BoletoNetCore
             }
         }
 
-        public string CertificadoSenha { 
+        public string CertificadoSenha
+        {
             get => m_certificadoSenha;
             set
             {
@@ -83,8 +90,19 @@ namespace BoletoNetCore
                 if (Cliente != null) Cliente.CertificadoSenha = m_certificadoSenha;
             }
         }
-        
-        public uint VersaoApi {
+
+        public byte[] PrivateKey
+        {
+            get => m_privateKey; set
+            {
+                m_privateKey = value;
+                if (Cliente != null) Cliente.PrivateKey = m_privateKey;
+            }
+        }
+
+
+        public uint VersaoApi
+        {
             get => m_versaoApi;
             set
             {
@@ -116,7 +134,7 @@ namespace BoletoNetCore
                     Homologacao = m_homologacao,
                     Certificado = m_certificado,
                     CertificadoSenha = m_certificadoSenha
-                }; 
+                };
             }
         }
 

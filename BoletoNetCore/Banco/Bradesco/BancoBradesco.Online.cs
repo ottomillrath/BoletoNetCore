@@ -16,6 +16,7 @@ namespace BoletoNetCore
     partial class BancoBradesco : IBancoOnlineRest
     {
         public bool Homologacao { get; set; } = true;
+        public byte[] PrivateKey { get; set; }
 
         #region HttpClient
         private HttpClient _httpClient;
@@ -47,6 +48,7 @@ namespace BoletoNetCore
 
         #region Chaves de Acesso Api 
         public string Id { get; set; }
+        public string WorkspaceId { get; set; }
         public string ChaveApi { get; set; }
         public string SecretApi { get; set; }
         public string Token { get; set; }

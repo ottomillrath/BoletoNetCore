@@ -20,6 +20,7 @@ namespace BoletoNetCore
     internal sealed class BancoSicoobOnlineV2 : IBancoOnlineRest
     {
         public bool Homologacao { get; set; } = true;
+        public byte[] PrivateKey { get; set; }
         private readonly static string Scopes = "cobranca_boletos_consultar cobranca_boletos_incluir cobranca_boletos_pagador cobranca_boletos_segunda_via cobranca_boletos_descontos cobranca_boletos_abatimentos cobranca_boletos_valor_nominal cobranca_boletos_seu_numero cobranca_boletos_especie_documento cobranca_boletos_baixa cobranca_boletos_rateio_credito cobranca_pagadores cobranca_boletos_negativacoes_incluir cobranca_boletos_negativacoes_alterar cobranca_boletos_negativacoes_baixar cobranca_boletos_protestos_incluir cobranca_boletos_protestos_alterar cobranca_boletos_protestos_desistir cobranca_boletos_solicitacao_movimentacao_incluir cobranca_boletos_solicitacao_movimentacao_consultar cobranca_boletos_solicitacao_movimentacao_download cobranca_boletos_prorrogacoes_data_vencimento cobranca_boletos_prorrogacoes_data_limite_pagamento cobranca_boletos_encargos_multas cobranca_boletos_encargos_juros_mora cobranca_boletos_pix cobranca_boletos_faixa_nn_disponiveis";
 
         #region HttpClient
@@ -50,6 +51,7 @@ namespace BoletoNetCore
         #endregion
 
         public string Id { get; set; }
+        public string WorkspaceId { get; set; }
         public string Subdomain { get; set; }
         public string ChaveApi { get; set; }
         public string SecretApi { get; set; }

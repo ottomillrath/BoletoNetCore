@@ -12,6 +12,7 @@ namespace BoletoNetCore
     {
         public bool Homologacao { get; set; } = true;
         
+        public byte[] PrivateKey { get; set; }
         #region HttpClient
         private HttpClient _httpClient;
         private HttpClient httpClient
@@ -34,6 +35,7 @@ namespace BoletoNetCore
         // Chave Master que deve ser gerada pelo portal do sicredi
         // Menu Cobrança, Sub Menu Lateral Código de Acesso / Gerar
         public string Id { get; set; }
+        public string WorkspaceId { get; set; }
         public string ChaveApi { get; set; }
 
         // Não utilizada para o Sicredi

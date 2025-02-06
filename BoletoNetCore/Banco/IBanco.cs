@@ -191,6 +191,12 @@ namespace BoletoNetCore
         public string CertificadoSenha { get; set; }
         public uint VersaoApi { get; set; }
 
+        /// <summary>
+        ///  Chave privada para assinatura de boletos (starkbank)
+        /// </summary>
+        public byte[] PrivateKey { get; set; }
+        public string WorkspaceId { get; set; }
+
         Task<string> GerarToken();
         /// <summary>
         /// REgistra Boleto no banco e Retorna o ID do boleto quando disponivel
