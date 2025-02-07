@@ -21,7 +21,8 @@ namespace BoletoNetCore
             {
                 if (this._httpClient == null)
                 {
-                    this._httpClient = new HttpClient();
+                    var handler = new HttpClientHandler();
+                    this._httpClient = new HttpClient(new LoggingHandler(handler));
                     this._httpClient.BaseAddress = new Uri("https://cobrancaonline.sicredi.com.br/sicredi-cobranca-ws-ecomm-api/ecomm/v1/boleto/");
                 }
 
@@ -71,7 +72,7 @@ namespace BoletoNetCore
             emissao.Posto = boleto.Banco.Beneficiario.ContaBancaria.DigitoAgencia;
             emissao.Cedente = boleto.Banco.Beneficiario.Codigo;
             emissao.NossoNumero = boleto.NossoNumero + boleto.NossoNumeroDV;
-            emissao.TipoPessoa = boleto.Pagador.TipoCPFCNPJ("0");
+            emissao.TipoPessoa = boleto.Pagador.TipoCPFCNPJ("1");
             emissao.CpfCnpj = boleto.Pagador.CPFCNPJ;
             emissao.Nome = boleto.Pagador.Nome;
             emissao.Endereco = boleto.Pagador.Endereco.FormataLogradouro(0);
@@ -86,11 +87,11 @@ namespace BoletoNetCore
             emissao.Telefone = boleto.Pagador.Telefone;
 
             emissao.Email = "";
-            emissao.EspecieDocumento = this.EspecieDocumentoSicrediCNAB400(boleto.EspecieDocumento);
+            emissao.EspecieDocumento = "A";// this.EspecieDocumentoSicrediCNAB400(boleto.EspecieDocumento);
             emissao.SeuNumero = boleto.NumeroDocumento;
             emissao.DataVencimento = boleto.DataVencimento.ToString("dd/MM/yyyy");
             emissao.Valor = boleto.ValorTitulo;
-            emissao.TipoDesconto = "A"; // todo: 
+            emissao.TipoDesconto = "A"; // todo:
 
             if (boleto.ValorDesconto != 0)
             {
@@ -114,8 +115,9 @@ namespace BoletoNetCore
 
             // todo: verificar a necessidade de preencher dados do boleto com o retorno do sicredi
             var boletoEmitido = await response.Content.ReadFromJsonAsync<BoletoEmitidoSicrediApi>();
-            boletoEmitido.LinhaDigitável.ToString();
-            boletoEmitido.CodigoBarra.ToString();
+            boleto.CodigoBarra.CodigoDeBarras = boletoEmitido.CodigoBarra;
+            boleto.CodigoBarra.LinhaDigitavel = boletoEmitido.LinhaDigitavel;
+            
             return boleto.Id;
         }
 
@@ -235,7 +237,7 @@ namespace BoletoNetCore
 
     class BoletoEmitidoSicrediApi
     {
-        public string LinhaDigitável { get; set; }
+        public string LinhaDigitavel { get; set; }
         public string CodigoBanco { get; set; }
         public string NomeBeneficiario { get; set; }
         public string EnderecoBeneficiario { get; set; }
@@ -248,14 +250,13 @@ namespace BoletoNetCore
         public string EspecieDocumento { get; set; }
         public string Aceite { get; set; }
         public DateTime DataProcessamento { get; set; }
-        public string NossoNumero { get; set; }
+        public long NossoNumero { get; set; }
         public string Especie { get; set; }
         public decimal ValorDocumento { get; set; }
         public DateTime DataVencimento { get; set; }
         public string NomePagador { get; set; }
         public string CpfCnpjPagador { get; set; }
         public string EnderecoPagador { get; set; }
-        public DateTime DataLimiteDesconto { get; set; }
         public decimal ValorDesconto { get; set; }
         public decimal JurosMulta { get; set; }
         public string Instrucao { get; set; }
