@@ -63,7 +63,7 @@ namespace BoletoNetCore
         public string Token { get; set; }
         public uint VersaoApi { get; set; }
 
-        public async Task<string> ConsultarStatus(Boleto boleto)
+        public async Task<StatusBoleto> ConsultarStatus(Boleto boleto)
         {
             var query = new Dictionary<string, string>()
             {
@@ -90,11 +90,17 @@ namespace BoletoNetCore
             try
             {
                 var ret = JsonConvert.DeserializeObject<ResponseSingleSicoobApi>(retString, jsonSettings);
-                return ret.Resultado.SituacaoBoleto;
+                return ret.Resultado.SituacaoBoleto switch
+                {
+                    "EM_ABERTO" => StatusBoleto.EmAberto,
+                    "LIQUIDADO" => StatusBoleto.Liquidado,
+                    "BAIXADO" => StatusBoleto.Baixado,
+                    _ => StatusBoleto.Nenhum,
+                };
             }
             catch (Exception ex)
             {
-                return "";
+                return StatusBoleto.Nenhum;
             }
         }
 

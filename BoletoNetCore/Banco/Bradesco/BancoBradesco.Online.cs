@@ -312,7 +312,7 @@ namespace BoletoNetCore
             return boleto.Id;
         }
 
-        public async Task<string> ConsultarStatus(Boleto boleto)
+        public async Task<StatusBoleto> ConsultarStatus(Boleto boleto)
         {
             BradescoConsultaStatusRequest consultarRequest = new()
             {
@@ -360,7 +360,13 @@ namespace BoletoNetCore
 
             var respJson = await response.Content.ReadAsStringAsync();
             var resp = JsonConvert.DeserializeObject<BradescoConsultarStatusResponse>(respJson);
-            return resp.TITULO.STATUS;
+            return resp.TITULO.STATUS switch
+            {
+                "Aberto" => StatusBoleto.EmAberto,
+                "Baixado" => StatusBoleto.Baixado,
+                "Liquidado" => StatusBoleto.Liquidado,
+                _ => StatusBoleto.Nenhum
+            };
         }
 
         private async Task CheckHttpResponseError(HttpResponseMessage response)

@@ -57,7 +57,7 @@ namespace BoletoNetCore
         public string CertificadoSenha { get; set; }
         public uint VersaoApi { get; set; }
 
-        public async Task<string> ConsultarStatus(Boleto boleto)
+        public async Task<StatusBoleto> ConsultarStatus(Boleto boleto)
         {
             var request = new HttpRequestMessage(HttpMethod.Get, string.Format("titulos/{0}", boleto.Id));
             request.Headers.Add("Authorization", "Bearer " + Token);
@@ -67,12 +67,21 @@ namespace BoletoNetCore
             var ret = JsonConvert.DeserializeObject<JObject>(retString);
             try
             {
-                var status = (string)ret.SelectToken("$.status");
-                return status;
+                var status = ret?.SelectToken("$.status");
+                if (status == null)
+                    return StatusBoleto.Nenhum;
+
+                return (string)status switch
+                {
+                    "PENDENTE" => StatusBoleto.EmAberto,
+                    "BAIXADO" => StatusBoleto.Baixado,
+                    "LIQUIDADO" => StatusBoleto.Liquidado,
+                    _ => StatusBoleto.Nenhum,
+                };
             }
             catch
             {
-                return "";
+                return StatusBoleto.Nenhum;
             }
         }
 
@@ -117,7 +126,7 @@ namespace BoletoNetCore
             {
                 CdTipoJuros = "2", // TODO
                 CdTipoMulta = null, // TODO
-                // CodigoBarras = boleto.CodigoBarra.CodigoDeBarras,
+                                    // CodigoBarras = boleto.CodigoBarra.CodigoDeBarras,
                 ControleParticipante = boleto.NumeroControleParticipante != string.Empty ? boleto.NumeroControleParticipante : null,
                 DocPagador = boleto.Pagador.CPFCNPJ,
                 DtDocumento = boleto.DataEmissao.ToString("yyyy-MM-dd"),

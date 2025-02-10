@@ -2,6 +2,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using BoletoNetCore.Exceptions;
 using StarkBank;
@@ -47,25 +48,57 @@ namespace BoletoNetCore
         public async Task<string> CancelarBoleto(Boleto boleto)
         {
             StarkBank.Boleto bol = StarkBank.Boleto.Delete(boleto.Id, user: Organization);
-            Console.WriteLine(boleto);
-            return "";
+            return bol.Status;
         }
 
-        public async Task<string> ConsultarStatus(Boleto boleto)
+        public async Task<StatusBoleto> ConsultarStatus(Boleto boleto)
         {
             StarkBank.Boleto bol = StarkBank.Boleto.Get(boleto.Id, user: Organization);
             Console.WriteLine(boleto);
-            return bol.Status;
+            return bol.Status switch
+            {
+                "canceled" => StatusBoleto.Baixado,
+                "created" => StatusBoleto.EmAberto,
+                "registered" => StatusBoleto.EmAberto,
+                "overdue" => StatusBoleto.EmAberto,
+                "paid" => StatusBoleto.Liquidado,
+                _ => StatusBoleto.Nenhum,
+            };
         }
 
         public async Task<int[]> ConsultarStatusSolicitacaoMovimentacao(int numeroContrato, int codigoSolicitacao)
         {
-            throw new NotImplementedException();
+            return new int[] { 1 };
         }
 
         public async Task<DownloadArquivoRetornoItem[]> DownloadArquivoMovimentacao(int numeroContrato, int codigoSolicitacao, int idArquivo, DateTime inicio, DateTime fim)
         {
-            throw new NotImplementedException();
+            var items = new List<DownloadArquivoRetornoItem>();
+            DateTime after = new DateTime(inicio.Year, inicio.Month, inicio.Day);
+            DateTime before = new DateTime(fim.Year, fim.Month, fim.Day);
+            IEnumerable<StarkBank.Boleto.Log> logs = StarkBank.Boleto.Log.Query(limit: 100, after: after, before: before, user: Organization);
+            foreach (var log in logs)
+            {
+                if (log.Type == "paid")
+                {
+                    items.Add(new DownloadArquivoRetornoItem
+                    {
+                        NossoNumero = log.Boleto.OurNumber,
+                        CodigoBarras = log.Boleto.BarCode,
+                        DataLiquidacao = log.Created,
+                        DataMovimentoLiquidacao = log.Created,
+                        DataPrevisaoCredito = log.Created,
+                        DataVencimentoTitulo = (DateTime)log.Boleto.Due,
+                        NumeroTitulo = 0,
+                        ValorTitulo = (decimal)log.Boleto.Amount / 100,
+                        ValorLiquido = (decimal)log.Boleto.Amount / 100,
+                        ValorTarifaMovimento = 0,
+                        SeuNumero = log.Boleto.OurNumber,
+                    });
+                }
+            }
+
+            return items.ToArray();
         }
 
         public async Task<string> GerarToken()
@@ -125,7 +158,7 @@ namespace BoletoNetCore
 
         public async Task<int> SolicitarMovimentacao(TipoMovimentacao tipo, int numeroContrato, DateTime inicio, DateTime fim)
         {
-            throw new NotImplementedException();
+            return 1;
         }
     }
 }

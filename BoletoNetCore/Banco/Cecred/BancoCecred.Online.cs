@@ -487,7 +487,7 @@ namespace BoletoNetCore
                 throw BoletoNetCoreException.ErroAoRegistrarTituloOnline(new Exception(string.Format("Erro desconhecido: {0}", response.StatusCode)));
         }
 
-        public async Task<string> ConsultarStatus(Boleto boleto)
+        public async Task<StatusBoleto> ConsultarStatus(Boleto boleto)
         {
             var url = $"boletos/consultar/boleto/convenios/{boleto.Banco.Beneficiario.Codigo}/{boleto.Id}";
 
@@ -498,7 +498,7 @@ namespace BoletoNetCore
             await this.CheckHttpResponseError(response);
 
             if (response.StatusCode == HttpStatusCode.NoContent)
-                return "Sem retorno do banco";
+                return StatusBoleto.Nenhum;
 
             var ret = await response.Content.ReadFromJsonAsync<AilosConsultaBoletoResponse>();
 
@@ -506,13 +506,13 @@ namespace BoletoNetCore
             switch (ret.Boleto.IndicadorSituacaoBoleto)
             {
                 case 0: // Em aberto
-                    return "Em Aberto";
+                    return StatusBoleto.EmAberto;
                 case 3: // BAixado
-                    return "Baixada";
+                    return StatusBoleto.Baixado;
                 case 5: // Liquidado
-                    return "Paga";
+                    return StatusBoleto.Liquidado;
                 default:
-                    return "Situação desconhecida";
+                    return StatusBoleto.Nenhum;
             }
         }
 

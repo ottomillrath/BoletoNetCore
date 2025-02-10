@@ -203,7 +203,7 @@ namespace BoletoNetCore
         /// </summary>
         Task<string> RegistrarBoleto(Boleto boleto);
         Task<string> CancelarBoleto(Boleto boleto);
-        Task<string> ConsultarStatus(Boleto boleto);
+        Task<StatusBoleto> ConsultarStatus(Boleto boleto);
 		Task<int> SolicitarMovimentacao(TipoMovimentacao tipo, int numeroContrato, DateTime inicio, DateTime fim);
 		Task<int[]> ConsultarStatusSolicitacaoMovimentacao(int numeroContrato, int codigoSolicitacao);
 		Task<DownloadArquivoRetornoItem[]> DownloadArquivoMovimentacao(int numeroContrato, int codigoSolicitacao, int idArquivo, DateTime inicio, DateTime fim);

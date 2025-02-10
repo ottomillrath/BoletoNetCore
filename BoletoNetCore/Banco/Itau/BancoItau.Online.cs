@@ -110,7 +110,7 @@ namespace BoletoNetCore
 
         public string Token { get; set; }
 
-        public async Task<string> ConsultarStatus(Boleto boleto)
+        public async Task<StatusBoleto> ConsultarStatus(Boleto boleto)
         {
             var query = new Dictionary<string, string>()
             {
@@ -135,11 +135,21 @@ namespace BoletoNetCore
             try
             {
                 var status = (string)ret.SelectToken("$.data[0].dado_boleto.dados_individuais_boleto[0].situacao_geral_boleto");
-                return status;
+                switch (status)
+                {
+                    case "Baixada":
+                        return StatusBoleto.Baixado;
+                    case "Em Aberto":
+                        return StatusBoleto.EmAberto;
+                    case "Paga":
+                        return StatusBoleto.Liquidado;
+                    default:
+                        return StatusBoleto.Nenhum;
+                }
             }
             catch
             {
-                return "";
+                return StatusBoleto.Nenhum;
             }
         }
 

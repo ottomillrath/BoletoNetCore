@@ -157,7 +157,7 @@ namespace BoletoNetCore
             return Cliente.CancelarBoleto(boleto);
         }
 
-        public Task<string> ConsultarStatus(Boleto boleto)
+        public Task<StatusBoleto> ConsultarStatus(Boleto boleto)
         {
             return Cliente.ConsultarStatus(boleto);
         }
