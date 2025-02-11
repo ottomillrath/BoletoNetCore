@@ -485,7 +485,7 @@ namespace BoletoNetCore
             {
                 if (item.CodigoStatus == "L" || item.CodigoStatus == "BL")
                 {
-                    items.Add(new DownloadArquivoRetornoItem()
+                    var ritem =new DownloadArquivoRetornoItem()
                     {
                         NossoNumero = item.NossoNumero,
                         CodigoBarras = "",
@@ -498,7 +498,14 @@ namespace BoletoNetCore
                         ValorLiquido = decimalFromString(item.ValorLiquidoLancado),
                         ValorTarifaMovimento = decimalFromString(item.ValorDecrescimo),
                         SeuNumero = item.SeuNumero,
-                    });
+                    };
+                    if (item.CodigoStatus == "BL")
+                    {
+                        ritem.ValorLiquido = ritem.ValorTitulo;
+                        ritem.ValorTarifaMovimento = 0;
+                    }
+                    
+                    items.Add(ritem);
                 }
             }
             if (!string.IsNullOrEmpty(resp.Pagination.Links.Next))
