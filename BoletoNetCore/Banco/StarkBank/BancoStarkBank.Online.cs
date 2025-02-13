@@ -11,27 +11,26 @@ namespace BoletoNetCore
 {
     partial class BancoStarkBank : IBancoOnlineRest
     {
-        private Organization _organization;
-        private Organization Organization
+        private Project _project;
+        private Project Project
         {
             get
             {
-                if (_organization != null)
+                if (_project != null)
                 {
-                    return _organization;
+                    return _project;
                 }
                 if (PrivateKey == null)
                 {
                     throw BoletoNetCoreException.ChavePrivadaNaoInformada();
                 }
-                _organization = new StarkBank.Organization(
+                _project = new StarkBank.Project(
                     environment: Homologacao ? "sandbox" : "production",
                     id: ChaveApi,
-                    privateKey: System.Text.Encoding.Default.GetString(PrivateKey),
-                    workspaceID: WorkspaceId
+                    privateKey: System.Text.Encoding.Default.GetString(PrivateKey)
                 );
-                StarkBank.Settings.User = _organization;
-                return _organization;
+                StarkBank.Settings.User = _project;
+                return _project;
             }
         }
         public string Id { get; set; }
@@ -47,13 +46,13 @@ namespace BoletoNetCore
 
         public async Task<string> CancelarBoleto(Boleto boleto)
         {
-            StarkBank.Boleto bol = StarkBank.Boleto.Delete(boleto.Id, user: Organization);
+            StarkBank.Boleto bol = StarkBank.Boleto.Delete(boleto.Id, user: Project);
             return bol.Status;
         }
 
         public async Task<StatusBoleto> ConsultarStatus(Boleto boleto)
         {
-            StarkBank.Boleto bol = StarkBank.Boleto.Get(boleto.Id, user: Organization);
+            StarkBank.Boleto bol = StarkBank.Boleto.Get(boleto.Id, user: Project);
             Console.WriteLine(boleto);
             return bol.Status switch
             {
@@ -76,7 +75,7 @@ namespace BoletoNetCore
             var items = new List<DownloadArquivoRetornoItem>();
             DateTime after = new DateTime(inicio.Year, inicio.Month, inicio.Day);
             DateTime before = new DateTime(fim.Year, fim.Month, fim.Day);
-            IEnumerable<StarkBank.Boleto.Log> logs = StarkBank.Boleto.Log.Query(limit: 100, after: after, before: before, user: Organization);
+            IEnumerable<StarkBank.Boleto.Log> logs = StarkBank.Boleto.Log.Query(limit: 100, after: after, before: before, user: Project);
             foreach (var log in logs)
             {
                 if (log.Type == "paid")
@@ -128,7 +127,7 @@ namespace BoletoNetCore
             };
             try
             {
-                var resp = StarkBank.Boleto.Create(lista, user: Organization);
+                var resp = StarkBank.Boleto.Create(lista, user: Project);
                 if (resp.Count == 0)
                 {
                     throw BoletoNetCoreException.ErroAoRegistrarTituloOnline(new Exception("Erro ao registrar boleto"));
