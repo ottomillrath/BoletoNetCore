@@ -92,9 +92,9 @@ namespace BoletoNetCore
                 var ret = JsonConvert.DeserializeObject<ResponseSingleSicoobApi>(retString, jsonSettings);
                 return ret.Resultado.SituacaoBoleto switch
                 {
-                    "EM_ABERTO" => StatusBoleto.EmAberto,
-                    "LIQUIDADO" => StatusBoleto.Liquidado,
-                    "BAIXADO" => StatusBoleto.Baixado,
+                    "Em Aberto" => StatusBoleto.EmAberto,
+                    "Liquidado" => StatusBoleto.Liquidado,
+                    "Baixado" => StatusBoleto.Baixado,
                     _ => StatusBoleto.Nenhum,
                 };
             }
@@ -459,6 +459,7 @@ namespace BoletoNetCore
                                 ValorMora = row["valorMora"].Value<decimal>(),
                                 ValorLiquido = row["valorLiquido"].Value<decimal>(),
                             };
+                            items.Add(item);
                         }
                     }
                 }
