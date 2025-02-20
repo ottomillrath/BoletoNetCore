@@ -73,7 +73,7 @@ namespace BoletoNetCore
 
                 return (string)status switch
                 {
-                    "PENDENTE" => StatusBoleto.EmAberto,
+                    "EM_ABERTO" => StatusBoleto.EmAberto,
                     "BAIXADO" => StatusBoleto.Baixado,
                     "LIQUIDADO" => StatusBoleto.Liquidado,
                     _ => StatusBoleto.Nenhum,
