@@ -125,8 +125,8 @@ namespace BoletoNetCore
             List<BoletoCresolRequest> emissao = new();
             var eb = new BoletoCresolRequest()
             {
-                CdTipoJuros = "2", // TODO
-                CdTipoMulta = null, // TODO
+                CdTipoJuros = "ISENTO", // TODO
+                CdTipoMulta = "ISENTO", // TODO
                                     // CodigoBarras = boleto.CodigoBarra.CodigoDeBarras,
                 ControleParticipante = boleto.NumeroControleParticipante != string.Empty ? boleto.NumeroControleParticipante : null,
                 DocPagador = boleto.Pagador.CPFCNPJ,
@@ -148,6 +148,24 @@ namespace BoletoNetCore
                 ValorNominal = boleto.ValorTitulo,
                 IdEspecie = 2,
             };
+            if (boleto.PercentualJurosDia > 0)
+            {
+                eb.CdTipoJuros = "VALOR_PERCENTUAL";
+                eb.ValorJuros = boleto.PercentualJurosDia;
+            } else if (boleto.ValorJurosDia > 0)
+            {
+                eb.CdTipoJuros = "VALOR_FIXO";
+                eb.ValorJuros = boleto.ValorJurosDia;
+            }
+            if (boleto.PercentualMulta > 0)
+            {
+                eb.CdTipoMulta = "VALOR_PERCENTUAL";
+                eb.ValorMulta = boleto.PercentualMulta;
+            } else if (boleto.ValorMulta > 0)
+            {
+                eb.CdTipoMulta = "VALOR_FIXO";
+                eb.ValorMulta = boleto.ValorMulta;
+            }
             emissao.Add(eb);
             var request = new HttpRequestMessage(HttpMethod.Post, "titulos");
             var jc = new StringContent(JsonConvert.SerializeObject(emissao, Formatting.None, new JsonSerializerSettings
