@@ -75,6 +75,7 @@ namespace BoletoNetCore
                 {
                     "EM_ABERTO" => StatusBoleto.EmAberto,
                     "BAIXADO" => StatusBoleto.Baixado,
+                    "BAIXADO_MANUALMENTE" => StatusBoleto.Baixado,
                     "LIQUIDADO" => StatusBoleto.Liquidado,
                     _ => StatusBoleto.Nenhum,
                 };
