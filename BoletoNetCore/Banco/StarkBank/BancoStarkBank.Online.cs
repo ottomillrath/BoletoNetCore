@@ -47,6 +47,7 @@ namespace BoletoNetCore
         public async Task<string> CancelarBoleto(Boleto boleto)
         {
             StarkBank.Boleto bol = StarkBank.Boleto.Delete(boleto.Id, user: Project);
+            Console.WriteLine(bol);
             return bol.Status;
         }
 

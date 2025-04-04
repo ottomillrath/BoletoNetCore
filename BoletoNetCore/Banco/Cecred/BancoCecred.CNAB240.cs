@@ -383,7 +383,7 @@ namespace BoletoNetCore
                         boleto.TipoCarteira = TipoCarteira.CarteiraCobrancaSimples;
                         break;
                 }
-                boleto.NossoNumero = registro.Substring(37, 18);
+                boleto.NossoNumero = registro.Substring(37, 18).TrimEnd();
                 boleto.NossoNumeroDV = registro.Substring(54, 1);
                 boleto.NossoNumeroFormatado = boleto.NossoNumero + "-" + boleto.NossoNumeroDV;
                 boleto.CodigoMovimentoRetorno = registro.Substring(15, 2);
