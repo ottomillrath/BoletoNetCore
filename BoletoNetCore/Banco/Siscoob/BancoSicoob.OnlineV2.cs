@@ -55,6 +55,7 @@ namespace BoletoNetCore
         public string Subdomain { get; set; }
         public string ChaveApi { get; set; }
         public string SecretApi { get; set; }
+        
 
         public byte[] Certificado { get; set; }
         public string CertificadoSenha { get; set; }

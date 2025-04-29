@@ -80,5 +80,7 @@ namespace BoletoNetCore.Exceptions
 
         public static Exception ChavePrivadaNaoInformada()
             => new BoletoNetCoreException("Chave privada não informada.");
+        public static Exception IDNaoInformado()
+            => new BoletoNetCoreException("ID não informado.");
     }
 }

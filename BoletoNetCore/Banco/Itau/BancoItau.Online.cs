@@ -107,7 +107,7 @@ namespace BoletoNetCore
         public byte[] Certificado { get; set; }
         public string CertificadoSenha { get; set; }
         public uint VersaoApi { get; set; }
-
+        
         public string Token { get; set; }
 
         public async Task<StatusBoleto> ConsultarStatus(Boleto boleto)
@@ -485,7 +485,7 @@ namespace BoletoNetCore
             {
                 if (item.CodigoStatus == "L" || item.CodigoStatus == "BL")
                 {
-                    var ritem =new DownloadArquivoRetornoItem()
+                    var ritem = new DownloadArquivoRetornoItem()
                     {
                         NossoNumero = item.NossoNumero,
                         CodigoBarras = "",
@@ -504,7 +504,7 @@ namespace BoletoNetCore
                         ritem.ValorLiquido = ritem.ValorTitulo;
                         ritem.ValorTarifaMovimento = 0;
                     }
-                    
+
                     items.Add(ritem);
                 }
             }

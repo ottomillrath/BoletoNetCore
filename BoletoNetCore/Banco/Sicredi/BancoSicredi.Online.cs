@@ -41,6 +41,7 @@ namespace BoletoNetCore
 
         // Não utilizada para o Sicredi
         public string SecretApi { get; set; }
+        
 
         // Chave de Transação valida por 24 horas
         // Segundo o manual, não é permitido gerar uma nova chave de transação antes da atual estar expirada.

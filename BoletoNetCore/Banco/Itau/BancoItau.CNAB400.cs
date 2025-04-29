@@ -4,6 +4,7 @@ using System.Linq;
 using BoletoNetCore.Exceptions;
 using static System.String;
 using BoletoNetCore.Extensions;
+using Microsoft.VisualBasic;
 
 namespace BoletoNetCore
 {
@@ -316,10 +317,13 @@ namespace BoletoNetCore
                 //Data Vencimento do Título
                 boleto.DataVencimento = Utils.ToDateTime(Utils.ToInt32(registro.Substring(146, 6)).ToString("##-##-##"));
 
-                // Data do Crédito
-                boleto.DataCredito = Utils.ToDateTime(Utils.ToInt32(registro.Substring(295, 6)).ToString("##-##-##"));
-                // #864emum1m
-                boleto.DataCredito = boleto.DataCredito.AddDays(1);
+                if (registro.Substring(295, 6).Trim() != string.Empty)
+                {
+                    // Data do Crédito
+                    boleto.DataCredito = Utils.ToDateTime(Utils.ToInt32(registro.Substring(295, 6)).ToString("##-##-##"));
+                } else {
+                    boleto.DataCredito = boleto.DataProcessamento;
+                }
 
                 boleto.Pagador = new Pagador();
                 boleto.Pagador.Nome = registro.Substring(324, 30).Trim();

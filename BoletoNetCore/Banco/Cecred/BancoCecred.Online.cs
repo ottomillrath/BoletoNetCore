@@ -41,6 +41,7 @@ namespace BoletoNetCore
         // - o login do cooperado vai dizer que a url do callback é inválida, é mentira, é só tentar login de novo que passa (as vezes mais de uma vez)
 
         public bool Homologacao { get; set; } = true;
+        
         public byte[] PrivateKey { get; set; }
 
         #region HttpClient

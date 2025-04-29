@@ -50,7 +50,7 @@ namespace BoletoNetCore
         public string ChaveApi { get; set; }
 
         public string SecretApi { get; set; }
-
+        
         public string Token { get; set; }
 
         public byte[] Certificado { get; set; }
@@ -127,7 +127,7 @@ namespace BoletoNetCore
             {
                 CdTipoJuros = "ISENTO", // TODO
                 CdTipoMulta = "ISENTO", // TODO
-                                    // CodigoBarras = boleto.CodigoBarra.CodigoDeBarras,
+                                        // CodigoBarras = boleto.CodigoBarra.CodigoDeBarras,
                 ControleParticipante = boleto.NumeroControleParticipante != string.Empty ? boleto.NumeroControleParticipante : null,
                 DocPagador = boleto.Pagador.CPFCNPJ,
                 DtDocumento = boleto.DataEmissao.ToString("yyyy-MM-dd"),
@@ -152,7 +152,8 @@ namespace BoletoNetCore
             {
                 eb.CdTipoJuros = "VALOR_PERCENTUAL";
                 eb.ValorJuros = boleto.PercentualJurosDia;
-            } else if (boleto.ValorJurosDia > 0)
+            }
+            else if (boleto.ValorJurosDia > 0)
             {
                 eb.CdTipoJuros = "VALOR_FIXO";
                 eb.ValorJuros = boleto.ValorJurosDia;
@@ -161,7 +162,8 @@ namespace BoletoNetCore
             {
                 eb.CdTipoMulta = "VALOR_PERCENTUAL";
                 eb.ValorMulta = boleto.PercentualMulta;
-            } else if (boleto.ValorMulta > 0)
+            }
+            else if (boleto.ValorMulta > 0)
             {
                 eb.CdTipoMulta = "VALOR_FIXO";
                 eb.ValorMulta = boleto.ValorMulta;

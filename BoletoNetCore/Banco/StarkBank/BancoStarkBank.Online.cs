@@ -42,19 +42,20 @@ namespace BoletoNetCore
         public byte[] PrivateKey { get; set; }
         public byte[] Certificado { get; set; }
         public string CertificadoSenha { get; set; }
+        
         public uint VersaoApi { get; set; }
 
         public async Task<string> CancelarBoleto(Boleto boleto)
         {
             StarkBank.Boleto bol = StarkBank.Boleto.Delete(boleto.Id, user: Project);
-            Console.WriteLine(bol);
+            Console.WriteLine(string.Format("@@@@@boleto: {0}\n", bol));
             return bol.Status;
         }
 
         public async Task<StatusBoleto> ConsultarStatus(Boleto boleto)
         {
             StarkBank.Boleto bol = StarkBank.Boleto.Get(boleto.Id, user: Project);
-            Console.WriteLine(boleto);
+            Console.WriteLine(string.Format("@@@@@boleto: {0}\n", bol));
             return bol.Status switch
             {
                 "canceled" => StatusBoleto.Baixado,
