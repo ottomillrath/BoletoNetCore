@@ -333,20 +333,234 @@ namespace BoletoNetCore
             return "";
         }
 
-        public Task<int> SolicitarMovimentacao(TipoMovimentacao tipo, int numeroContrato, DateTime inicio, DateTime fim)
+        public async Task<int> SolicitarMovimentacao(TipoMovimentacao tipo, int numeroContrato, DateTime inicio, DateTime fim)
         {
-            throw new NotImplementedException();
+            return 1;
         }
 
-        public Task<int[]> ConsultarStatusSolicitacaoMovimentacao(int numeroContrato, int codigoSolicitacao)
+        public async Task<int[]> ConsultarStatusSolicitacaoMovimentacao(int numeroContrato, int codigoSolicitacao)
         {
-            throw new NotImplementedException();
+            return new int[] { 1 };
         }
 
-        public Task<DownloadArquivoRetornoItem[]> DownloadArquivoMovimentacao(int numeroContrato, int codigoSolicitacao, int idArquivo, DateTime inicio, DateTime fim)
+        public async Task<DownloadArquivoRetornoItem[]> DownloadArquivoMovimentacao(int numeroContrato, int codigoSolicitacao, int idArquivo, DateTime inicio, DateTime fim)
         {
-            throw new NotImplementedException();
+            var items = new List<DownloadArquivoRetornoItem>();
+            var token = await this.GerarToken();
+            if (string.IsNullOrEmpty(token))
+                return items.ToArray();
+
+            BancoBrasilListarRetornoMovimentoRequest listarRequest = new()
+            {
+                CodigoPrefixoAgencia = int.Parse(Beneficiario.ContaBancaria.Agencia),
+                NumeroContaCorrente = int.Parse(Beneficiario.ContaBancaria.Conta),
+                DataMovimentoRetornoFinal = fim.ToString("dd.MM.yyyy"),
+                DataMovimentoRetornoInicial = inicio.ToString("dd.MM.yyyy"),
+                NumeroCarteiraCobranca = int.Parse(Beneficiario.ContaBancaria.CarteiraPadrao),
+                NumeroRegistroPretendido = 1,
+                NumeroVariacaoCarteiraCobranca = int.Parse(Beneficiario.ContaBancaria.VariacaoCarteiraPadrao),
+                QuantidadeRegistroPretendido = 10000,
+            };
+
+            var content = JsonConvert.SerializeObject(listarRequest);
+
+            var request = new HttpRequestMessage(HttpMethod.Post, $"convenios/{Beneficiario.Codigo}/listar-retorno-movimento?gw-dev-app-key={this.AppKey}");
+
+            request.Content = new StringContent(content, Encoding.UTF8, "application/json");
+
+            request.Headers.Add("Authorization", $"Bearer {this.Token}");
+
+            var response = await this.httpClient.SendAsync(request);
+
+            await this.CheckHttpResponseError(response);
+
+            var respString = await response.Content.ReadAsStringAsync();
+
+            var retorno = JsonConvert.DeserializeObject<BancoBrasilListarRetornoMovimentoResponse>(respString);
+
+            for (int i = 0; i < retorno.ListaRegistro.Count; i++)
+            {
+                var item = retorno.ListaRegistro[i];
+                items.Add(new DownloadArquivoRetornoItem
+                {
+                    NossoNumero = item.NumeroTituloCobranca,
+                    CodigoBarras = item.CodigoControleParticipante,
+                    DataLiquidacao = DateTime.Parse(item.DataLiquidacaoBoleto),
+                    DataMovimentoLiquidacao = DateTime.Parse(item.DataMovimentoRetorno),
+                    DataPrevisaoCredito = DateTime.Parse(item.DataCreditoPagamentoBoleto),
+                    DataVencimentoTitulo = DateTime.Parse(item.DataVencimentoBoleto),
+                    NumeroTitulo = 0,
+                    ValorTitulo = item.ValorBoleto,
+                    ValorLiquido = item.ValorRecebido,
+                    ValorTarifaMovimento = item.ValorTarifa,
+                    SeuNumero = item.NumeroTituloCobranca,
+                });
+            }
+
+            return items.ToArray();
         }
+    }
+
+    public class BancoBrasilListarRetornoMovimentoResponse
+    {
+        [JsonProperty("indicadorContinuidade")]
+        public string IndicadorContinuidade { get; set; }
+
+        [JsonProperty("numeroUltimoRegistro")]
+        public long NumeroUltimoRegistro { get; set; }
+
+        [JsonProperty("listaRegistro")]
+        public List<ListaRegistro> ListaRegistro { get; set; }
+    }
+
+    public class ListaRegistro
+    {
+        [JsonProperty("dataMovimentoRetorno")]
+        public string DataMovimentoRetorno { get; set; }
+
+        [JsonProperty("numeroConvenio")]
+        public long NumeroConvenio { get; set; }
+
+        [JsonProperty("numeroTituloCobranca")]
+        public string NumeroTituloCobranca { get; set; }
+
+        [JsonProperty("codigoComandoAcao")]
+        public int CodigoComandoAcao { get; set; }
+
+        [JsonProperty("codigoPrefixoAgencia")]
+        public int CodigoPrefixoAgencia { get; set; }
+
+        [JsonProperty("numeroContaCorrente")]
+        public long NumeroContaCorrente { get; set; }
+
+        [JsonProperty("numeroCarteiraCobranca")]
+        public int NumeroCarteiraCobranca { get; set; }
+
+        [JsonProperty("numeroVariacaoCarteiraCobranca")]
+        public int NumeroVariacaoCarteiraCobranca { get; set; }
+
+        [JsonProperty("tipoCobranca")]
+        public int TipoCobranca { get; set; }
+
+        [JsonProperty("codigoControleParticipante")]
+        public string CodigoControleParticipante { get; set; }
+
+        [JsonProperty("codigoEspecieBoleto")]
+        public int CodigoEspecieBoleto { get; set; }
+
+        [JsonProperty("dataVencimentoBoleto")]
+        public string DataVencimentoBoleto { get; set; }
+
+        [JsonProperty("valorBoleto")]
+        public decimal ValorBoleto { get; set; }
+
+        [JsonProperty("codigoBancoRecebedor")]
+        public int CodigoBancoRecebedor { get; set; }
+
+        [JsonProperty("codigoPrefixoAgenciaRecebedora")]
+        public int CodigoPrefixoAgenciaRecebedora { get; set; }
+
+        [JsonProperty("dataCreditoPagamentoBoleto")]
+        public string DataCreditoPagamentoBoleto { get; set; }
+
+        [JsonProperty("valorTarifa")]
+        public decimal ValorTarifa { get; set; }
+
+        [JsonProperty("valorOutrasDespesasCalculadas")]
+        public decimal ValorOutrasDespesasCalculadas { get; set; }
+
+        [JsonProperty("valorJurosDesconto")]
+        public decimal ValorJurosDesconto { get; set; }
+
+        [JsonProperty("valorIofDesconto")]
+        public decimal ValorIofDesconto { get; set; }
+
+        [JsonProperty("valorAbatimento")]
+        public decimal ValorAbatimento { get; set; }
+
+        [JsonProperty("valorDesconto")]
+        public decimal ValorDesconto { get; set; }
+
+        [JsonProperty("valorRecebido")]
+        public decimal ValorRecebido { get; set; }
+
+        [JsonProperty("valorJurosMora")]
+        public decimal ValorJurosMora { get; set; }
+
+        [JsonProperty("valorOutrosValoresRecebidos")]
+        public decimal ValorOutrosValoresRecebidos { get; set; }
+
+        [JsonProperty("valorAbatimentoNaoUtilizado")]
+        public decimal ValorAbatimentoNaoUtilizado { get; set; }
+
+        [JsonProperty("valorLancamento")]
+        public int ValorLancamento { get; set; }
+
+        [JsonProperty("codigoFormaPagamento")]
+        public int CodigoFormaPagamento { get; set; }
+
+        [JsonProperty("codigoValorAjuste")]
+        public int CodigoValorAjuste { get; set; }
+
+        [JsonProperty("valorAjuste")]
+        public decimal ValorAjuste { get; set; }
+
+        [JsonProperty("codigoAutorizacaoPagamentoParcial")]
+        public int CodigoAutorizacaoPagamentoParcial { get; set; }
+
+        [JsonProperty("codigoCanalPagamento")]
+        public int CodigoCanalPagamento { get; set; }
+
+        [JsonProperty("URL")]
+        public string URL { get; set; }
+
+        [JsonProperty("textoIdentificadorQRCode")]
+        public string TextoIdentificadorQRCode { get; set; }
+
+        [JsonProperty("quantidadeDiasCalculo")]
+        public int QuantidadeDiasCalculo { get; set; }
+
+        [JsonProperty("valorTaxaDesconto")]
+        public decimal ValorTaxaDesconto { get; set; }
+
+        [JsonProperty("valorTaxaIOF")]
+        public decimal ValorTaxaIOF { get; set; }
+
+        [JsonProperty("naturezaRecebimento")]
+        public int NaturezaRecebimento { get; set; }
+
+        [JsonProperty("codigoTipoCobrancaComando")]
+        public int CodigoTipoCobrancaComando { get; set; }
+
+        [JsonProperty("dataLiquidacaoBoleto")]
+        public string DataLiquidacaoBoleto { get; set; }
+    }
+
+    public class BancoBrasilListarRetornoMovimentoRequest
+    {
+        [JsonProperty("dataMovimentoRetornoInicial")]
+        public string DataMovimentoRetornoInicial { get; set; }
+
+        [JsonProperty("dataMovimentoRetornoFinal")]
+        public string DataMovimentoRetornoFinal { get; set; }
+
+        [JsonProperty("codigoPrefixoAgencia")]
+        public int CodigoPrefixoAgencia { get; set; }
+
+        [JsonProperty("numeroContaCorrente")]
+        public long NumeroContaCorrente { get; set; }
+
+        [JsonProperty("numeroCarteiraCobranca")]
+        public int NumeroCarteiraCobranca { get; set; }
+
+        [JsonProperty("numeroVariacaoCarteiraCobranca")]
+        public int NumeroVariacaoCarteiraCobranca { get; set; }
+
+        [JsonProperty("numeroRegistroPretendido")]
+        public int NumeroRegistroPretendido { get; set; }
+
+        [JsonProperty("quantidadeRegistroPretendido")]
+        public int QuantidadeRegistroPretendido { get; set; }
     }
 
     public class BancoBrasilRegistrarTituloRequest
@@ -614,13 +828,13 @@ namespace BoletoNetCore
         public int CodigoCanalPagamento { get; set; }
 
         [JsonProperty("numeroContratoCobranca")]
-        public int NumeroContratoCobranca { get; set; }
+        public long NumeroContratoCobranca { get; set; }
 
         [JsonProperty("codigoTipoInscricaoSacado")]
         public int CodigoTipoInscricaoSacado { get; set; }
 
         [JsonProperty("numeroInscricaoSacadoCobranca")]
-        public int NumeroInscricaoSacadoCobranca { get; set; }
+        public long NumeroInscricaoSacadoCobranca { get; set; }
 
         [JsonProperty("codigoEstadoTituloCobranca")]
         public int CodigoEstadoTituloCobranca { get; set; }
@@ -656,37 +870,37 @@ namespace BoletoNetCore
         public string DataVencimentoTituloCobranca { get; set; }
 
         [JsonProperty("valorOriginalTituloCobranca")]
-        public int ValorOriginalTituloCobranca { get; set; }
+        public decimal ValorOriginalTituloCobranca { get; set; }
 
         [JsonProperty("valorAtualTituloCobranca")]
-        public int ValorAtualTituloCobranca { get; set; }
+        public decimal ValorAtualTituloCobranca { get; set; }
 
         [JsonProperty("valorPagamentoParcialTitulo")]
-        public int ValorPagamentoParcialTitulo { get; set; }
+        public decimal ValorPagamentoParcialTitulo { get; set; }
 
         [JsonProperty("valorAbatimentoTituloCobranca")]
-        public int ValorAbatimentoTituloCobranca { get; set; }
+        public decimal ValorAbatimentoTituloCobranca { get; set; }
 
         [JsonProperty("percentualImpostoSobreOprFinanceirasTituloCobranca")]
-        public int PercentualImpostoSobreOprFinanceirasTituloCobranca { get; set; }
+        public decimal PercentualImpostoSobreOprFinanceirasTituloCobranca { get; set; }
 
         [JsonProperty("valorImpostoSobreOprFinanceirasTituloCobranca")]
-        public int ValorImpostoSobreOprFinanceirasTituloCobranca { get; set; }
+        public decimal ValorImpostoSobreOprFinanceirasTituloCobranca { get; set; }
 
         [JsonProperty("valorMoedaTituloCobranca")]
-        public int ValorMoedaTituloCobranca { get; set; }
+        public decimal ValorMoedaTituloCobranca { get; set; }
 
         [JsonProperty("percentualJuroMoraTitulo")]
-        public int PercentualJuroMoraTitulo { get; set; }
+        public decimal PercentualJuroMoraTitulo { get; set; }
 
         [JsonProperty("valorJuroMoraTitulo")]
-        public int ValorJuroMoraTitulo { get; set; }
+        public decimal ValorJuroMoraTitulo { get; set; }
 
         [JsonProperty("percentualMultaTitulo")]
-        public int PercentualMultaTitulo { get; set; }
+        public decimal PercentualMultaTitulo { get; set; }
 
         [JsonProperty("valorMultaTituloCobranca")]
-        public int ValorMultaTituloCobranca { get; set; }
+        public decimal ValorMultaTituloCobranca { get; set; }
 
         [JsonProperty("quantidadeParcelaTituloCobranca")]
         public int QuantidadeParcelaTituloCobranca { get; set; }
@@ -719,7 +933,7 @@ namespace BoletoNetCore
         public int NumeroCepSacadoCobranca { get; set; }
 
         [JsonProperty("valorMoedaAbatimentoTitulo")]
-        public int ValorMoedaAbatimentoTitulo { get; set; }
+        public decimal ValorMoedaAbatimentoTitulo { get; set; }
 
         [JsonProperty("dataProtestoTituloCobranca")]
         public string DataProtestoTituloCobranca { get; set; }
@@ -728,43 +942,43 @@ namespace BoletoNetCore
         public int CodigoTipoInscricaoSacador { get; set; }
 
         [JsonProperty("numeroInscricaoSacadorAvalista")]
-        public int NumeroInscricaoSacadorAvalista { get; set; }
+        public long NumeroInscricaoSacadorAvalista { get; set; }
 
         [JsonProperty("nomeSacadorAvalistaTitulo")]
         public string NomeSacadorAvalistaTitulo { get; set; }
 
         [JsonProperty("percentualDescontoTitulo")]
-        public int PercentualDescontoTitulo { get; set; }
+        public decimal PercentualDescontoTitulo { get; set; }
 
         [JsonProperty("dataDescontoTitulo")]
         public string DataDescontoTitulo { get; set; }
 
         [JsonProperty("valorDescontoTitulo")]
-        public int ValorDescontoTitulo { get; set; }
+        public decimal ValorDescontoTitulo { get; set; }
 
         [JsonProperty("codigoDescontoTitulo")]
         public int CodigoDescontoTitulo { get; set; }
 
         [JsonProperty("percentualSegundoDescontoTitulo")]
-        public int PercentualSegundoDescontoTitulo { get; set; }
+        public decimal PercentualSegundoDescontoTitulo { get; set; }
 
         [JsonProperty("dataSegundoDescontoTitulo")]
         public string DataSegundoDescontoTitulo { get; set; }
 
         [JsonProperty("valorSegundoDescontoTitulo")]
-        public int ValorSegundoDescontoTitulo { get; set; }
+        public decimal ValorSegundoDescontoTitulo { get; set; }
 
         [JsonProperty("codigoSegundoDescontoTitulo")]
         public int CodigoSegundoDescontoTitulo { get; set; }
 
         [JsonProperty("percentualTerceiroDescontoTitulo")]
-        public int PercentualTerceiroDescontoTitulo { get; set; }
+        public decimal PercentualTerceiroDescontoTitulo { get; set; }
 
         [JsonProperty("dataTerceiroDescontoTitulo")]
         public string DataTerceiroDescontoTitulo { get; set; }
 
         [JsonProperty("valorTerceiroDescontoTitulo")]
-        public int ValorTerceiroDescontoTitulo { get; set; }
+        public decimal ValorTerceiroDescontoTitulo { get; set; }
 
         [JsonProperty("codigoTerceiroDescontoTitulo")]
         public int CodigoTerceiroDescontoTitulo { get; set; }
@@ -797,22 +1011,22 @@ namespace BoletoNetCore
         public int CodigoOcorrenciaCartorio { get; set; }
 
         [JsonProperty("valorImpostoSobreOprFinanceirasRecebidoTitulo")]
-        public int ValorImpostoSobreOprFinanceirasRecebidoTitulo { get; set; }
+        public decimal ValorImpostoSobreOprFinanceirasRecebidoTitulo { get; set; }
 
         [JsonProperty("valorAbatimentoTotal")]
-        public int ValorAbatimentoTotal { get; set; }
+        public decimal ValorAbatimentoTotal { get; set; }
 
         [JsonProperty("valorJuroMoraRecebido")]
-        public int ValorJuroMoraRecebido { get; set; }
+        public decimal ValorJuroMoraRecebido { get; set; }
 
         [JsonProperty("valorDescontoUtilizado")]
-        public int ValorDescontoUtilizado { get; set; }
+        public decimal ValorDescontoUtilizado { get; set; }
 
         [JsonProperty("valorPagoSacado")]
-        public int ValorPagoSacado { get; set; }
+        public decimal ValorPagoSacado { get; set; }
 
         [JsonProperty("valorCreditoCedente")]
-        public int ValorCreditoCedente { get; set; }
+        public decimal ValorCreditoCedente { get; set; }
 
         [JsonProperty("codigoTipoLiquidacao")]
         public int CodigoTipoLiquidacao { get; set; }
@@ -839,13 +1053,13 @@ namespace BoletoNetCore
         public int CodigoTipoBaixaTitulo { get; set; }
 
         [JsonProperty("valorMultaRecebido")]
-        public int ValorMultaRecebido { get; set; }
+        public decimal ValorMultaRecebido { get; set; }
 
         [JsonProperty("valorReajuste")]
-        public int ValorReajuste { get; set; }
+        public decimal ValorReajuste { get; set; }
 
         [JsonProperty("valorOutroRecebido")]
-        public int ValorOutroRecebido { get; set; }
+        public decimal ValorOutroRecebido { get; set; }
 
         [JsonProperty("codigoIndicadorEconomicoUtilizadoInadimplencia")]
         public int CodigoIndicadorEconomicoUtilizadoInadimplencia { get; set; }
