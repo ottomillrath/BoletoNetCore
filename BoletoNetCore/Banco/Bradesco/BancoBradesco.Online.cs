@@ -61,6 +61,7 @@ namespace BoletoNetCore
         public string TokenWso2 { get; set; }
         public byte[] Certificado { get; set; }
         public string CertificadoSenha { get; set; }
+        public string AppKey { get; set; }
         public uint VersaoApi { get; set; }
         #endregion
 

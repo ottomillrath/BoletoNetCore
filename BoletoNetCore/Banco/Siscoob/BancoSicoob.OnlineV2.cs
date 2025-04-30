@@ -63,6 +63,8 @@ namespace BoletoNetCore
         public string Token { get; set; }
         public uint VersaoApi { get; set; }
 
+        public string AppKey { get; set; }
+
         public async Task<StatusBoleto> ConsultarStatus(Boleto boleto)
         {
             var query = new Dictionary<string, string>()

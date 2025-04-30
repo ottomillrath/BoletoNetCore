@@ -44,6 +44,8 @@ namespace BoletoNetCore
         
         public byte[] PrivateKey { get; set; }
 
+        public string AppKey { get; set; }
+
         #region HttpClient
         private HttpClient _httpClient;
 

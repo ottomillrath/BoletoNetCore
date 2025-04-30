@@ -25,6 +25,7 @@ namespace BoletoNetCore
         private byte[] m_certificado;
         private string m_certificadoSenha;
         private uint m_versaoApi;
+        public string AppKey { get; set; }
         public byte[] m_privateKey { get; set; }
 
         public string Id { get; set; }

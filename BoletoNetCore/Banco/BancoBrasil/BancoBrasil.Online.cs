@@ -77,7 +77,7 @@ namespace BoletoNetCore
         public string ChaveApi { get; set; }
         public string SecretApi { get; set; }
         public string Token { get; set; }
-        public string AppKey { get => "9f9019b3bdbf4a82bf0e422a05897ec8"; }
+        public string AppKey { get; set; }
         public byte[] Certificado { get; set; }
         public string CertificadoSenha { get; set; }
         public uint VersaoApi { get; set; }
@@ -233,30 +233,31 @@ namespace BoletoNetCore
             boleto.CodigoBarra.LinhaDigitavel = boletoEmitido.LinhaDigitavel;
             boleto.CodigoBarra.CampoLivre = $"{boleto.CodigoBarra.CodigoDeBarras.Substring(4, 5)}{boleto.CodigoBarra.CodigoDeBarras.Substring(10, 10)}{boleto.CodigoBarra.CodigoDeBarras.Substring(21, 10)}";
 
-            var req = new BancoBrasilGenericNumeroConvenioRequest()
+            if (Beneficiario.ContaBancaria.PixHabilitado)
             {
-                NumeroConvenio = long.Parse(Beneficiario.Codigo),
-            };
-            var contentPix = JsonConvert.SerializeObject(req);
-            var requestPix = new HttpRequestMessage(HttpMethod.Post, $"boletos/000{boleto.NossoNumero}/gerar-pix?gw-dev-app-key={this.AppKey}");
-            requestPix.Headers.Add("Authorization", $"Bearer {this.Token}");
-            requestPix.Content = new StringContent(contentPix, Encoding.UTF8, "application/json");
-            var respPix = await this.httpClient.SendAsync(requestPix);
-            if (respPix.StatusCode == HttpStatusCode.OK || respPix.StatusCode == HttpStatusCode.Created)
-            {
-                var respPIxString = await respPix.Content.ReadAsStringAsync();
-                var boletoEmitidoPix = JsonConvert.DeserializeObject<BancoBrasilGerarPixResponse>(respPIxString);
-                boleto.PixEmv = boletoEmitidoPix.Emv;
-                if (!string.IsNullOrEmpty(boleto.PixEmv))
+                var req = new BancoBrasilGenericNumeroConvenioRequest()
                 {
-                    using (QRCodeGenerator qrGenerator = new QRCodeGenerator())
-                    using (QRCodeData qrCodeData = qrGenerator.CreateQrCode(boleto.PixEmv, QRCodeGenerator.ECCLevel.H))
-                    using (Base64QRCode qrCode = new Base64QRCode(qrCodeData))
+                    NumeroConvenio = long.Parse(Beneficiario.Codigo),
+                };
+                var contentPix = JsonConvert.SerializeObject(req);
+                var requestPix = new HttpRequestMessage(HttpMethod.Post, $"boletos/000{boleto.NossoNumero}/gerar-pix?gw-dev-app-key={this.AppKey}");
+                requestPix.Headers.Add("Authorization", $"Bearer {this.Token}");
+                requestPix.Content = new StringContent(contentPix, Encoding.UTF8, "application/json");
+                var respPix = await this.httpClient.SendAsync(requestPix);
+                if (respPix.StatusCode == HttpStatusCode.OK || respPix.StatusCode == HttpStatusCode.Created)
+                {
+                    var respPIxString = await respPix.Content.ReadAsStringAsync();
+                    var boletoEmitidoPix = JsonConvert.DeserializeObject<BancoBrasilGerarPixResponse>(respPIxString);
+                    boleto.PixEmv = boletoEmitidoPix.Emv;
+                    if (!string.IsNullOrEmpty(boleto.PixEmv))
                     {
+                        using QRCodeGenerator qrGenerator = new();
+                        using QRCodeData qrCodeData = qrGenerator.CreateQrCode(boleto.PixEmv, QRCodeGenerator.ECCLevel.H);
+                        using Base64QRCode qrCode = new(qrCodeData);
                         boleto.PixQrCode = qrCode.GetGraphic(1);
                     }
+                    boleto.PixTxId = boletoEmitidoPix.TxId;
                 }
-                boleto.PixTxId = boletoEmitidoPix.TxId;
             }
 
             return boleto.Id;

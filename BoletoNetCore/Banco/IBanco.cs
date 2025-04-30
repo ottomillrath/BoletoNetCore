@@ -197,6 +197,11 @@ namespace BoletoNetCore
         public byte[] PrivateKey { get; set; }
         public string WorkspaceId { get; set; }
 
+        /// <summary>
+        /// Chave de acesso do aplicativo (AppKey) para o banco do brasil
+        /// </summary>
+        public string AppKey { get; set; }
+
         Task<string> GerarToken();
         /// <summary>
         /// REgistra Boleto no banco e Retorna o ID do boleto quando disponivel
