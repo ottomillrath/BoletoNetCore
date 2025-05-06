@@ -235,7 +235,6 @@ namespace BoletoNetCore
                 TipoMulta = AjustaTipoMultaSicoob(boleto.TipoCodigoMulta),
                 ValorMulta = AjustaValorMultaSicoob(boleto.ValorMulta, boleto.PercentualMulta, boleto.TipoCodigoMulta),
                 TipoJurosMora = AjustaTipoJurosSicoob(boleto.TipoJuros),
-                ValorJurosMora = boleto.ValorJurosDia,
                 NumeroParcela = 1,
                 Aceite = boleto.Aceite == "S",
                 // CodigoNegativacao = TipoNegativacao.NaoNegativar,
@@ -259,6 +258,11 @@ namespace BoletoNetCore
                 CodigoCadastrarPIX = boleto.Banco.Beneficiario.ContaBancaria.PixHabilitado ? TipoCadastroPix.ComPix : TipoCadastroPix.SemPix,
                 // NumeroContratoCobranca = ,
             };
+            if (boleto.TipoJuros == TipoJuros.Simples) {
+                emissao.ValorJurosMora = boleto.ValorTitulo * boleto.PercentualJurosDia / 100;
+            } else if (boleto.TipoJuros == TipoJuros.TaxaMensal) {
+                emissao.ValorJurosMora = boleto.PercentualJurosDia * 30;
+            }
             if (boleto.DataMulta > DateTime.MinValue)
                 emissao.DataMulta = boleto.DataMulta;
             if (boleto.DataJuros > DateTime.MinValue)
