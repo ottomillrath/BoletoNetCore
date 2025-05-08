@@ -73,7 +73,7 @@ namespace BoletoNetCore
         public string Sequencial(Boleto boleto)
         {
             string agencia = boleto.Banco.Beneficiario.ContaBancaria.Agencia;     //código da cooperativa de crédito/agência beneficiária (aaaa)
-            string posto = boleto.Banco.Beneficiario.ContaBancaria.OperacaoConta; //código do posto beneficiário (pp)
+            string posto = boleto.Banco.Beneficiario.ContaBancaria.DigitoAgencia; //código do posto beneficiário (pp)
 
             if (string.IsNullOrEmpty(posto))
             {
