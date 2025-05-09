@@ -250,7 +250,7 @@ namespace BoletoNetCore
                 boleto.ValorJurosDia = Convert.ToDecimal(registro.Substring(266, 13)) / 100;
                 boleto.ValorOutrosCreditos = Convert.ToDecimal(registro.Substring(279, 13)) / 100;
 
-                boleto.ValorPago += boleto.ValorJurosDia;
+                // boleto.ValorPago += boleto.ValorJurosDia;
                 
                 boleto.ValorPagoCredito = boleto.ValorPago - boleto.ValorTarifas;
 
