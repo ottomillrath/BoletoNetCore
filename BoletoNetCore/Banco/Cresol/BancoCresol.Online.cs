@@ -199,7 +199,7 @@ namespace BoletoNetCore
 
             if (response.StatusCode == HttpStatusCode.BadRequest || (response.StatusCode == HttpStatusCode.NotFound && response.Content.Headers.ContentType.MediaType == "application/json"))
             {
-                var bad = await response.Content.ReadFromJsonAsync<BadRequestCresol>();
+                var bad = JsonConvert.DeserializeObject<BadRequestCresol>(await response.Content.ReadAsStringAsync());
                 throw BoletoNetCoreException.ErroAoRegistrarTituloOnline(new Exception(string.Format("{0} [{1}]", bad.Mensagem, bad.Data).Trim()));
             }
             else
