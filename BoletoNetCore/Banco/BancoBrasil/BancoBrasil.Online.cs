@@ -334,7 +334,7 @@ namespace BoletoNetCore
                 NumeroConvenio = long.Parse(Beneficiario.Codigo),
             };
             var content = JsonConvert.SerializeObject(baixaRequest);
-            var request = new HttpRequestMessage(HttpMethod.Get, $"boletos/000{boleto.NossoNumero}/baixar?{this._appKeyName}={this.AppKey}");
+            var request = new HttpRequestMessage(HttpMethod.Post, $"boletos/000{boleto.NossoNumero}/baixar?{this._appKeyName}={this.AppKey}");
             request.Headers.Add("Authorization", $"Bearer {this.Token}");
             request.Content = new StringContent(content, Encoding.UTF8, "application/json");
 
