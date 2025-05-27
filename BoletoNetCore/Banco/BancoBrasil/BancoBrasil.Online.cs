@@ -78,6 +78,17 @@ namespace BoletoNetCore
         public string SecretApi { get; set; }
         public string Token { get; set; }
         public string AppKey { get; set; }
+        private string _appKeyName
+        {
+            get
+            {
+                if (Homologacao)
+                {
+                    return "gw-dev-app-key";
+                }
+                return "gw-app-key";
+            }
+        }
         public byte[] Certificado { get; set; }
         public string CertificadoSenha { get; set; }
         public uint VersaoApi { get; set; }
@@ -216,7 +227,7 @@ namespace BoletoNetCore
 
             var content = JsonConvert.SerializeObject(registerRequest);
 
-            var request = new HttpRequestMessage(HttpMethod.Post, $"boletos?gw-dev-app-key={this.AppKey}");
+            var request = new HttpRequestMessage(HttpMethod.Post, $"boletos?{this._appKeyName}={this.AppKey}");
 
             request.Content = new StringContent(content, Encoding.UTF8, "application/json");
 
@@ -240,7 +251,7 @@ namespace BoletoNetCore
                     NumeroConvenio = long.Parse(Beneficiario.Codigo),
                 };
                 var contentPix = JsonConvert.SerializeObject(req);
-                var requestPix = new HttpRequestMessage(HttpMethod.Post, $"boletos/000{boleto.NossoNumero}/gerar-pix?gw-dev-app-key={this.AppKey}");
+                var requestPix = new HttpRequestMessage(HttpMethod.Post, $"boletos/000{boleto.NossoNumero}/gerar-pix?${this._appKeyName}={this.AppKey}");
                 requestPix.Headers.Add("Authorization", $"Bearer {this.Token}");
                 requestPix.Content = new StringContent(contentPix, Encoding.UTF8, "application/json");
                 var respPix = await this.httpClient.SendAsync(requestPix);
@@ -265,7 +276,7 @@ namespace BoletoNetCore
 
         public async Task<StatusBoleto> ConsultarStatus(Boleto boleto)
         {
-            var request = new HttpRequestMessage(HttpMethod.Get, $"boletos/000{boleto.NossoNumero}?gw-dev-app-key={this.AppKey}&numeroConvenio={Beneficiario.Codigo}");
+            var request = new HttpRequestMessage(HttpMethod.Get, $"boletos/000{boleto.NossoNumero}?{this._appKeyName}={this.AppKey}&numeroConvenio={Beneficiario.Codigo}");
             request.Headers.Add("Authorization", $"Bearer {this.Token}");
             var response = await this.httpClient.SendAsync(request);
             await this.CheckHttpResponseError(response);
@@ -323,7 +334,7 @@ namespace BoletoNetCore
                 NumeroConvenio = long.Parse(Beneficiario.Codigo),
             };
             var content = JsonConvert.SerializeObject(baixaRequest);
-            var request = new HttpRequestMessage(HttpMethod.Get, $"boletos/000{boleto.NossoNumero}/baixar?gw-dev-app-key={this.AppKey}");
+            var request = new HttpRequestMessage(HttpMethod.Get, $"boletos/000{boleto.NossoNumero}/baixar?{this._appKeyName}={this.AppKey}");
             request.Headers.Add("Authorization", $"Bearer {this.Token}");
             request.Content = new StringContent(content, Encoding.UTF8, "application/json");
 
@@ -364,7 +375,7 @@ namespace BoletoNetCore
 
             var content = JsonConvert.SerializeObject(listarRequest);
 
-            var request = new HttpRequestMessage(HttpMethod.Post, $"convenios/{Beneficiario.Codigo}/listar-retorno-movimento?gw-dev-app-key={this.AppKey}");
+            var request = new HttpRequestMessage(HttpMethod.Post, $"convenios/{Beneficiario.Codigo}/listar-retorno-movimento?{this._appKeyName}={this.AppKey}");
 
             request.Content = new StringContent(content, Encoding.UTF8, "application/json");
 
