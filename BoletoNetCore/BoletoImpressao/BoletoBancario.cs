@@ -183,7 +183,7 @@ namespace BoletoNetCore
             }
         }
 
-        public string GeraHtmlReciboBeneficiario()
+        public string GeraHtmlReciboBeneficiario(string pixStr = null)
         {
             try
             {
@@ -198,7 +198,14 @@ namespace BoletoNetCore
                 html.Append(GetResourceHypertext("BoletoNetCore.BoletoImpressao.Parts.ReciboBeneficiarioParte8.html"));
                 html.Append(GetResourceHypertext("BoletoNetCore.BoletoImpressao.Parts.ReciboBeneficiarioParte9.html"));
                 html.Append(GetResourceHypertext("BoletoNetCore.BoletoImpressao.Parts.ReciboBeneficiarioParte10.html"));
-                html.Append(GetResourceHypertext("BoletoNetCore.BoletoImpressao.Parts.ReciboBeneficiarioParte11.html"));
+                if (string.IsNullOrWhiteSpace(pixStr))
+                {
+                    html.Append(GetResourceHypertext("BoletoNetCore.BoletoImpressao.Parts.ReciboBeneficiarioParte11.html"));
+                }
+                else
+                {
+                    html.Append(GetResourceHypertext("BoletoNetCore.BoletoImpressao.Parts.ReciboBeneficiarioParte13.html").Replace("@PIXSTRING", pixStr));
+                }
                 html.Append(GetResourceHypertext("BoletoNetCore.BoletoImpressao.Parts.ReciboBeneficiarioParte12.html"));
                 return html.ToString();
             }
@@ -362,10 +369,10 @@ namespace BoletoNetCore
 
 
             if (!FormatoCarne)
-                html.Append(GeraHtmlReciboBeneficiario());
+                html.Append(GeraHtmlReciboBeneficiario(pixStr));
             else
             {
-                html.Append(GeraHtmlCarne("", GeraHtmlReciboBeneficiario()));
+                html.Append(GeraHtmlCarne("", GeraHtmlReciboBeneficiario(pixStr)));
             }
 
             var dataVencimento = Boleto.DataVencimento.ToString("dd/MM/yyyy");
