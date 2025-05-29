@@ -164,11 +164,19 @@ img {
 	height: 12px;
 }
 
+.h6 {
+	height: 6px;
+}
+
 .h13 td {
 	vertical-align: top;
 }
 
 .h12 td {
+	vertical-align: top;
+}
+
+.h6 td {
 	vertical-align: top;
 }
 
@@ -336,7 +344,7 @@ img {
 }
 
 .EcdBar {
-	height: 50px;
+	height: 64px;
 	vertical-align: bottom;
 }
 
