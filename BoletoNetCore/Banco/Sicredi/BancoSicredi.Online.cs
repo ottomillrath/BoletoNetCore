@@ -161,6 +161,7 @@ namespace BoletoNetCore
             // todo: verificar quais dados necessarios para preencher boleto
             return ret[0].Situacao.ToString() switch {
                 "EM_ABERTO" => StatusBoleto.EmAberto,
+                "EM CARTEIRA" => StatusBoleto.EmAberto,
                 "LIQUIDADO" => StatusBoleto.Liquidado,
                 "BAIXADO" => StatusBoleto.Baixado,
                 _ => StatusBoleto.Nenhum
