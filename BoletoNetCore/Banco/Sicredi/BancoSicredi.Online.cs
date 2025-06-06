@@ -78,7 +78,7 @@ namespace BoletoNetCore
             emissao.TipoPessoa = boleto.Pagador.TipoCPFCNPJ("1");
             emissao.CpfCnpj = boleto.Pagador.CPFCNPJ;
             emissao.Nome = boleto.Pagador.Nome;
-            emissao.Endereco = boleto.Pagador.Endereco.FormataLogradouro(0);
+            emissao.Endereco = boleto.Pagador.Endereco.FormataLogradouro(40);
             emissao.Cidade = boleto.Pagador.Endereco.Cidade;
             emissao.Uf = boleto.Pagador.Endereco.UF;
             emissao.Cep = boleto.Pagador.Endereco.CEP;
