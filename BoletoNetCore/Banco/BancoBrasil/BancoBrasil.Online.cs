@@ -58,7 +58,7 @@ namespace BoletoNetCore
                 }
                 else
                 {
-                    uri = new Uri("	https://api.bb.com.br/cobrancas/v2/");
+                    uri = new Uri("https://api.bb.com.br/cobrancas/v2/");
                 }
 
                 // X509Certificate2 certificate = new X509Certificate2(Certificado, CertificadoSenha);
