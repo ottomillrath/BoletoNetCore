@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk.Web">
 
   <PropertyGroup>
-    <TargetFrameworks>net6.0</TargetFrameworks>
+    <TargetFrameworks>net9.0</TargetFrameworks>
     <ApplicationIcon />
     <OutputType>Library</OutputType>
     <StartupObject />
@@ -25,14 +25,14 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="jose-jwt" Version="5.1.0" />
+    <PackageReference Include="jose-jwt" Version="5.2.0" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
     <PackageReference Include="QRCoder" Version="1.6.0" />
-    <PackageReference Include="SkiaSharp" Version="2.88.8" />
-    <PackageReference Include="SkiaSharp.NativeAssets.Linux" Version="2.88.3" />
-    <PackageReference Include="StarkBank" Version="2.13.0" />
-    <PackageReference Include="System.Net.Http.Json" Version="8.0.1" />
-    <PackageReference Include="System.Drawing.Common" Version="6.0.0" />
+    <PackageReference Include="SkiaSharp" Version="3.119.0" />
+    <PackageReference Include="SkiaSharp.NativeAssets.Linux" Version="3.119.0" />
+    <PackageReference Include="StarkBank" Version="2.15.1" />
+    <PackageReference Include="System.Net.Http.Json" Version="9.0.6" />
+    <PackageReference Include="System.Drawing.Common" Version="9.0.6" />
   </ItemGroup>
 
 

@@ -1,6 +1,6 @@
-﻿using System;
+﻿using BoletoNetCore.Exceptions;
+using System;
 using System.Collections.Generic;
-using BoletoNetCore.Exceptions;
 using static System.String;
 
 namespace BoletoNetCore

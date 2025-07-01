@@ -1,23 +1,20 @@
-using System.Security.Cryptography.X509Certificates;
-using System;
-using System.Collections.Generic;
-using System.Net;
-using System.Net.Http;
-using Newtonsoft.Json;
-using BoletoNetCore.Extensions;
-using System.Threading.Tasks;
+using BoletoNetCore.Enums;
 using BoletoNetCore.Exceptions;
 using Microsoft.AspNetCore.WebUtilities;
-using System.Text.Json.Nodes;
-using Newtonsoft.Json.Linq;
-using BoletoNetCore.Enums;
+using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;
-using System.Diagnostics;
-using System.Linq;
-using System.Globalization;
+using Newtonsoft.Json.Linq;
 using QRCoder;
+using System;
+using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.IO.Compression;
+using System.Net;
+using System.Net.Http;
+using System.Security.Cryptography.X509Certificates;
+using System.Text.Json.Nodes;
+using System.Threading.Tasks;
 
 namespace BoletoNetCore
 {

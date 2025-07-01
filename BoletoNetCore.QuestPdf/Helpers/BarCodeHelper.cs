@@ -1,10 +1,7 @@
 ﻿using Barcoder.Code128;
-using Barcoder.Qr;
 using Barcoder.Renderer.Image;
 using System;
-using System.Collections.Generic;
 using System.IO;
-using System.Text;
 
 namespace BoletoNetCore.QuestPdf
 {
@@ -16,13 +13,12 @@ namespace BoletoNetCore.QuestPdf
                 throw new Exception("Código de barras não informado");
 
             var bar = Code128Encoder.Encode(codbar);
-            var render = new ImageRenderer(barHeightFor1DBarcode: heigthPng ?? 25);
-            using (var ms = new MemoryStream())
-            {
-                render.Render(bar, ms);
-                return ms.ToArray();
-            }
+            ImageRendererOptions options = new();
+            options.BarHeightFor1DBarcode = heigthPng ?? 25;
+            var render = new ImageRenderer(options);
+            using var ms = new MemoryStream();
+            render.Render(bar, ms);
+            return ms.ToArray();
         }
-
     }
 }
