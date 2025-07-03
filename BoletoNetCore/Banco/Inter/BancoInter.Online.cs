@@ -4,6 +4,8 @@ using BoletoNetCore.Exceptions;
 using inter_sdk_library;
 using System;
 using System.Threading.Tasks;
+using System.Collections.Generic;
+using System.Linq;
 
 namespace BoletoNetCore
 {
@@ -22,7 +24,6 @@ namespace BoletoNetCore
 
         public uint VersaoApi { get; set; }
 
-
         private EnvironmentEnum _environment
         {
             get
@@ -35,43 +36,42 @@ namespace BoletoNetCore
             }
         }
 
-        private Config _config;
-        public Config Config
+        private InterSdk _sdk;
+        public InterSdk Sdk
         {
             get
             {
-                if (_config != null)
+                if (_sdk != null)
                 {
-                    return _config;
+                    return _sdk;
                 }
-                _config = new(_environment, ChaveApi, SecretApi, Certificado, CertificadoSenha);
-
-                return _config;
+                _sdk = new InterSdk(_environment.GetLabel(), ChaveApi, SecretApi, Certificado, CertificadoSenha);
+                _sdk.SetDebug(true);
+                return _sdk;
             }
         }
 
 
         public async Task<string> CancelarBoleto(Boleto boleto)
         {
-
-            var client = new BillingClient();
             try
             {
-                client.CancelBilling(Config, boleto.Id, "Cancelamento de boleto solicitado pelo cliente");
+                Sdk.Billing().CancelBilling(boleto.Id, "Cancelamento de boleto solicitado pelo cliente");
                 return boleto.Id;
             }
-            catch (Exception e)
+            catch (SdkException e)
             {
-                throw BoletoNetCoreException.ErroAoRegistrarTituloOnline(e);
+                var msg = $"{e.Error.Title} - {e.Error.Detail}";
+                e.Error.Violations.ForEach(v => msg += $"\n{v.Property}: {v.Reason}");
+                throw BoletoNetCoreException.ErroAoRegistrarTituloOnline(msg);
             }
         }
 
         public async Task<StatusBoleto> ConsultarStatus(Boleto boleto)
         {
-            var client = new BillingClient();
             try
             {
-                var response = client.RetrieveBilling(Config, boleto.Id);
+                var response = Sdk.Billing().RetrieveBilling(boleto.Id);
                 if (response == null)
                 {
                     throw BoletoNetCoreException.ErroAoRegistrarTituloOnline(new Exception("Boleto não encontrado"));
@@ -84,9 +84,11 @@ namespace BoletoNetCore
                     _ => StatusBoleto.Nenhum,
                 };
             }
-            catch (Exception e)
+            catch (SdkException e)
             {
-                throw BoletoNetCoreException.ErroAoRegistrarTituloOnline(e);
+                var msg = $"{e.Error.Title} - {e.Error.Detail}";
+                e.Error.Violations.ForEach(v => msg += $"\n{v.Property}: {v.Reason}");
+                throw BoletoNetCoreException.ErroAoRegistrarTituloOnline(msg);
             }
         }
 
@@ -95,35 +97,47 @@ namespace BoletoNetCore
             return new int[] { 1 };
         }
 
+        public async Task<DownloadArquivoRetornoItem[]> downloadPage(string start, string end, int page = 0)
+        {
+            var items = new List<DownloadArquivoRetornoItem>();
+            BillingRetrievalFilter filter = new();
+            int pageSize = 100;
+            filter.Page = page;
+            filter.ItemsPerPage = pageSize;
+            filter.Situation = "RECEBIDO"; // Somente boletos recebidos
+            Sorting sorting = new();
+            var response = Sdk.Billing().RetrieveBillingCollectionPage(start, end, page, pageSize, filter, sorting);
+            foreach (var item in response.Billings)
+            {
+                var date = DateTime.Parse(item.Billing.SituationDate);
+                var dueDate = DateTime.Parse(item.Billing.DueDate);
+                var totalamount = decimal.Parse(item.Billing.TotalAmountReceived);
+                var valortitulo = decimal.Parse(item.Billing.NominalValue);
+                items.Add(new DownloadArquivoRetornoItem
+                {
+                    NossoNumero = item.Slip.OurNumber,
+                    CodigoBarras = item.Slip.Barcode,
+                    DataLiquidacao = date,
+                    DataMovimentoLiquidacao = date,
+                    DataPrevisaoCredito = date,
+                    DataVencimentoTitulo = dueDate,
+                    ValorTitulo = valortitulo,
+                    ValorLiquido = totalamount, // Valor líquido é o mesmo que o nominal
+                    ValorTarifaMovimento = 0, // Inter não retorna tarifa de movimento
+                    SeuNumero = item.Slip.OurNumber,
+
+                });
+            }
+            if (response.TotalPages > page + 1)
+            {
+                // Se houver mais páginas, buscar a próxima
+                items.AddRange(await downloadPage(start, end, page + 1));
+            }
+            return [.. items];
+        }
         public async Task<DownloadArquivoRetornoItem[]> DownloadArquivoMovimentacao(int numeroContrato, int codigoSolicitacao, int idArquivo, DateTime inicio, DateTime fim)
         {
-            throw new NotImplementedException("DownloadArquivoMovimentacao");
-            // var items = new List<DownloadArquivoRetornoItem>();
-            // DateTime after = new DateTime(inicio.Year, inicio.Month, inicio.Day);
-            // DateTime before = new DateTime(fim.Year, fim.Month, fim.Day);
-            // IEnumerable<StarkBank.Boleto.Log> logs = StarkBank.Boleto.Log.Query(limit: 100, after: after, before: before, user: Project);
-            // foreach (var log in logs)
-            // {
-            //     if (log.Type == "paid")
-            //     {
-            //         items.Add(new DownloadArquivoRetornoItem
-            //         {
-            //             NossoNumero = log.Boleto.OurNumber,
-            //             CodigoBarras = log.Boleto.BarCode,
-            //             DataLiquidacao = log.Created,
-            //             DataMovimentoLiquidacao = log.Created,
-            //             DataPrevisaoCredito = log.Created,
-            //             DataVencimentoTitulo = (DateTime)log.Boleto.Due,
-            //             NumeroTitulo = 0,
-            //             ValorTitulo = (decimal)log.Boleto.Amount / 100,
-            //             ValorLiquido = (decimal)log.Boleto.Amount / 100,
-            //             ValorTarifaMovimento = 0,
-            //             SeuNumero = log.Boleto.OurNumber,
-            //         });
-            //     }
-            // }
-
-            // return items.ToArray();
+            return await downloadPage(inicio.ToString("yyyy-MM-dd"), fim.ToString("yyyy-MM-dd"), 0);
         }
 
         public async Task<string> GerarToken()
@@ -133,7 +147,6 @@ namespace BoletoNetCore
 
         public async Task<string> RegistrarBoleto(Boleto boleto)
         {
-            var client = new BillingClient();
             try
             {
                 var request = new BillingIssueRequest();
@@ -155,9 +168,13 @@ namespace BoletoNetCore
                     State = boleto.Pagador.Endereco.UF,
                     ZipCode = boleto.Pagador.Endereco.CEP,
                     CpfCnpj = boleto.Pagador.CPFCNPJ,
-                    Phone = boleto.Pagador.Telefone,
                     PersonType = boleto.Pagador.TipoCPFCNPJ("FJ"),
                 };
+                if (boleto.Pagador.Telefone.Length > 9)
+                {
+                    request.Payer.AreaCode = boleto.Pagador.Telefone.Substring(0, 2);
+                    request.Payer.Phone = boleto.Pagador.Telefone.Substring(2);
+                }
                 if (boleto.ValorJurosDia > 0)
                 {
                     request.Mora = new()
@@ -182,25 +199,30 @@ namespace BoletoNetCore
                         Code = "PERCENTUAL",
                     };
                 }
+                request.ReceivingMethod = "BOLETO";
                 if (Beneficiario.ContaBancaria.PixHabilitado)
-                    request.ReceivingMethod = "PIX";
-                else
-                    request.ReceivingMethod = "BOLETO";
+                    request.ReceivingMethod += ",PIX";
 
-                var response = client.IssueBilling(Config, request);
-                var titulo = client.RetrieveBilling(Config, response.RequestCode);
+                var response = Sdk.Billing().IssueBilling(request);
+                if (response == null || response.RequestCode == null)
+                {
+                    throw BoletoNetCoreException.ErroAoRegistrarTituloOnline(new Exception("Erro ao registrar boleto online"));
+                }
+                var titulo = Sdk.Billing().RetrieveBilling(response.RequestCode);
                 boleto.NossoNumero = titulo.Slip.OurNumber;
                 boleto.CodigoBarra.CodigoDeBarras = titulo.Slip.Barcode;
                 boleto.CodigoBarra.LinhaDigitavel = titulo.Slip.DigitLine;
                 boleto.PixEmv = titulo.Pix.PixCopyAndPaste;
                 boleto.PixTxId = titulo.Pix.TransactionId;
                 boleto.Id = response.RequestCode;
-                boleto.PdfBase64 = client.RetrieveBillingInPdfBase64(Config, response.RequestCode);
+                boleto.PdfBase64 = Sdk.Billing().RetrieveBillingPdfBase64(response.RequestCode);
                 return response.RequestCode;
             }
-            catch (Exception e)
+            catch (SdkException e)
             {
-                throw BoletoNetCoreException.ErroAoRegistrarTituloOnline(e);
+                var msg = $"{e.Error.Title} - {e.Error.Detail}";
+                e.Error.Violations.ForEach(v => msg += $"\n{v.Property}: {v.Reason}");
+                throw BoletoNetCoreException.ErroAoRegistrarTituloOnline(msg);
             }
         }
 
