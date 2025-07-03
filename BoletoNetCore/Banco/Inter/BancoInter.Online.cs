@@ -1,11 +1,9 @@
 #nullable enable
 
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
 using BoletoNetCore.Exceptions;
 using inter_sdk_library;
+using System;
+using System.Threading.Tasks;
 
 namespace BoletoNetCore
 {
@@ -197,8 +195,7 @@ namespace BoletoNetCore
                 boleto.PixEmv = titulo.Pix.PixCopyAndPaste;
                 boleto.PixTxId = titulo.Pix.TransactionId;
                 boleto.Id = response.RequestCode;
-                client.RetrieveBillingInPdfBase64(Config, response.RequestCode, out string PdfBase64);
-                boleto.PdfBase64 = PdfBase64;
+                boleto.PdfBase64 = client.RetrieveBillingInPdfBase64(Config, response.RequestCode);
                 return response.RequestCode;
             }
             catch (Exception e)

@@ -37,8 +37,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\inter-sdk-csharp\inter-sdk-csharp.csproj" />
+    <ProjectReference Include="..\inter-sdk-csharp\inter-sdk-library\inter-sdk-library.csproj" />
   </ItemGroup>
-
 
 </Project>
