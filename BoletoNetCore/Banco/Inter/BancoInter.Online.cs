@@ -61,6 +61,10 @@ namespace BoletoNetCore
             }
             catch (SdkException e)
             {
+                if (e.Error == null || e.Error.Title == "")
+                {
+                    throw BoletoNetCoreException.ErroAoRegistrarTituloOnline(e);
+                }
                 var msg = $"{e.Error.Title} - {e.Error.Detail}";
                 e.Error.Violations.ForEach(v => msg += $"\n{v.Property}: {v.Reason}");
                 throw BoletoNetCoreException.ErroAoRegistrarTituloOnline(msg);
@@ -86,6 +90,10 @@ namespace BoletoNetCore
             }
             catch (SdkException e)
             {
+                if (e.Error == null || e.Error.Title == "")
+                {
+                    throw BoletoNetCoreException.ErroAoRegistrarTituloOnline(e);
+                }
                 var msg = $"{e.Error.Title} - {e.Error.Detail}";
                 e.Error.Violations.ForEach(v => msg += $"\n{v.Property}: {v.Reason}");
                 throw BoletoNetCoreException.ErroAoRegistrarTituloOnline(msg);
@@ -220,6 +228,10 @@ namespace BoletoNetCore
             }
             catch (SdkException e)
             {
+                if (e.Error == null || e.Error.Title == "")
+                {
+                    throw BoletoNetCoreException.ErroAoRegistrarTituloOnline(e);
+                }
                 var msg = $"{e.Error.Title} - {e.Error.Detail}";
                 e.Error.Violations.ForEach(v => msg += $"\n{v.Property}: {v.Reason}");
                 throw BoletoNetCoreException.ErroAoRegistrarTituloOnline(msg);
