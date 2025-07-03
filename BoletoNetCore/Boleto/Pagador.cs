@@ -46,6 +46,8 @@ namespace BoletoNetCore
                     return CPFCNPJ.Length <= 11 ? "01" : "02";
                 case "F":
                     return CPFCNPJ.Length <= 11 ? "PESSOA_FISICA" : "PESSOA_JURIDICA";
+                case "FJ":
+                    return CPFCNPJ.Length <= 11 ? "FISICA" : "JURIDICA";
             }
             throw new Exception("TipoCPFCNPJ: Formato do retorno inválido.");
         }

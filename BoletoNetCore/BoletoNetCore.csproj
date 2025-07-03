@@ -4,6 +4,7 @@
     <TargetFrameworks>net9.0</TargetFrameworks>
     <ApplicationIcon />
     <OutputType>Library</OutputType>
+    <LangVersion>latest</LangVersion>
     <StartupObject />
     <IsPackable>true</IsPackable>
     <Version>3.0.2</Version>
@@ -33,6 +34,10 @@
     <PackageReference Include="StarkBank" Version="2.15.1" />
     <PackageReference Include="System.Net.Http.Json" Version="9.0.6" />
     <PackageReference Include="System.Drawing.Common" Version="9.0.6" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\inter-sdk-csharp\inter-sdk-csharp.csproj" />
   </ItemGroup>
 
 
