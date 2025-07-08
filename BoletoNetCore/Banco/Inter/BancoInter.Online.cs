@@ -66,7 +66,12 @@ namespace BoletoNetCore
                     throw BoletoNetCoreException.ErroAoRegistrarTituloOnline(e);
                 }
                 var msg = $"{e.Error.Title} - {e.Error.Detail}";
-                e.Error.Violations.ForEach(v => msg += $"\n{v.Property}: {v.Reason}");
+                if (e.Error.Violations != null && e.Error.Violations.Count > 0)
+                {
+                    // Se houver violações, adicionar ao erro
+                    msg += "\nViolations:";
+                    e.Error.Violations.ForEach(v => msg += $"\n{v.Property}: {v.Reason}");
+                }
                 throw BoletoNetCoreException.ErroAoRegistrarTituloOnline(msg);
             }
         }
@@ -80,6 +85,12 @@ namespace BoletoNetCore
                 {
                     throw BoletoNetCoreException.ErroAoRegistrarTituloOnline(new Exception("Boleto não encontrado"));
                 }
+                boleto.NossoNumero = response.Slip.OurNumber;
+                boleto.CodigoBarra.CodigoDeBarras = response.Slip.Barcode;
+                boleto.CodigoBarra.LinhaDigitavel = response.Slip.DigitLine;
+                boleto.PixEmv = response.Pix.PixCopyAndPaste;
+                boleto.PixTxId = response.Pix.TransactionId;
+                boleto.PdfBase64 = Sdk.Billing().RetrieveBillingPdfBase64(boleto.Id);
                 return response.Billing.Situation switch
                 {
                     "A_RECEBER" or "ATRASADO" => StatusBoleto.EmAberto,
@@ -95,7 +106,12 @@ namespace BoletoNetCore
                     throw BoletoNetCoreException.ErroAoRegistrarTituloOnline(e);
                 }
                 var msg = $"{e.Error.Title} - {e.Error.Detail}";
-                e.Error.Violations.ForEach(v => msg += $"\n{v.Property}: {v.Reason}");
+                if (e.Error.Violations != null && e.Error.Violations.Count > 0)
+                {
+                    // Se houver violações, adicionar ao erro
+                    msg += "\nViolations:";
+                    e.Error.Violations.ForEach(v => msg += $"\n{v.Property}: {v.Reason}");
+                }
                 throw BoletoNetCoreException.ErroAoRegistrarTituloOnline(msg);
             }
         }
@@ -216,14 +232,18 @@ namespace BoletoNetCore
                 {
                     throw BoletoNetCoreException.ErroAoRegistrarTituloOnline(new Exception("Erro ao registrar boleto online"));
                 }
-                var titulo = Sdk.Billing().RetrieveBilling(response.RequestCode);
-                boleto.NossoNumero = titulo.Slip.OurNumber;
-                boleto.CodigoBarra.CodigoDeBarras = titulo.Slip.Barcode;
-                boleto.CodigoBarra.LinhaDigitavel = titulo.Slip.DigitLine;
-                boleto.PixEmv = titulo.Pix.PixCopyAndPaste;
-                boleto.PixTxId = titulo.Pix.TransactionId;
                 boleto.Id = response.RequestCode;
-                boleto.PdfBase64 = Sdk.Billing().RetrieveBillingPdfBase64(response.RequestCode);
+                await Task.Delay(10000);
+                var titulo = Sdk.Billing().RetrieveBilling(response.RequestCode);
+                if (titulo != null)
+                {
+                    boleto.NossoNumero = titulo.Slip.OurNumber;
+                    boleto.CodigoBarra.CodigoDeBarras = titulo.Slip.Barcode;
+                    boleto.CodigoBarra.LinhaDigitavel = titulo.Slip.DigitLine;
+                    boleto.PixEmv = titulo.Pix.PixCopyAndPaste;
+                    boleto.PixTxId = titulo.Pix.TransactionId;
+                    boleto.PdfBase64 = Sdk.Billing().RetrieveBillingPdfBase64(response.RequestCode);
+                }
                 return response.RequestCode;
             }
             catch (SdkException e)
@@ -233,7 +253,12 @@ namespace BoletoNetCore
                     throw BoletoNetCoreException.ErroAoRegistrarTituloOnline(e);
                 }
                 var msg = $"{e.Error.Title} - {e.Error.Detail}";
-                e.Error.Violations.ForEach(v => msg += $"\n{v.Property}: {v.Reason}");
+                if (e.Error.Violations != null && e.Error.Violations.Count > 0)
+                {
+                    // Se houver violações, adicionar ao erro
+                    msg += "\nViolations:";
+                    e.Error.Violations.ForEach(v => msg += $"\n{v.Property}: {v.Reason}");
+                }
                 throw BoletoNetCoreException.ErroAoRegistrarTituloOnline(msg);
             }
         }
