@@ -167,18 +167,18 @@ namespace BoletoNetCore
             emissao.SeuNumero = boleto.Id;
             if (boleto.ValorDesconto > 0)
             {
-                emissao.TipoDesconto = "A";
+                emissao.TipoDesconto = "VALOR";
                 emissao.ValorDesconto1 = boleto.ValorDesconto;
                 emissao.DataDesconto1 = boleto.DataDesconto.ToString("yyyy-MM-dd");
             }
             if (boleto.ValorJurosDia > 0)
             {
-                emissao.TipoJuros = "A";
+                emissao.TipoJuros = "VALOR";
                 emissao.Juros = boleto.ValorJurosDia;
             }
             if (boleto.PercentualJurosDia > 0)
             {
-                emissao.TipoJuros = "B";
+                emissao.TipoJuros = "PERCENTUAL";
                 emissao.Juros = boleto.PercentualJurosDia;
             }
             emissao.Valor = boleto.ValorTitulo;
