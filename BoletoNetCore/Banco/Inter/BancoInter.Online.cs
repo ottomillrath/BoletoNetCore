@@ -129,6 +129,7 @@ namespace BoletoNetCore
             filter.Page = page;
             filter.ItemsPerPage = pageSize;
             filter.Situation = "RECEBIDO"; // Somente boletos recebidos
+            filter.FilterDateBy = "PAGAMENTO";
             Sorting sorting = new();
             var response = Sdk.Billing().RetrieveBillingCollectionPage(start, end, page, pageSize, filter, sorting);
             foreach (var item in response.Billings)
