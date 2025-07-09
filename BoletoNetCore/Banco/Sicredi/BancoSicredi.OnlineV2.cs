@@ -161,6 +161,10 @@ namespace BoletoNetCore
                 Cep = boleto.Pagador.Endereco.CEP,
                 TipoPessoa = boleto.Pagador.TipoCPFCNPJ("F"),
             };
+            if (emissao.Pagador.Endereco.Length > 40)
+            {
+                emissao.Pagador.Endereco = emissao.Pagador.Endereco.Substring(0, 40);
+            }
             emissao.EspecieDocumento = "DUPLICATA_MERCANTIL_INDICACAO";
             if (boleto.TipoCodigoMulta == TipoCodigoMulta.Percentual)
                 emissao.Multa = boleto.PercentualMulta;
@@ -234,7 +238,7 @@ namespace BoletoNetCore
             if (response.IsSuccessStatusCode)
                 return;
 
-            if (response.StatusCode == HttpStatusCode.BadRequest || (response.StatusCode == HttpStatusCode.NotFound && response.Content.Headers.ContentType.MediaType == "application/json"))
+            if (response.StatusCode == HttpStatusCode.BadRequest || response.StatusCode == HttpStatusCode.UnprocessableEntity || (response.StatusCode == HttpStatusCode.NotFound && response.Content.Headers.ContentType.MediaType == "application/json"))
             {
                 try
                 {
