@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
@@ -58,11 +59,11 @@ namespace BoletoNetCore
                     Uri uri;
                     if (Homologacao)
                     {
-                        uri = new Uri("https://api-parceiro.sicredi.com.br/sb/cobranca/boleto/v1/");
+                        uri = new Uri("https://api-parceiro.sicredi.com.br/sb/cobranca/");
                     }
                     else
                     {
-                        uri = new Uri("https://api-parceiro.sicredi.com.br/cobranca/boleto/v1/");
+                        uri = new Uri("https://api-parceiro.sicredi.com.br/cobranca/");
                     }
                     _httpClient = new HttpClient(new LoggingHandler(handler));
                     _httpClient.BaseAddress = uri;
@@ -197,7 +198,7 @@ namespace BoletoNetCore
                 emissao.Informativo = Enumerable.Range(0, boleto.MensagemInstrucoesCaixa.Length / 80).Select(i => boleto.MensagemInstrucoesCaixa.Substring(i * 80, 80)).ToList();
 
 
-            var request = new HttpRequestMessage(HttpMethod.Post, "boletos");
+            var request = new HttpRequestMessage(HttpMethod.Post, "boleto/v1/boletos");
             request.Headers.Add("Authorization", $"Bearer {Token}");
             request.Headers.Add("x-api-key", ChaveApi);
             request.Headers.Add("cooperativa", Beneficiario.ContaBancaria.Agencia);
@@ -259,7 +260,7 @@ namespace BoletoNetCore
 
         public async Task<StatusBoleto> ConsultarStatus(Boleto boleto)
         {
-            var request = new HttpRequestMessage(HttpMethod.Get, $"boletos?codigoBeneficiario={Beneficiario.Codigo}&nossoNumero={boleto.NossoNumero}");
+            var request = new HttpRequestMessage(HttpMethod.Get, $"boleto/v1/boletos?codigoBeneficiario={Beneficiario.Codigo}&nossoNumero={boleto.NossoNumero}");
             request.Headers.Add("Authorization", $"Bearer {Token}");
             request.Headers.Add("x-api-key", ChaveApi);
             request.Headers.Add("cooperativa", Beneficiario.ContaBancaria.Agencia);
@@ -410,7 +411,7 @@ namespace BoletoNetCore
 
         public async Task<string> CancelarBoleto(Boleto boleto)
         {
-            var request = new HttpRequestMessage(HttpMethod.Patch, $"boletos/{boleto.NossoNumero}/baixa");
+            var request = new HttpRequestMessage(HttpMethod.Patch, $"boleto/v1/boletos/{boleto.NossoNumero}/baixa");
             request.Headers.Add("Authorization", $"Bearer {Token}");
             request.Headers.Add("x-api-key", ChaveApi);
             request.Headers.Add("cooperativa", Beneficiario.ContaBancaria.Agencia);
@@ -435,7 +436,7 @@ namespace BoletoNetCore
         {
             var items = new List<DownloadArquivoRetornoItem>();
 
-            var url = string.Format("{0}&page={1}", uri, page);
+            var url = string.Format("{0}&pagina={1}", uri, page);
 
             var request = new HttpRequestMessage(HttpMethod.Get, url);
             request.Headers.Add("Authorization", $"Bearer {Token}");
@@ -450,7 +451,10 @@ namespace BoletoNetCore
                 return items.ToArray();
             }
             var retString = await result.Content.ReadAsStringAsync();
-            var ret = JsonConvert.DeserializeObject<SicrediV2FrancesinhaResponse>(retString);
+            var ret = JsonConvert.DeserializeObject<SicrediV2FrancesinhaResponse>(retString, new JsonSerializerSettings
+            {
+                DefaultValueHandling = DefaultValueHandling.Populate
+            });
             foreach (var item in ret.Resultado)
             {
                 var ritem = new DownloadArquivoRetornoItem()
@@ -560,29 +564,34 @@ namespace BoletoNetCore
         class SicrediV2FrancesinhaResponse
         {
             [JsonProperty("resultado")]
-            public List<SicrediV2FrancesinhaItem> Resultado { get; set; }
+            [DefaultValue(null)]
+            public List<SicrediV2FrancesinhaItem> Resultado { get; set; } = new List<SicrediV2FrancesinhaItem>();
 
             [JsonProperty("total")]
-            public int Total { get; set; }
+            [DefaultValue(0)]
+            public int Total { get; set; } = 0;
 
             [JsonProperty("pagina")]
-            public int Pagina { get; set; }
+            [DefaultValue(0)]
+            public int Pagina { get; set; } = 0;
 
             [JsonProperty("totalPaginas")]
-            public int TotalPaginas { get; set; }
+            [DefaultValue(0)]
+            public int TotalPaginas { get; set; } = 0;
 
             [JsonProperty("quantidadePorPagina")]
-            public int QuantidadePorPagina { get; set; }
+            [DefaultValue(0)]
+            public int QuantidadePorPagina { get; set; } = 0;
         }
 
         public async Task<DownloadArquivoRetornoItem[]> DownloadArquivoMovimentacao(int numeroContrato, int codigoSolicitacao, int idArquivo, DateTime inicio, DateTime fim)
         {
             var items = new List<DownloadArquivoRetornoItem>();
-            var baseUrl = string.Format($"boletos?codigoBeneficiario={Beneficiario.Codigo}&cooperativa={Beneficiario.ContaBancaria.Agencia}&posto={Beneficiario.ContaBancaria.DigitoAgencia}&tipoMovimento=CREDITO");
+            var baseUrl = string.Format($"v1/cobranca-financeiro/movimentacoes/?codigoBeneficiario={Beneficiario.Codigo}&cooperativa={Beneficiario.ContaBancaria.Agencia}&posto={Beneficiario.ContaBancaria.DigitoAgencia}&tipoMovimento=CREDITO");
             foreach (DateTime day in DateTimeExtensions.EachDay(inicio, fim))
             {
-                var dataMovimento = day.ToString("yyyy-MM-dd");
-                var url = $"{baseUrl}&dataMovimento={dataMovimento}";
+                var dataLancamento = day.ToString("yyyy-MM-dd");
+                var url = $"{baseUrl}&dataLancamento={dataLancamento}";
                 items.AddRange(await downloadArquivo(url));
             }
             return items.ToArray();
