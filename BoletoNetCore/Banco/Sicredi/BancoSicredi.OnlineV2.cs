@@ -451,36 +451,43 @@ namespace BoletoNetCore
                 return items.ToArray();
             }
             var retString = await result.Content.ReadAsStringAsync();
-            var ret = JsonConvert.DeserializeObject<SicrediV2FrancesinhaResponse>(retString, new JsonSerializerSettings
+            try
             {
-                DefaultValueHandling = DefaultValueHandling.Populate
-            });
-            foreach (var item in ret.Resultado)
-            {
-                var ritem = new DownloadArquivoRetornoItem()
+                var ret = JsonConvert.DeserializeObject<SicrediV2FrancesinhaResponse>(retString, new JsonSerializerSettings
                 {
-                    NossoNumero = item.NossoNumero,
-                    DataLiquidacao = dateFromString(item.DataMovimento),
-                    DataMovimentoLiquidacao = dateFromString(item.DataLancamento),
-                    DataPrevisaoCredito = dateFromString(item.DataMovimento),
-                    DataVencimentoTitulo = dateFromString(item.DataMovimento),
-                    NumeroTitulo = 0,
-                    ValorTitulo = (decimal)item.ValorNominal,
-                    ValorLiquido = (decimal)item.ValorMovimento,
-                    ValorMora = (decimal)item.ValorMulta,
-                    ValorDesconto = (decimal)item.ValorDesconto,
-                    ValorTarifaMovimento = (decimal)item.ValorAbatimento,
-                    SeuNumero = item.SeuNumero,
-                };
+                    DefaultValueHandling = DefaultValueHandling.Populate
+                });
+                foreach (var item in ret.Resultado)
+                {
+                    var ritem = new DownloadArquivoRetornoItem()
+                    {
+                        NossoNumero = item.NossoNumero,
+                        DataLiquidacao = dateFromString(item.DataMovimento),
+                        DataMovimentoLiquidacao = dateFromString(item.DataLancamento),
+                        DataPrevisaoCredito = dateFromString(item.DataMovimento),
+                        DataVencimentoTitulo = dateFromString(item.DataMovimento),
+                        NumeroTitulo = 0,
+                        ValorTitulo = (decimal)item.ValorNominal,
+                        ValorLiquido = (decimal)item.ValorMovimento,
+                        ValorMora = (decimal)item.ValorMulta,
+                        ValorDesconto = (decimal)item.ValorDesconto,
+                        ValorTarifaMovimento = (decimal)item.ValorAbatimento,
+                        SeuNumero = item.SeuNumero,
+                    };
 
-                items.Add(ritem);
+                    items.Add(ritem);
+                }
+
+                if (ret.TotalPaginas > page + 1)
+                {
+                    items.AddRange(await downloadArquivo(uri, page + 1));
+                }
             }
-
-            if (ret.TotalPaginas > page + 1)
+            catch (Exception ex)
             {
-                items.AddRange(await downloadArquivo(uri, page + 1));
+                Console.WriteLine("Erro ao processar a resposta da API. Verifique os dados enviados.");
+                Console.WriteLine(ex.Message);
             }
-
             return items.ToArray();
         }
 
