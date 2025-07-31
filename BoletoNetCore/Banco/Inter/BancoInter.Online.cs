@@ -177,6 +177,7 @@ namespace BoletoNetCore
                 var request = new BillingIssueRequest();
                 request.YourNumber = boleto.NossoNumero;
                 request.DueDate = boleto.DataVencimento.ToString("yyyy-MM-dd");
+                request.ScheduledDays = 60;
                 request.Message = new()
                 {
                     Line1 = boleto.MensagemInstrucoesCaixa,
