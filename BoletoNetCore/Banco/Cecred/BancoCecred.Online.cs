@@ -95,8 +95,8 @@ namespace BoletoNetCore
 
             using (TokenCache tokenCache = new TokenCache())
             {
-                tokenCache.AddOrUpdateToken($"{Id}-WSO2", TokenWso2, DateTime.Now.AddHours(1));
-                tokenCache.AddOrUpdateToken(Id.ToString(), Token, DateTime.Now.AddHours(1));
+                tokenCache.AddOrUpdateToken($"{Id}-WSO2", TokenWso2, DateTime.Now.AddMinutes(55));
+                tokenCache.AddOrUpdateToken(Id.ToString(), Token, DateTime.Now.AddMinutes(55));
             }
 
             return Token;
@@ -160,7 +160,7 @@ namespace BoletoNetCore
                 accessToken = ret.AccessToken;
 
                 using TokenCache tokenCache = new();
-                tokenCache.AddOrUpdateToken($"{Id}-WSO2", accessToken, DateTime.Now.AddHours(1));
+                tokenCache.AddOrUpdateToken($"{Id}-WSO2", accessToken, DateTime.Now.AddMinutes(55));
             }
             catch (Exception ex)
             {
