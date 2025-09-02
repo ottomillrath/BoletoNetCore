@@ -196,6 +196,10 @@ namespace BoletoNetCore
                     CpfCnpj = boleto.Pagador.CPFCNPJ,
                     PersonType = boleto.Pagador.TipoCPFCNPJ("FJ"),
                 };
+                if (request.Payer.Complement.Length > 30)
+                {
+                    request.Payer.Complement = boleto.Pagador.Endereco.LogradouroComplemento.Substring(0, 30);
+                }
                 if (boleto.Pagador.Telefone.Length > 9)
                 {
                     request.Payer.AreaCode = boleto.Pagador.Telefone.Substring(0, 2);
