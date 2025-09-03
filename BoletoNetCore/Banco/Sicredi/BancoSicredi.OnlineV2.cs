@@ -193,7 +193,7 @@ namespace BoletoNetCore
                 emissao.DiasProtestoAuto = boleto.DiasProtesto;
             }
 
-            emissao.DiasNegativacaoAuto = boleto.DiasBaixaDevolucao;
+            // emissao.DiasNegativacaoAuto = boleto.DiasBaixaDevolucao;
             if (boleto.MensagemInstrucoesCaixa.Length > 0)
                 emissao.Informativo = Enumerable.Range(0, boleto.MensagemInstrucoesCaixa.Length / 80).Select(i => boleto.MensagemInstrucoesCaixa.Substring(i * 80, 80)).ToList();
 
