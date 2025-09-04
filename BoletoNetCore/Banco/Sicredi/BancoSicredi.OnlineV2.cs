@@ -317,7 +317,7 @@ namespace BoletoNetCore
             [JsonProperty("diasProtestoAuto")]
             public int? DiasProtestoAuto { get; set; }
             [JsonProperty("diasNegativacaoAuto")]
-            public int DiasNegativacaoAuto { get; set; }
+            public int? DiasNegativacaoAuto { get; set; }
             [JsonProperty("validadeAposVencimento")]
             public int ValidadeAposVencimento { get; set; } = 59; // 59 dias após o vencimento
             [JsonProperty("valor")]
