@@ -411,6 +411,10 @@ namespace BoletoNetCore
             {
                 emissao.Pagador.Endereco.Complemento = emissao.Pagador.Endereco.Complemento[..40];
             }
+            if (emissao.Pagador.Endereco.Bairro.Length > 30) 
+            {
+                emissao.Pagador.Endereco.Bairro = emissao.Pagador.Endereco.Bairro[..30];
+            }
 
             if (!string.IsNullOrEmpty(boleto.Pagador.Telefone))
             {
