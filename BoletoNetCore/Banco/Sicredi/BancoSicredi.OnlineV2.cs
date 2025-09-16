@@ -184,7 +184,7 @@ namespace BoletoNetCore
             if (boleto.PercentualJurosDia > 0)
             {
                 emissao.TipoJuros = "PERCENTUAL";
-                emissao.Juros = boleto.PercentualJurosDia;
+                emissao.Juros = Math.Round(boleto.PercentualJurosDia * 30, 2);
             }
             emissao.Valor = boleto.ValorTitulo;
             emissao.DataVencimento = boleto.DataVencimento.ToString("yyyy-MM-dd");
