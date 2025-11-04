@@ -1,3 +1,6 @@
 [submodule "inter-sdk-csharp"]
 	path = inter-sdk-csharp
 	url = git@github.com:ottomillrath/pj-sdk-csharp.git
+[submodule "pagar-me-sdk"]
+	path = pagar-me-sdk
+	url = https://github.com/pagarme/pagarme-net-standard-sdk.git
