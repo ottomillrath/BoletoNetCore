@@ -416,7 +416,8 @@ namespace BoletoNetCore
             request.Headers.Add("x-api-key", ChaveApi);
             request.Headers.Add("cooperativa", Beneficiario.ContaBancaria.Agencia);
             request.Headers.Add("posto", Beneficiario.ContaBancaria.DigitoAgencia);
-            // request.Content = new StringContent("{}", System.Text.Encoding.UTF8, "application/json");
+            request.Headers.Add("codigoBeneficiario", Beneficiario.Codigo);
+            request.Content = new StringContent("{}", System.Text.Encoding.UTF8, "application/json");
             var response = await httpClient.SendAsync(request);
             await CheckHttpResponseError(response);
             return boleto.Id;
