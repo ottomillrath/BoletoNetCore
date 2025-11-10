@@ -265,7 +265,16 @@ namespace BoletoNetCore
             if (boleto.DataJuros > DateTime.MinValue)
                 emissao.DataJurosMora = boleto.DataJuros;
             if (boleto.MensagemInstrucoesCaixa != "")
-                emissao.MensagensInstrucao = new string[] { boleto.MensagemInstrucoesCaixa };
+            {
+                var mensagem = boleto.MensagemInstrucoesCaixa;
+                var chunks = new List<string>();
+                for (int i = 0; i < mensagem.Length; i += 40)
+                {
+                    var chunk = mensagem.Substring(i, Math.Min(40, mensagem.Length - i));
+                    chunks.Add(chunk);
+                }
+                emissao.MensagensInstrucao = chunks.ToArray();
+            }
             var request = new HttpRequestMessage(HttpMethod.Post, "boletos");
             request.Headers.Add("Authorization", "Bearer " + Token);
             request.Headers.Add("client_id", ChaveApi);
