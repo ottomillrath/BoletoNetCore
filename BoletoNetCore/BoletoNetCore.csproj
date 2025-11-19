@@ -38,6 +38,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\inter-sdk-csharp\inter-sdk-library\inter-sdk-library.csproj" />
+    <ProjectReference Include="..\pagar-me-sdk\PagarmeApiSDK.Standard\PagarmeApiSDK.Standard.csproj" />
   </ItemGroup>
 
 </Project>

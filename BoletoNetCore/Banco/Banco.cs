@@ -19,6 +19,7 @@ namespace BoletoNetCore
             [085] = BancoCecred.Instance,
             [104] = BancoCaixa.Instance,
             [133] = BancoCresol.Instance,
+            [198] = BancoPagarMe.Instance,
             [237] = BancoBradesco.Instance,
             [341] = BancoItau.Instance,
             [422] = BancoSafra.Instance,

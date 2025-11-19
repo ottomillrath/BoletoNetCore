@@ -22,6 +22,7 @@ namespace BoletoNetCore
             CarteiraImpressaoBoleto = banco.Beneficiario.ContaBancaria.CarteiraPadrao;
             VariacaoCarteira = banco.Beneficiario.ContaBancaria.VariacaoCarteiraPadrao;
             TipoCarteira = banco.Beneficiario.ContaBancaria.TipoCarteiraPadrao;
+            Items = [];
         }
 
         /// <summary>
@@ -39,6 +40,7 @@ namespace BoletoNetCore
                 VariacaoCarteira = banco.Beneficiario.ContaBancaria.VariacaoCarteiraPadrao;
                 TipoCarteira = banco.Beneficiario.ContaBancaria.TipoCarteiraPadrao;
             }
+            Items = [];
         }
         public string Id { get; set; } = "";
         public int CodigoMoeda { get; set; } = 9;
@@ -236,6 +238,11 @@ namespace BoletoNetCore
         public string PdfBase64 { get; set; }
         public string PixTxId { get; set; }
         public string PixEmv { get; set; }
+
+        /// <summary>
+        /// A princípio será utilizado apenas no registro de boletos pela Pagar.ME
+        /// </summary>
+        public List<ItemBoleto> Items { get; set; }
 
         public void ValidarDados()
         {
