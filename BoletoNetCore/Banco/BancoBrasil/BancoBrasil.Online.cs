@@ -274,7 +274,7 @@ namespace BoletoNetCore
             return boleto.Id;
         }
 
-        public async Task<StatusBoleto> ConsultarStatus(Boleto boleto)
+        public async Task<StatusTituloOnline> ConsultarStatus(Boleto boleto)
         {
             var request = new HttpRequestMessage(HttpMethod.Get, $"boletos/000{boleto.NossoNumero}?{this._appKeyName}={this.AppKey}&numeroConvenio={Beneficiario.Codigo}");
             request.Headers.Add("Authorization", $"Bearer {this.Token}");
@@ -284,10 +284,10 @@ namespace BoletoNetCore
             var resp = JsonConvert.DeserializeObject<BancoBrasilConsultarStatusResponse>(respString);
             return resp.CodigoEstadoTituloCobranca switch
             {
-                1 => StatusBoleto.EmAberto,
-                6 => StatusBoleto.Liquidado,
-                7 => StatusBoleto.Baixado,
-                _ => StatusBoleto.Nenhum,
+                1 => new() { Status = StatusBoleto.EmAberto },
+                6 => new() { Status = StatusBoleto.Liquidado },
+                7 => new() { Status = StatusBoleto.Baixado },
+                _ => new() { Status = StatusBoleto.Nenhum },
             };
         }
 

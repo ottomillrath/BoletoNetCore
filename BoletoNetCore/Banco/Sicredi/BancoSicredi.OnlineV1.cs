@@ -160,7 +160,7 @@ namespace BoletoNetCore
                 throw BoletoNetCoreException.ErroAoRegistrarTituloOnline(new Exception(string.Format("Erro desconhecido: {0}", response.StatusCode)));
         }
 
-        public async Task<StatusBoleto> ConsultarStatus(Boleto boleto)
+        public async Task<StatusTituloOnline> ConsultarStatus(Boleto boleto)
         {
             var agencia = boleto.Banco.Beneficiario.ContaBancaria.Agencia;
             var posto = boleto.Banco.Beneficiario.ContaBancaria.DigitoAgencia;
@@ -179,11 +179,11 @@ namespace BoletoNetCore
             // todo: verificar quais dados necessarios para preencher boleto
             return ret[0].Situacao.ToString() switch
             {
-                "EM_ABERTO" => StatusBoleto.EmAberto,
-                "EM CARTEIRA" => StatusBoleto.EmAberto,
-                "LIQUIDADO" => StatusBoleto.Liquidado,
-                "BAIXADO" => StatusBoleto.Baixado,
-                _ => StatusBoleto.Nenhum
+                "EM_ABERTO" => new() { Status = StatusBoleto.EmAberto },
+                "EM CARTEIRA" => new() { Status = StatusBoleto.EmAberto },
+                "LIQUIDADO" => new() { Status = StatusBoleto.Liquidado },
+                "BAIXADO" => new() { Status = StatusBoleto.Baixado },
+                _ => new() { Status = StatusBoleto.Nenhum }
             };
         }
 

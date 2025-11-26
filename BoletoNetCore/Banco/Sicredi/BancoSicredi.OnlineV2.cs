@@ -258,7 +258,7 @@ namespace BoletoNetCore
                 throw BoletoNetCoreException.ErroAoRegistrarTituloOnline(new Exception(string.Format("Erro desconhecido: {0}", response.StatusCode)));
         }
 
-        public async Task<StatusBoleto> ConsultarStatus(Boleto boleto)
+        public async Task<StatusTituloOnline> ConsultarStatus(Boleto boleto)
         {
             var request = new HttpRequestMessage(HttpMethod.Get, $"boleto/v1/boletos?codigoBeneficiario={Beneficiario.Codigo}&nossoNumero={boleto.NossoNumero}");
             request.Headers.Add("Authorization", $"Bearer {Token}");
@@ -276,22 +276,22 @@ namespace BoletoNetCore
                 var status = (string)ret.SelectToken("$.situacao");
                 return status switch
                 {
-                    "EM CARTEIRA" => StatusBoleto.EmAberto,
-                    "EM CARTEIRA PIX" => StatusBoleto.EmAberto,
-                    "LIQUIDADO" => StatusBoleto.Liquidado,
-                    "LIQUIDADO CARTORIO" => StatusBoleto.Liquidado,
-                    "LIQUIDADO REDE" => StatusBoleto.Liquidado,
-                    "LIQUIDADO COMPE" => StatusBoleto.Liquidado,
-                    "LIQUIDADO PIX" => StatusBoleto.Liquidado,
-                    "LIQUIDADO CHEQUE" => StatusBoleto.Liquidado,
-                    "BAIXADO POR SOLICITACAO" => StatusBoleto.Baixado,
-                    _ => StatusBoleto.Nenhum,
+                    "EM CARTEIRA" => new() { Status = StatusBoleto.EmAberto },
+                    "EM CARTEIRA PIX" => new() { Status = StatusBoleto.EmAberto },
+                    "LIQUIDADO" => new() { Status = StatusBoleto.Liquidado },
+                    "LIQUIDADO CARTORIO" => new() { Status = StatusBoleto.Liquidado },
+                    "LIQUIDADO REDE" => new() { Status = StatusBoleto.Liquidado },
+                    "LIQUIDADO COMPE" => new() { Status = StatusBoleto.Liquidado },
+                    "LIQUIDADO PIX" => new() { Status = StatusBoleto.Liquidado },
+                    "LIQUIDADO CHEQUE" => new() { Status = StatusBoleto.Liquidado },
+                    "BAIXADO POR SOLICITACAO" => new() { Status = StatusBoleto.Baixado },
+                    _ => new() { Status = StatusBoleto.Nenhum },
                 };
             }
 
             catch
             {
-                return StatusBoleto.Nenhum;
+                return new() { Status = StatusBoleto.Nenhum };
             }
 
         }

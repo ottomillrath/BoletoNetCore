@@ -58,12 +58,12 @@ namespace BoletoNetCore
         public string CertificadoSenha { get; set; }
 
         public string Token { get; set; }
-        
+
         public uint VersaoApi { get; set; }
 
         public string AppKey { get; set; }
 
-        public async Task<StatusBoleto> ConsultarStatus(Boleto boleto)
+        public async Task<StatusTituloOnline> ConsultarStatus(Boleto boleto)
         {
             var query = new Dictionary<string, string>()
             {
@@ -92,15 +92,15 @@ namespace BoletoNetCore
                 var ret = JsonConvert.DeserializeObject<ResponseSingleSicoobApi>(retString, jsonSettings);
                 return ret.Resultado.SituacaoBoleto switch
                 {
-                    "Em Aberto" => StatusBoleto.EmAberto,
-                    "Liquidado" => StatusBoleto.Liquidado,
-                    "Baixado" => StatusBoleto.Baixado,
-                    _ => StatusBoleto.Nenhum,
+                    "Em Aberto" => new() { Status = StatusBoleto.EmAberto },
+                    "Liquidado" => new() { Status = StatusBoleto.Liquidado },
+                    "Baixado" => new() { Status = StatusBoleto.Baixado },
+                    _ => new() { Status = StatusBoleto.Nenhum },
                 };
             }
             catch (Exception ex)
             {
-                return StatusBoleto.Nenhum;
+                return new() { Status = StatusBoleto.Nenhum };
             }
         }
 
@@ -255,9 +255,12 @@ namespace BoletoNetCore
                 CodigoCadastrarPIX = boleto.Banco.Beneficiario.ContaBancaria.PixHabilitado ? TipoCadastroPix.ComPix : TipoCadastroPix.SemPix,
                 // NumeroContratoCobranca = ,
             };
-            if (boleto.TipoJuros == TipoJuros.Simples) {
+            if (boleto.TipoJuros == TipoJuros.Simples)
+            {
                 emissao.ValorJurosMora = boleto.ValorTitulo * boleto.PercentualJurosDia / 100;
-            } else if (boleto.TipoJuros == TipoJuros.TaxaMensal) {
+            }
+            else if (boleto.TipoJuros == TipoJuros.TaxaMensal)
+            {
                 emissao.ValorJurosMora = boleto.PercentualJurosDia * 30;
             }
             if (boleto.DataMulta > DateTime.MinValue)

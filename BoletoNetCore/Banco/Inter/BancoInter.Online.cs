@@ -76,7 +76,7 @@ namespace BoletoNetCore
             }
         }
 
-        public async Task<StatusBoleto> ConsultarStatus(Boleto boleto)
+        public async Task<StatusTituloOnline> ConsultarStatus(Boleto boleto)
         {
             try
             {
@@ -93,10 +93,10 @@ namespace BoletoNetCore
                 boleto.PdfBase64 = Sdk.Billing().RetrieveBillingPdfBase64(boleto.Id);
                 return response.Billing.Situation switch
                 {
-                    "A_RECEBER" or "ATRASADO" => StatusBoleto.EmAberto,
-                    "CANCELADO" or "EXPIRADO" => StatusBoleto.Baixado,
-                    "RECEBIDO" => StatusBoleto.Liquidado,
-                    _ => StatusBoleto.Nenhum,
+                    "A_RECEBER" or "ATRASADO" => new() { Status = StatusBoleto.EmAberto },
+                    "CANCELADO" or "EXPIRADO" => new() { Status = StatusBoleto.Baixado },
+                    "RECEBIDO" => new() { Status = StatusBoleto.Liquidado },
+                    _ => new() { Status = StatusBoleto.Nenhum },
                 };
             }
             catch (SdkException e)

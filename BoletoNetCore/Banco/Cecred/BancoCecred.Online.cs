@@ -41,7 +41,7 @@ namespace BoletoNetCore
         // - o login do cooperado vai dizer que a url do callback é inválida, é mentira, é só tentar login de novo que passa (as vezes mais de uma vez)
 
         public bool Homologacao { get; set; } = true;
-        
+
         public byte[] PrivateKey { get; set; }
 
         public string AppKey { get; set; }
@@ -411,7 +411,7 @@ namespace BoletoNetCore
             {
                 emissao.Pagador.Endereco.Complemento = emissao.Pagador.Endereco.Complemento[..40];
             }
-            if (emissao.Pagador.Endereco.Bairro.Length > 30) 
+            if (emissao.Pagador.Endereco.Bairro.Length > 30)
             {
                 emissao.Pagador.Endereco.Bairro = emissao.Pagador.Endereco.Bairro[..30];
             }
@@ -494,7 +494,7 @@ namespace BoletoNetCore
                 throw BoletoNetCoreException.ErroAoRegistrarTituloOnline(new Exception(string.Format("Erro desconhecido: {0}", response.StatusCode)));
         }
 
-        public async Task<StatusBoleto> ConsultarStatus(Boleto boleto)
+        public async Task<StatusTituloOnline> ConsultarStatus(Boleto boleto)
         {
             var url = $"boletos/consultar/boleto/convenios/{boleto.Banco.Beneficiario.Codigo}/{boleto.Id}";
 
@@ -505,7 +505,7 @@ namespace BoletoNetCore
             await this.CheckHttpResponseError(response);
 
             if (response.StatusCode == HttpStatusCode.NoContent)
-                return StatusBoleto.Nenhum;
+                return new() { Status = StatusBoleto.Nenhum };
 
             var ret = await response.Content.ReadFromJsonAsync<AilosConsultaBoletoResponse>();
 
@@ -513,13 +513,13 @@ namespace BoletoNetCore
             switch (ret.Boleto.IndicadorSituacaoBoleto)
             {
                 case 0: // Em aberto
-                    return StatusBoleto.EmAberto;
+                    return new() { Status = StatusBoleto.EmAberto };
                 case 3: // BAixado
-                    return StatusBoleto.Baixado;
+                    return new() { Status = StatusBoleto.Baixado };
                 case 5: // Liquidado
-                    return StatusBoleto.Liquidado;
+                    return new() { Status = StatusBoleto.Liquidado };
                 default:
-                    return StatusBoleto.Nenhum;
+                    return new() { Status = StatusBoleto.Nenhum };
             }
         }
 

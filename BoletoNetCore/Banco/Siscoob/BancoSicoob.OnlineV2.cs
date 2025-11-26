@@ -55,7 +55,7 @@ namespace BoletoNetCore
         public string Subdomain { get; set; }
         public string ChaveApi { get; set; }
         public string SecretApi { get; set; }
-        
+
 
         public byte[] Certificado { get; set; }
         public string CertificadoSenha { get; set; }
@@ -65,7 +65,7 @@ namespace BoletoNetCore
 
         public string AppKey { get; set; }
 
-        public async Task<StatusBoleto> ConsultarStatus(Boleto boleto)
+        public async Task<StatusTituloOnline> ConsultarStatus(Boleto boleto)
         {
             var query = new Dictionary<string, string>()
             {
@@ -86,15 +86,15 @@ namespace BoletoNetCore
             {
                 return ret.Resultado.SituacaoBoleto switch
                 {
-                    "Em Aberto" => StatusBoleto.EmAberto,
-                    "Liquidado" => StatusBoleto.Liquidado,
-                    "Baixado" => StatusBoleto.Baixado,
-                    _ => StatusBoleto.Nenhum,
+                    "Em Aberto" => new() { Status = StatusBoleto.EmAberto },
+                    "Liquidado" => new() { Status = StatusBoleto.Liquidado },
+                    "Baixado" => new() { Status = StatusBoleto.Baixado },
+                    _ => new() { Status = StatusBoleto.Nenhum },
                 };
             }
             catch
             {
-                return StatusBoleto.Nenhum;
+                return new() { Status = StatusBoleto.Nenhum };
             }
         }
 

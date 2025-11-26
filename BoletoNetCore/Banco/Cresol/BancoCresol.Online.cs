@@ -50,7 +50,7 @@ namespace BoletoNetCore
         public string ChaveApi { get; set; }
 
         public string SecretApi { get; set; }
-        
+
         public string Token { get; set; }
 
         public byte[] Certificado { get; set; }
@@ -58,7 +58,7 @@ namespace BoletoNetCore
         public uint VersaoApi { get; set; }
         public string AppKey { get; set; }
 
-        public async Task<StatusBoleto> ConsultarStatus(Boleto boleto)
+        public async Task<StatusTituloOnline> ConsultarStatus(Boleto boleto)
         {
             var request = new HttpRequestMessage(HttpMethod.Get, string.Format("titulos/{0}", boleto.Id));
             request.Headers.Add("Authorization", "Bearer " + Token);
@@ -70,20 +70,20 @@ namespace BoletoNetCore
             {
                 var status = ret?.SelectToken("$.status");
                 if (status == null)
-                    return StatusBoleto.Nenhum;
+                    return new() { Status = StatusBoleto.Nenhum };
 
                 return (string)status switch
                 {
-                    "EM_ABERTO" => StatusBoleto.EmAberto,
-                    "BAIXADO" => StatusBoleto.Baixado,
-                    "BAIXADO_MANUALMENTE" => StatusBoleto.Baixado,
-                    "LIQUIDADO" => StatusBoleto.Liquidado,
-                    _ => StatusBoleto.Nenhum,
+                    "EM_ABERTO" => new() { Status = StatusBoleto.EmAberto },
+                    "BAIXADO" => new() { Status = StatusBoleto.Baixado },
+                    "BAIXADO_MANUALMENTE" => new() { Status = StatusBoleto.Baixado },
+                    "LIQUIDADO" => new() { Status = StatusBoleto.Liquidado },
+                    _ => new() { Status = StatusBoleto.Nenhum },
                 };
             }
             catch
             {
-                return StatusBoleto.Nenhum;
+                return new() { Status = StatusBoleto.Nenhum };
             }
         }
 

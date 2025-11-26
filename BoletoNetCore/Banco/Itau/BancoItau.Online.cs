@@ -109,10 +109,10 @@ namespace BoletoNetCore
         public uint VersaoApi { get; set; }
 
         public string AppKey { get; set; }
-        
+
         public string Token { get; set; }
 
-        public async Task<StatusBoleto> ConsultarStatus(Boleto boleto)
+        public async Task<StatusTituloOnline> ConsultarStatus(Boleto boleto)
         {
             var query = new Dictionary<string, string>()
             {
@@ -140,18 +140,18 @@ namespace BoletoNetCore
                 switch (status)
                 {
                     case "Baixada":
-                        return StatusBoleto.Baixado;
+                        return new() { Status = StatusBoleto.Baixado };
                     case "Em Aberto":
-                        return StatusBoleto.EmAberto;
+                        return new() { Status = StatusBoleto.EmAberto };
                     case "Paga":
-                        return StatusBoleto.Liquidado;
+                        return new() { Status = StatusBoleto.Liquidado };
                     default:
-                        return StatusBoleto.Nenhum;
+                        return new() { Status = StatusBoleto.Nenhum };
                 }
             }
             catch
             {
-                return StatusBoleto.Nenhum;
+                return new() { Status = StatusBoleto.Nenhum };
             }
         }
 

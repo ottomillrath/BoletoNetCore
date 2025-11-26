@@ -163,7 +163,7 @@ namespace BoletoNetCore
         /// Usado no TokenCache para recuperar os tokens armazenados
         /// </summary>
         public string Id { get; set; }
-        
+
         /// <summary>
         /// Chave de Acesso (ApiKey), geralmente utilizado para gerar o token de autenticacao
         /// No caso do sicredi por exemplo, a nomenclatura utilizada é Chave Master
@@ -208,9 +208,9 @@ namespace BoletoNetCore
         /// </summary>
         Task<string> RegistrarBoleto(Boleto boleto);
         Task<string> CancelarBoleto(Boleto boleto);
-        Task<StatusBoleto> ConsultarStatus(Boleto boleto);
-		Task<int> SolicitarMovimentacao(TipoMovimentacao tipo, int numeroContrato, DateTime inicio, DateTime fim);
-		Task<int[]> ConsultarStatusSolicitacaoMovimentacao(int numeroContrato, int codigoSolicitacao);
-		Task<DownloadArquivoRetornoItem[]> DownloadArquivoMovimentacao(int numeroContrato, int codigoSolicitacao, int idArquivo, DateTime inicio, DateTime fim);
+        Task<StatusTituloOnline> ConsultarStatus(Boleto boleto);
+        Task<int> SolicitarMovimentacao(TipoMovimentacao tipo, int numeroContrato, DateTime inicio, DateTime fim);
+        Task<int[]> ConsultarStatusSolicitacaoMovimentacao(int numeroContrato, int codigoSolicitacao);
+        Task<DownloadArquivoRetornoItem[]> DownloadArquivoMovimentacao(int numeroContrato, int codigoSolicitacao, int idArquivo, DateTime inicio, DateTime fim);
     }
 }

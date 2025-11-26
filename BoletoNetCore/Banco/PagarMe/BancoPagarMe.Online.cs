@@ -2,7 +2,7 @@
 
 using System;
 using System.Collections.Generic;
-using System.Linq;
+using System.Net.Http;
 using System.Threading.Tasks;
 using BoletoNetCore.Exceptions;
 using Microsoft.VisualBasic;
@@ -68,31 +68,63 @@ namespace BoletoNetCore
             return bol.Status;
         }
 
-        public async Task<StatusBoleto> ConsultarStatus(Boleto boleto)
+        public async Task<StatusTituloOnline> ConsultarStatus(Boleto boleto)
         {
             var resp = Client.OrdersController.GetOrder(boleto.Id);
             Console.WriteLine(string.Format("@@@@@boleto: {0}\n", resp));
 
+            StatusTituloOnline ret = new() { Status = StatusBoleto.Nenhum };
+
             if (resp.Charges[0].PaymentMethod != "boleto")
-                return StatusBoleto.Nenhum;
+                return ret;
 
-            var bol = resp.Charges[0].LastTransaction as GetBoletoTransactionResponse;
-            if (bol == null)
-                return StatusBoleto.Nenhum;
+            if (resp.Charges[0].LastTransaction is not GetBoletoTransactionResponse bol)
+                return ret;
 
-            return bol.Status switch
+            switch (bol.Status)
             {
-                "processing" => StatusBoleto.EmAberto,  //	Boleto ainda está em etapa de criação               
-                "generated" => StatusBoleto.EmAberto,   //	Gerado
-                "viewed" => StatusBoleto.EmAberto,      //	Visualizado
-                "underpaid" => StatusBoleto.EmAberto,   //	Pago a menor
-                "overpaid" => StatusBoleto.Liquidado,   //	Pago a maior
-                "paid" => StatusBoleto.Liquidado,       //	Pago
-                "voided" => StatusBoleto.Baixado,       //	Cancelado
-                "with_error" => StatusBoleto.Nenhum,    //	Com erro
-                "failed" => StatusBoleto.Nenhum,        //	Falha
-                _ => StatusBoleto.Nenhum,
-            };
+                case "processing":
+                case "generated":
+                case "viewed":
+                case "underpaid":
+                    ret.Status = StatusBoleto.EmAberto;
+                    break;
+
+                case "overpaid":
+                case "paid":
+                    double amount = (double)(bol.Amount / 100.0);
+                    double paidAmount = double.Parse(bol.PaidAmount) / (double)100.0;
+
+                    ret.Status = StatusBoleto.Liquidado;
+                    ret.DadosLiquidacao = new()
+                    {
+                        CodigoMovimento = "06",
+                        DataProcessamento = (DateTime)bol.PaidAt,
+                        DataCredito = (DateTime)bol.PaidAt,
+                        ValorPago = paidAmount,
+                        ValorDesconto = amount > paidAmount ? amount - paidAmount : 0,
+                        ValorJurosDia = paidAmount > amount ? paidAmount - amount : 0,
+                        ValorAbatimento = 0,
+                        ValorPagoCredito = 0,
+                        ValorIof = 0,
+                        ValorMulta = 0,
+                        ValorOutrasDespesas = 0,
+                        ValorOutrosCreditos = 0,
+                        ValorTarifas = 0,
+                    };
+                    break;
+
+                case "voided":
+                    ret.Status = StatusBoleto.Baixado;
+                    break;
+
+                case "with_error":
+                case "failed":
+                    ret.Status = StatusBoleto.Nenhum;
+                    break;
+            }
+
+            return ret;
         }
 
         public async Task<int[]> ConsultarStatusSolicitacaoMovimentacao(int numeroContrato, int codigoSolicitacao)
@@ -136,7 +168,7 @@ namespace BoletoNetCore
             customer.Phones = new();
             customer.Phones.MobilePhone = new();
             customer.Phones.MobilePhone.CountryCode = "55";
-            customer.Phones.MobilePhone.AreaCode = boleto.Pagador.Telefone.Substring(2, 2);
+            customer.Phones.MobilePhone.AreaCode = boleto.Pagador.Telefone.Substring(0, 2);
             customer.Phones.MobilePhone.Number = boleto.Pagador.Telefone;
 
             CreateBoletoPaymentRequest sBol = new();
@@ -227,11 +259,13 @@ namespace BoletoNetCore
                     throw new Exception(Strings.Join(errs.ToArray(), ", "));
                 }
 
-                boleto.PdfBase64 = tr.Pdf;
-                boleto.PixQrCode = tr.QrCode;
-                boleto.CodigoBarra.CodigoDeBarras = tr.Barcode;
+                boleto.PdfBase64 = await GetPdfFromUrl(tr.Pdf);
+                // boleto.PixQrCode = tr.QrCode; // é um link pra imagem
+                // boleto.CodigoBarra.CodigoDeBarras = tr.Barcode; // é um link pra imagem
                 boleto.CodigoBarra.LinhaDigitavel = tr.Line;
                 boleto.NossoNumero = tr.NossoNumero;
+                boleto.NossoNumeroDV = "";
+                boleto.NossoNumeroFormatado = tr.NossoNumero;
                 boleto.Id = resp.Id;
                 return resp.Id;
             }
@@ -242,6 +276,32 @@ namespace BoletoNetCore
             catch (Exception e)
             {
                 throw BoletoNetCoreException.ErroAoRegistrarTituloOnline(e);
+            }
+        }
+
+        public async Task<string> GetPdfFromUrl(string url)
+        {
+            try
+            {
+                using (HttpClient objClient = new())
+                {
+                    HttpResponseMessage objResponse = await objClient.GetAsync(url);
+
+
+                    byte[] data = await objResponse.Content.ReadAsByteArrayAsync();
+
+                    if (objResponse.StatusCode != System.Net.HttpStatusCode.OK && objResponse.StatusCode != System.Net.HttpStatusCode.NoContent)
+                    {
+                        return url;
+                    }
+
+                    return Convert.ToBase64String(data);
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("Erro ao baixar boleto: " + ex.Message);
+                return url;
             }
         }
 

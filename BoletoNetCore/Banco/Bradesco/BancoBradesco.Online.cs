@@ -221,7 +221,7 @@ namespace BoletoNetCore
                 FilialCPFCNPJ = FilialCNPJ,
                 CtrlCPFCNPJ = ControleCNPJ,
                 CdTipoAcesso = 2,
-                ClubBanco= 2269651,
+                ClubBanco = 2269651,
                 CdTipoContrato = 48,
                 TpRegistro = 1,
                 IdProduto = int.Parse(boleto.Carteira),
@@ -317,7 +317,7 @@ namespace BoletoNetCore
             return boleto.Id;
         }
 
-        public async Task<StatusBoleto> ConsultarStatus(Boleto boleto)
+        public async Task<StatusTituloOnline> ConsultarStatus(Boleto boleto)
         {
             BradescoConsultaStatusRequest consultarRequest = new()
             {
@@ -367,10 +367,10 @@ namespace BoletoNetCore
             var resp = JsonConvert.DeserializeObject<BradescoConsultarStatusResponse>(respJson);
             return resp.TITULO.STATUS switch
             {
-                "Aberto" => StatusBoleto.EmAberto,
-                "Baixado" => StatusBoleto.Baixado,
-                "Liquidado" => StatusBoleto.Liquidado,
-                _ => StatusBoleto.Nenhum
+                "Aberto" => new() { Status = StatusBoleto.EmAberto },
+                "Baixado" => new() { Status = StatusBoleto.Baixado },
+                "Liquidado" => new() { Status = StatusBoleto.Liquidado },
+                _ => new() { Status = StatusBoleto.Nenhum }
             };
         }
 

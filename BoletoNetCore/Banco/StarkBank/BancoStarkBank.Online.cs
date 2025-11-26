@@ -43,7 +43,7 @@ namespace BoletoNetCore
         public byte[] Certificado { get; set; }
         public string CertificadoSenha { get; set; }
         public string AppKey { get; set; }
-        
+
         public uint VersaoApi { get; set; }
 
         public async Task<string> CancelarBoleto(Boleto boleto)
@@ -53,18 +53,18 @@ namespace BoletoNetCore
             return bol.Status;
         }
 
-        public async Task<StatusBoleto> ConsultarStatus(Boleto boleto)
+        public async Task<StatusTituloOnline> ConsultarStatus(Boleto boleto)
         {
             StarkBank.Boleto bol = StarkBank.Boleto.Get(boleto.Id, user: Project);
             Console.WriteLine(string.Format("@@@@@boleto: {0}\n", bol));
             return bol.Status switch
             {
-                "canceled" => StatusBoleto.Baixado,
-                "created" => StatusBoleto.EmAberto,
-                "registered" => StatusBoleto.EmAberto,
-                "overdue" => StatusBoleto.EmAberto,
-                "paid" => StatusBoleto.Liquidado,
-                _ => StatusBoleto.Nenhum,
+                "canceled" => new() { Status = StatusBoleto.Baixado },
+                "created" => new() { Status = StatusBoleto.EmAberto },
+                "registered" => new() { Status = StatusBoleto.EmAberto },
+                "overdue" => new() { Status = StatusBoleto.EmAberto },
+                "paid" => new() { Status = StatusBoleto.Liquidado },
+                _ => new() { Status = StatusBoleto.Nenhum },
             };
         }
 
