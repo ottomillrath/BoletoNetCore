@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using static System.String;
 using BoletoNetCore.Extensions;
 using BoletoNetCore.Exceptions;
+using BoletoNetCore.Util;
 using System.Net.Http.Json;
 using System.Net.Http;
 using System.Net;
@@ -27,6 +28,7 @@ namespace BoletoNetCore
 {
     partial class BancoCecred : IBancoOnlineRest // o nome do banco mudou para Ailos, mas mantive Cecred para não alterar a implementação que já existe
     {
+        public Func<HttpLogData, Task>? HttpLoggingCallback { get; set; }
         // se você chegou aqui pq precisa dar manutenção em algo relacionado a esse maravilhoso banco,
         // eu lhe desejo sorte, abaixo estão algumas coisas para te ajudar nessa jornada:
         // - apis: https://apihml.ailos.coop.br/devportal/apis (login: dev_zion, senha: dev_zion)
@@ -66,7 +68,7 @@ namespace BoletoNetCore
 
                 X509Certificate2 certificate = new X509Certificate2(Certificado, CertificadoSenha);
                 handler.ClientCertificates.Add(certificate);
-                this._httpClient = new HttpClient(new LoggingHandler(handler));
+                this._httpClient = new HttpClient(handler);
                 this._httpClient.BaseAddress = uri;
 
                 return this._httpClient;
@@ -136,7 +138,7 @@ namespace BoletoNetCore
 
             X509Certificate2 certificate = new X509Certificate2(Certificado, CertificadoSenha);
             handler.ClientCertificates.Add(certificate);
-            var httpClient = new HttpClient(new LoggingHandler(handler));
+            var httpClient = new HttpClient(handler);
             httpClient.Timeout = TimeSpan.FromMinutes(100);
 
             // ETAPA 1: recuperar wso02
@@ -152,7 +154,7 @@ namespace BoletoNetCore
             var accessToken = "";
             try
             {
-                var response = await httpClient.SendAsync(request);
+                var response = await this.SendWithLoggingAsync(this.httpClient, request, "GerarTokenWso2");
                 await this.CheckHttpResponseError(response);
                 var respString = await response.Content.ReadAsStringAsync();
                 var ret = JsonConvert.DeserializeObject<AilosWso2Token>(respString);
@@ -190,7 +192,7 @@ namespace BoletoNetCore
             var tokenJwt = "";
             try
             {
-                var response = await httpClient.SendAsync(request);
+                var response = await this.SendWithLoggingAsync(this.httpClient, request, "GerarTokenJwt");
                 await this.CheckHttpResponseError(response);
                 tokenJwt = await response.Content.ReadAsStringAsync();
 
@@ -459,7 +461,7 @@ namespace BoletoNetCore
             request.Headers.Add("x-ailos-authentication", $"Bearer {this.Token}");
             request.Content = new StringContent(Newtonsoft.Json.JsonConvert.SerializeObject(emissao), Encoding.UTF8, "application/json");
 
-            var response = await this.httpClient.SendAsync(request);
+            var response = await this.SendWithLoggingAsync(this.httpClient, request, "RegistrarBoleto");
             await this.CheckHttpResponseError(response);
 
             var responseString = await response.Content.ReadAsStringAsync();
@@ -501,7 +503,7 @@ namespace BoletoNetCore
             var request = new HttpRequestMessage(HttpMethod.Get, url);
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", this.TokenWso2);
             request.Headers.Add("x-ailos-authentication", $"Bearer {this.Token}");
-            var response = await this.httpClient.SendAsync(request);
+            var response = await this.SendWithLoggingAsync(this.httpClient, request, "ConsultarStatus");
             await this.CheckHttpResponseError(response);
 
             if (response.StatusCode == HttpStatusCode.NoContent)

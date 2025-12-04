@@ -7,6 +7,7 @@ using Newtonsoft.Json;
 
 using System.Threading.Tasks;
 using BoletoNetCore.Exceptions;
+using BoletoNetCore.Util;
 using Microsoft.AspNetCore.WebUtilities;
 using System.Text.Json.Nodes;
 using Newtonsoft.Json.Linq;
@@ -21,6 +22,7 @@ namespace BoletoNetCore
     {
         public bool Homologacao { get; set; } = true;
         public byte[] PrivateKey { get; set; }
+        public Func<HttpLogData, Task>? HttpLoggingCallback { get; set; }
         private readonly static string Scopes = "cobranca_boletos_consultar cobranca_boletos_incluir cobranca_boletos_pagador cobranca_boletos_segunda_via cobranca_boletos_descontos cobranca_boletos_abatimentos cobranca_boletos_valor_nominal cobranca_boletos_seu_numero cobranca_boletos_especie_documento cobranca_boletos_baixa cobranca_boletos_rateio_credito cobranca_pagadores cobranca_boletos_negativacoes_incluir cobranca_boletos_negativacoes_alterar cobranca_boletos_negativacoes_baixar cobranca_boletos_protestos_incluir cobranca_boletos_protestos_alterar cobranca_boletos_protestos_desistir cobranca_boletos_solicitacao_movimentacao_incluir cobranca_boletos_solicitacao_movimentacao_consultar cobranca_boletos_solicitacao_movimentacao_download cobranca_boletos_prorrogacoes_data_vencimento cobranca_boletos_prorrogacoes_data_limite_pagamento cobranca_boletos_encargos_multas cobranca_boletos_encargos_juros_mora cobranca_boletos_pix cobranca_boletos_faixa_nn_disponiveis";
 
         #region HttpClient
@@ -42,7 +44,7 @@ namespace BoletoNetCore
                     X509Certificate2 certificate = new X509Certificate2(Certificado, CertificadoSenha);
                     handler.ClientCertificates.Add(certificate);
                 }
-                this._httpClient = new HttpClient(new LoggingHandler(handler));
+                this._httpClient = new HttpClient(handler);
                 this._httpClient.BaseAddress = uri;
 
                 return this._httpClient;
@@ -79,7 +81,7 @@ namespace BoletoNetCore
             request.Headers.Add("Authorization", "Bearer " + Token);
             request.Headers.Add("client_id", ChaveApi);
             request.Headers.Add("Accept", "application/json");
-            var result = await this.httpClient.SendAsync(request);
+            var result = await this.SendWithLoggingAsync(this.httpClient, request, "ConsultarStatus");
             var retString = await result.Content.ReadAsStringAsync();
             var ret = JsonConvert.DeserializeObject<ResponseSingleSicoobApi>(retString);
             try
@@ -117,7 +119,7 @@ namespace BoletoNetCore
             dict["client_id"] = ChaveApi;
             dict["scope"] = Scopes;
             request.Content = new FormUrlEncodedContent(dict);
-            var response = await this.httpClient.SendAsync(request);
+            var response = await this.SendWithLoggingAsync(this.httpClient, request, "GerarToken");
             await this.CheckHttpResponseError(response);
             var respString = await response.Content.ReadAsStringAsync();
             var ret = JsonConvert.DeserializeObject<AutenticacaoSicoobResponse>(respString);
@@ -251,7 +253,7 @@ namespace BoletoNetCore
             {
                 NullValueHandling = NullValueHandling.Ignore
             }), System.Text.Encoding.UTF8, "application/json");
-            var response = await this.httpClient.SendAsync(request);
+            var response = await this.SendWithLoggingAsync(this.httpClient, request, "RegistrarBoleto");
             await this.CheckHttpResponseError(response);
             var br = JsonConvert.DeserializeObject<ResponseMultiSicoobApi>(await response.Content.ReadAsStringAsync());
             if (br.Resultado[0].Status.Codigo != 200 && br.Resultado[0].Status.Codigo != 201)
@@ -314,7 +316,7 @@ namespace BoletoNetCore
                 NullValueHandling = NullValueHandling.Ignore
             }), System.Text.Encoding.UTF8, "application/json");
 
-            var response = await this.httpClient.SendAsync(request);
+            var response = await this.SendWithLoggingAsync(this.httpClient, request, "CancelarBoleto");
             await this.CheckHttpResponseError(response);
 
             var br = JsonConvert.DeserializeObject<ResponseMultiSicoobApi>(await response.Content.ReadAsStringAsync());
@@ -344,7 +346,7 @@ namespace BoletoNetCore
             {
                 NullValueHandling = NullValueHandling.Ignore
             }), System.Text.Encoding.UTF8, "application/json");
-            var response = await this.httpClient.SendAsync(request);
+            var response = await this.SendWithLoggingAsync(this.httpClient, request, "SolicitarMovimentacao");
             await this.CheckHttpResponseError(response);
             var ret = JsonConvert.DeserializeObject<SolicitarMovimentacaoResponseSicoobApi>(await response.Content.ReadAsStringAsync());
             return ret.Resultado.CodigoSolicitacao;
@@ -363,7 +365,7 @@ namespace BoletoNetCore
             request.Headers.Add("Authorization", "Bearer " + Token);
             request.Headers.Add("client_id", ChaveApi);
             request.Headers.Add("Accept", "application/json");
-            var response = await this.httpClient.SendAsync(request);
+            var response = await this.SendWithLoggingAsync(this.httpClient, request, "ConsultarStatusSolicitacaoMovimentacao");
             await this.CheckHttpResponseError(response);
             var ret = JsonConvert.DeserializeObject<SolicitarMovimentacaoResponseSicoobApi>(await response.Content.ReadAsStringAsync());
             return ret.Resultado.IdArquivos;
@@ -383,7 +385,7 @@ namespace BoletoNetCore
             request.Headers.Add("Authorization", "Bearer " + Token);
             request.Headers.Add("client_id", ChaveApi);
             request.Headers.Add("Accept", "application/json");
-            var response = await this.httpClient.SendAsync(request);
+            var response = await this.SendWithLoggingAsync(this.httpClient, request, "DownloadArquivoMovimentacao");
             await this.CheckHttpResponseError(response);
             var ret = JsonConvert.DeserializeObject<SolicitarMovimentacaoResponseSicoobApi>(await response.Content.ReadAsStringAsync());
             byte[] byteArray = Convert.FromBase64String(ret.Resultado.Arquivo);

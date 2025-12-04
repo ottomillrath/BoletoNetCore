@@ -6,6 +6,7 @@ using System.Net.Http.Json;
 using System.Text.Json.Serialization;
 using System.Threading.Tasks;
 using BoletoNetCore.Exceptions;
+using BoletoNetCore.Util;
 using Newtonsoft.Json.Converters;
 using Newtonsoft.Json;
 using static System.String;
@@ -19,6 +20,7 @@ namespace BoletoNetCore
     {
         public bool Homologacao { get; set; } = true;
         public byte[] PrivateKey { get; set; }
+        public Func<HttpLogData, Task>? HttpLoggingCallback { get; set; }
         #region HttpClient
         private HttpClient _httpClient;
         private HttpClient httpClient
@@ -35,7 +37,7 @@ namespace BoletoNetCore
                 {
                     uri = new Uri("https://cresolapi.governarti.com.br/");
                 }
-                this._httpClient = new HttpClient(new LoggingHandler(handler))
+                this._httpClient = new HttpClient(handler)
                 {
                     BaseAddress = uri
                 };
@@ -63,7 +65,7 @@ namespace BoletoNetCore
             var request = new HttpRequestMessage(HttpMethod.Get, string.Format("titulos/{0}", boleto.Id));
             request.Headers.Add("Authorization", "Bearer " + Token);
             request.Headers.Add("Accept", "application/json");
-            var result = await this.httpClient.SendAsync(request);
+            var result = await this.SendWithLoggingAsync(this.httpClient, request, "ConsultarStatus");
             var retString = await result.Content.ReadAsStringAsync();
             var ret = JsonConvert.DeserializeObject<JObject>(retString);
             try
@@ -113,7 +115,7 @@ namespace BoletoNetCore
             conteudo.Headers.Add("Content-Type", "application/x-www-form-urlencoded");
             request.Content = conteudo;
 
-            var response = await this.httpClient.SendAsync(request);
+            var response = await this.SendWithLoggingAsync(this.httpClient, request, "GerarToken");
             await this.CheckHttpResponseError(response);
             var respString = await response.Content.ReadAsStringAsync();
             var ret = JsonConvert.DeserializeObject<AutenticacaoCresolResponse>(respString);
@@ -179,7 +181,7 @@ namespace BoletoNetCore
             request.Headers.Add("Authorization", "Bearer " + Token);
             request.Headers.Add("Accept", "application/json");
             request.Content = jc;
-            var response = await this.httpClient.SendAsync(request);
+            var response = await this.SendWithLoggingAsync(this.httpClient, request, "RegistrarBoleto");
             await this.CheckHttpResponseError(response);
             var rawResp = await response.Content.ReadAsStringAsync();
             var boletoEmitido = await response.Content.ReadFromJsonAsync<List<BoletoCresolResponse>>();
@@ -212,7 +214,7 @@ namespace BoletoNetCore
             var request = new HttpRequestMessage(HttpMethod.Put, string.Format("titulos/{0}/operacao/baixar", boleto.Id));
             request.Headers.Add("Authorization", "Bearer " + Token);
             request.Headers.Add("Accept", "application/json");
-            var response = await this.httpClient.SendAsync(request);
+            var response = await this.SendWithLoggingAsync(this.httpClient, request, "DownloadArquivoMovimentacao");
             await this.CheckHttpResponseError(response);
             return "";
         }

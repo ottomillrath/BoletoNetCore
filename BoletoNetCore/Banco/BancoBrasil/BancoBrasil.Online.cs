@@ -1,4 +1,7 @@
+#nullable enable
+
 using BoletoNetCore.Exceptions;
+using BoletoNetCore.Util;
 using Jose;
 using Newtonsoft.Json;
 using System;
@@ -18,6 +21,7 @@ namespace BoletoNetCore
     {
         public bool Homologacao { get; set; } = true;
         public byte[] PrivateKey { get; set; }
+        public Func<HttpLogData, Task>? HttpLoggingCallback { get; set; }
 
         #region HttpClient
         private HttpClient _authClient;
@@ -38,7 +42,7 @@ namespace BoletoNetCore
                         uri = new Uri("https://oauth.bb.com.br");
                     }
 
-                    this._authClient = new HttpClient(new LoggingHandler(handler));
+                    this._authClient = new HttpClient(handler);
                     this._authClient.BaseAddress = uri;
                 }
                 return this._authClient;
@@ -63,7 +67,7 @@ namespace BoletoNetCore
 
                 // X509Certificate2 certificate = new X509Certificate2(Certificado, CertificadoSenha);
                 // handler.ClientCertificates.Add(certificate);
-                this._httpClient = new HttpClient(new LoggingHandler(handler));
+                this._httpClient = new HttpClient(handler);
                 this._httpClient.BaseAddress = uri;
 
                 return this._httpClient;
@@ -119,7 +123,7 @@ namespace BoletoNetCore
             });
             request.Content = content;
 
-            var response = await this.authClient.SendAsync(request);
+            var response = await this.SendWithLoggingAsync(this.authClient, request, "GerarToken");
 
 
             if (!response.IsSuccessStatusCode)
@@ -233,7 +237,7 @@ namespace BoletoNetCore
 
             request.Headers.Add("Authorization", $"Bearer {this.Token}");
 
-            var response = await this.httpClient.SendAsync(request);
+            var response = await this.SendWithLoggingAsync(this.httpClient, request, "RegistrarBoleto");
 
             await this.CheckHttpResponseError(response);
 
@@ -254,7 +258,7 @@ namespace BoletoNetCore
                 var requestPix = new HttpRequestMessage(HttpMethod.Post, $"boletos/000{boleto.NossoNumero}/gerar-pix?${this._appKeyName}={this.AppKey}");
                 requestPix.Headers.Add("Authorization", $"Bearer {this.Token}");
                 requestPix.Content = new StringContent(contentPix, Encoding.UTF8, "application/json");
-                var respPix = await this.httpClient.SendAsync(requestPix);
+                var respPix = await this.SendWithLoggingAsync(this.httpClient, requestPix, "GerarPix");
                 if (respPix.StatusCode == HttpStatusCode.OK || respPix.StatusCode == HttpStatusCode.Created)
                 {
                     var respPIxString = await respPix.Content.ReadAsStringAsync();
@@ -278,7 +282,7 @@ namespace BoletoNetCore
         {
             var request = new HttpRequestMessage(HttpMethod.Get, $"boletos/000{boleto.NossoNumero}?{this._appKeyName}={this.AppKey}&numeroConvenio={Beneficiario.Codigo}");
             request.Headers.Add("Authorization", $"Bearer {this.Token}");
-            var response = await this.httpClient.SendAsync(request);
+            var response = await this.SendWithLoggingAsync(this.httpClient, request, "ConsultarStatus");
             await this.CheckHttpResponseError(response);
             var respString = await response.Content.ReadAsStringAsync();
             var resp = JsonConvert.DeserializeObject<BancoBrasilConsultarStatusResponse>(respString);
@@ -338,7 +342,7 @@ namespace BoletoNetCore
             request.Headers.Add("Authorization", $"Bearer {this.Token}");
             request.Content = new StringContent(content, Encoding.UTF8, "application/json");
 
-            var response = await this.httpClient.SendAsync(request);
+            var response = await this.SendWithLoggingAsync(this.httpClient, request, "CancelarBoleto");
 
             await this.CheckHttpResponseError(response);
             return "";
@@ -381,7 +385,7 @@ namespace BoletoNetCore
 
             request.Headers.Add("Authorization", $"Bearer {this.Token}");
 
-            var response = await this.httpClient.SendAsync(request);
+            var response = await this.SendWithLoggingAsync(this.httpClient, request, "DownloadArquivoMovimentacao");
 
             await this.CheckHttpResponseError(response);
 

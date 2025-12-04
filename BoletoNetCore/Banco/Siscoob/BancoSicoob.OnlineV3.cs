@@ -1,5 +1,6 @@
 using BoletoNetCore.Enums;
 using BoletoNetCore.Exceptions;
+using BoletoNetCore.Util;
 using Microsoft.AspNetCore.WebUtilities;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;
@@ -22,6 +23,7 @@ namespace BoletoNetCore
     {
         public bool Homologacao { get; set; } = true;
         public byte[] PrivateKey { get; set; }
+        public Func<HttpLogData, Task>? HttpLoggingCallback { get; set; }
         private readonly static string Scopes = "boletos_inclusao boletos_consulta boletos_alteracao";
 
         #region HttpClient
@@ -40,7 +42,7 @@ namespace BoletoNetCore
 
                 X509Certificate2 certificate = new X509Certificate2(Certificado, CertificadoSenha);
                 handler.ClientCertificates.Add(certificate);
-                this._httpClient = new HttpClient(new LoggingHandler(handler));
+                this._httpClient = new HttpClient(handler);
                 this._httpClient.BaseAddress = uri;
 
                 return this._httpClient;
@@ -77,7 +79,7 @@ namespace BoletoNetCore
             request.Headers.Add("Authorization", "Bearer " + Token);
             request.Headers.Add("client_id", ChaveApi);
             request.Headers.Add("Accept", "application/json");
-            var result = await this.httpClient.SendAsync(request);
+            var result = await this.SendWithLoggingAsync(this.httpClient, request, "ConsultarStatus");
             var retString = await result.Content.ReadAsStringAsync();
 
             var jsonSettings = new JsonSerializerSettings
@@ -117,7 +119,7 @@ namespace BoletoNetCore
             dict["client_id"] = ChaveApi;
             dict["scope"] = Scopes;
             request.Content = new FormUrlEncodedContent(dict);
-            var response = await this.httpClient.SendAsync(request);
+            var response = await this.SendWithLoggingAsync(this.httpClient, request, "GerarToken");
             await this.CheckHttpResponseError(response);
             var respString = await response.Content.ReadAsStringAsync();
             var ret = JsonConvert.DeserializeObject<AutenticacaoSicoobResponse>(respString);
@@ -293,7 +295,7 @@ namespace BoletoNetCore
 
             request.Content = new StringContent(JsonConvert.SerializeObject(emissao, Formatting.None, jsonSettings), System.Text.Encoding.UTF8, "application/json");
 
-            var response = await this.httpClient.SendAsync(request);
+            var response = await this.SendWithLoggingAsync(this.httpClient, request, "RegistrarBoleto");
             await this.CheckHttpResponseError(response);
 
             // Jean: Em homologação, sempre recebe o mesmo retorno (hardcoded)
@@ -372,7 +374,7 @@ namespace BoletoNetCore
                 NullValueHandling = NullValueHandling.Ignore
             }), System.Text.Encoding.UTF8, "application/json");
 
-            var response = await this.httpClient.SendAsync(request);
+            var response = await this.SendWithLoggingAsync(this.httpClient, request, "CancelarBoleto");
             await this.CheckHttpResponseError(response); // 204 Solicitação recebida com sucesso.
 
             return "";
@@ -401,7 +403,7 @@ namespace BoletoNetCore
                 DateTimeZoneHandling = DateTimeZoneHandling.Local
             }), System.Text.Encoding.UTF8, "application/json");
 
-            var response = await this.httpClient.SendAsync(request);
+            var response = await this.SendWithLoggingAsync(this.httpClient, request, "SolicitarMovimentacao");
             await this.CheckHttpResponseError(response);
             var ret = JsonConvert.DeserializeObject<SolicitarMovimentacaoResponseSicoobApi>(await response.Content.ReadAsStringAsync());
             return ret.Resultado.CodigoSolicitacao;
@@ -420,7 +422,7 @@ namespace BoletoNetCore
             request.Headers.Add("Authorization", "Bearer " + Token);
             request.Headers.Add("client_id", ChaveApi);
             request.Headers.Add("Accept", "application/json");
-            var response = await this.httpClient.SendAsync(request);
+            var response = await this.SendWithLoggingAsync(this.httpClient, request, "ConsultarStatusSolicitacaoMovimentacao");
             await this.CheckHttpResponseError(response);
             var ret = JsonConvert.DeserializeObject<SolicitarMovimentacaoResponseSicoobApi>(await response.Content.ReadAsStringAsync());
             return ret.Resultado.IdArquivos;
@@ -440,7 +442,7 @@ namespace BoletoNetCore
             request.Headers.Add("Authorization", "Bearer " + Token);
             request.Headers.Add("client_id", ChaveApi);
             request.Headers.Add("Accept", "application/json");
-            var response = await this.httpClient.SendAsync(request);
+            var response = await this.SendWithLoggingAsync(this.httpClient, request, "DownloadArquivoMovimentacao");
             await this.CheckHttpResponseError(response);
             var ret = JsonConvert.DeserializeObject<SolicitarMovimentacaoResponseSicoobApi>(await response.Content.ReadAsStringAsync());
             byte[] byteArray = Convert.FromBase64String(ret.Resultado.Arquivo);

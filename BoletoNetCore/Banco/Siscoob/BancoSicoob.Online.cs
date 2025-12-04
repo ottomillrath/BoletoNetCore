@@ -17,6 +17,7 @@ namespace BoletoNetCore
 {
     partial class BancoSicoob : IBancoOnlineRest
     {
+        public Func<HttpLogData, Task>? HttpLoggingCallback { get; set; }
         #region props
         private string m_chaveApi;
         private string m_secretApi;

@@ -11,6 +11,7 @@ namespace BoletoNetCore
 {
     partial class BancoStarkBank : IBancoOnlineRest
     {
+        public Func<HttpLogData, Task>? HttpLoggingCallback { get; set; }
         private Project _project;
         private Project Project
         {

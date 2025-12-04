@@ -15,6 +15,7 @@ namespace BoletoNetCore
 {
     partial class BancoPagarMe : IBancoOnlineRest
     {
+        public Func<HttpLogData, Task>? HttpLoggingCallback { get; set; }
         private PagarmeApiSDKClient _client;
         private PagarmeApiSDKClient Client
         {

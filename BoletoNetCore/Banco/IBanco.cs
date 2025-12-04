@@ -212,5 +212,35 @@ namespace BoletoNetCore
         Task<int> SolicitarMovimentacao(TipoMovimentacao tipo, int numeroContrato, DateTime inicio, DateTime fim);
         Task<int[]> ConsultarStatusSolicitacaoMovimentacao(int numeroContrato, int codigoSolicitacao);
         Task<DownloadArquivoRetornoItem[]> DownloadArquivoMovimentacao(int numeroContrato, int codigoSolicitacao, int idArquivo, DateTime inicio, DateTime fim);
+
+        /// <summary>
+        /// Delegate opcional para logging de requisições e respostas HTTP.
+        /// Configure este delegate para receber logs de todas as requisições HTTP realizadas pelo banco.
+        /// 
+        /// Exemplo de uso:
+        /// <code>
+        /// banco.HttpLoggingCallback = async (logData) =>
+        /// {
+        ///     await dbContext.HttpLogs.AddAsync(new HttpLog
+        ///     {
+        ///         ContaBoletoId = contaBoletoId,
+        ///         BancoNome = logData.BancoNome,
+        ///         Operacao = logData.Operacao,
+        ///         RequestUrl = logData.Request.Url,
+        ///         RequestMethod = logData.Request.Method,
+        ///         RequestBody = logData.Request.Body,
+        ///         ResponseStatusCode = logData.Response.StatusCode,
+        ///         ResponseBody = logData.Response.Body,
+        ///         Sucesso = logData.Sucesso,
+        ///         // ... outros campos ...
+        ///     });
+        ///     await dbContext.SaveChangesAsync();
+        /// };
+        /// </code>
+        /// 
+        /// Se não for configurado (null), o logging será ignorado.
+        /// O delegate será chamado automaticamente sempre que uma requisição HTTP for realizada.
+        /// </summary>
+        Func<HttpLogData, Task>? HttpLoggingCallback { get; set; }
     }
 }

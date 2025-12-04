@@ -1,4 +1,5 @@
 using BoletoNetCore.Exceptions;
+using BoletoNetCore.Util;
 using Jose;
 using Newtonsoft.Json;
 using System;
@@ -17,6 +18,7 @@ namespace BoletoNetCore
     {
         public bool Homologacao { get; set; } = true;
         public byte[] PrivateKey { get; set; }
+        public Func<HttpLogData, Task>? HttpLoggingCallback { get; set; }
 
         #region HttpClient
         private HttpClient _httpClient;
@@ -38,7 +40,7 @@ namespace BoletoNetCore
 
                 // X509Certificate2 certificate = new X509Certificate2(Certificado, CertificadoSenha);
                 // handler.ClientCertificates.Add(certificate);
-                this._httpClient = new HttpClient(new LoggingHandler(handler));
+                this._httpClient = new HttpClient(handler);
                 this._httpClient.BaseAddress = uri;
 
                 return this._httpClient;
@@ -158,7 +160,7 @@ namespace BoletoNetCore
             });
             request.Content = content;
 
-            var response = await this.httpClient.SendAsync(request);
+            var response = await this.SendWithLoggingAsync(this.httpClient, request, "GerarToken");
 
 
             if (!response.IsSuccessStatusCode)
@@ -304,7 +306,7 @@ namespace BoletoNetCore
             request.Headers.Add("X-Brad-Algorithm", "SHA256");
             request.Headers.Add("access-token", this.ChaveApi);
 
-            var response = await this.httpClient.SendAsync(request);
+            var response = await this.SendWithLoggingAsync(this.httpClient, request, "RegistrarBoleto");
 
             await this.CheckHttpResponseError(response);
 
@@ -359,7 +361,7 @@ namespace BoletoNetCore
             request.Headers.Add("X-Brad-Algorithm", "SHA256");
             request.Headers.Add("access-token", this.ChaveApi);
 
-            var response = await this.httpClient.SendAsync(request);
+            var response = await this.SendWithLoggingAsync(this.httpClient, request, "ConsultarStatus");
 
             await this.CheckHttpResponseError(response);
 
@@ -439,7 +441,7 @@ namespace BoletoNetCore
             request.Headers.Add("X-Brad-Algorithm", "SHA256");
             request.Headers.Add("access-token", this.ChaveApi);
 
-            var response = await this.httpClient.SendAsync(request);
+            var response = await this.SendWithLoggingAsync(this.httpClient, request, "CancelarBoleto");
 
             await this.CheckHttpResponseError(response);
             return "";

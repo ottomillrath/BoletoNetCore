@@ -1,3 +1,5 @@
+#nullable enable
+
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -11,6 +13,7 @@ using System.Threading.Tasks;
 using BoletoNetCore.Enums;
 using BoletoNetCore.Exceptions;
 using BoletoNetCore.Extensions;
+using BoletoNetCore.Util;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using QRCoder;
@@ -22,6 +25,7 @@ namespace BoletoNetCore
         public bool Homologacao { get; set; } = true;
 
         public byte[] PrivateKey { get; set; }
+        public Func<HttpLogData, Task>? HttpLoggingCallback { get; set; }
         #region HttpClient
 
         private HttpClient _authClient;
@@ -42,7 +46,7 @@ namespace BoletoNetCore
                         uri = new Uri("https://api-parceiro.sicredi.com.br/");
                     }
 
-                    _authClient = new HttpClient(new LoggingHandler(handler));
+                    _authClient = new HttpClient(handler);
                     _authClient.BaseAddress = uri;
                 }
                 return _authClient;
@@ -65,7 +69,7 @@ namespace BoletoNetCore
                     {
                         uri = new Uri("https://api-parceiro.sicredi.com.br/cobranca/");
                     }
-                    _httpClient = new HttpClient(new LoggingHandler(handler));
+                    _httpClient = new HttpClient(handler);
                     _httpClient.BaseAddress = uri;
                 }
 
@@ -134,7 +138,7 @@ namespace BoletoNetCore
                 dict["password"] = SecretApi;
             }
             request.Content = new FormUrlEncodedContent(dict);
-            var response = await authClient.SendAsync(request);
+            var response = await this.SendWithLoggingAsync(this.authClient, request, "GerarToken");
             await CheckHttpResponseError(response);
             var rawResp = await response.Content.ReadAsStringAsync();
             var ret = JsonConvert.DeserializeObject<SicrediV2GerarTokenResponse>(rawResp);
@@ -208,7 +212,7 @@ namespace BoletoNetCore
                 NullValueHandling = NullValueHandling.Ignore
             }), System.Text.Encoding.UTF8, "application/json");
 
-            var response = await httpClient.SendAsync(request);
+            var response = await this.SendWithLoggingAsync(this.httpClient, request, "RegistrarBoleto");
             await CheckHttpResponseError(response);
 
             var rawResp = await response.Content.ReadAsStringAsync();
@@ -267,7 +271,7 @@ namespace BoletoNetCore
             request.Headers.Add("posto", Beneficiario.ContaBancaria.DigitoAgencia);
             request.Headers.Add("Accept", "application/json");
             request.Headers.Add("data-movimento", "true");
-            var result = await this.httpClient.SendAsync(request);
+            var result = await this.SendWithLoggingAsync(this.httpClient, request, "ConsultarStatus");
             var retString = await result.Content.ReadAsStringAsync();
             var ret = JsonConvert.DeserializeObject<JObject>(retString);
 
@@ -418,7 +422,7 @@ namespace BoletoNetCore
             request.Headers.Add("posto", Beneficiario.ContaBancaria.DigitoAgencia);
             request.Headers.Add("codigoBeneficiario", Beneficiario.Codigo);
             request.Content = new StringContent("{}", System.Text.Encoding.UTF8, "application/json");
-            var response = await httpClient.SendAsync(request);
+            var response = await this.SendWithLoggingAsync(this.httpClient, request, "CancelarBoleto");
             await CheckHttpResponseError(response);
             return boleto.Id;
         }
@@ -446,7 +450,7 @@ namespace BoletoNetCore
             request.Headers.Add("posto", Beneficiario.ContaBancaria.DigitoAgencia);
             request.Headers.Add("Accept", "application/json");
             request.Headers.Add("data-movimento", "true");
-            var result = await this.httpClient.SendAsync(request);
+            var result = await this.SendWithLoggingAsync(this.httpClient, request, "ConsultarMovimentacao");
             if (!result.IsSuccessStatusCode)
             {
                 return items.ToArray();

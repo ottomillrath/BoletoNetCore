@@ -15,6 +15,7 @@ using System.Text.Json.Nodes;
 using Newtonsoft.Json.Linq;
 using BoletoNetCore.Extensions;
 using Microsoft.VisualBasic;
+using BoletoNetCore.Util;
 
 public static class Helper
 {
@@ -29,36 +30,7 @@ public static class Helper
     }
 }
 
-public class LoggingHandler : DelegatingHandler
-{
-    public LoggingHandler(HttpMessageHandler innerHandler)
-        : base(innerHandler)
-    {
-    }
-
-    protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
-    {
-        Console.WriteLine("Request:");
-        Console.WriteLine(request.ToString());
-        if (request.Content != null)
-        {
-            Console.WriteLine(await request.Content.ReadAsStringAsync());
-        }
-        Console.WriteLine();
-
-        HttpResponseMessage response = await base.SendAsync(request, cancellationToken);
-
-        Console.WriteLine("Response:");
-        Console.WriteLine(response.ToString());
-        if (response.Content != null)
-        {
-            Console.WriteLine(await response.Content.ReadAsStringAsync());
-        }
-        Console.WriteLine();
-
-        return response;
-    }
-}
+// LoggingHandler removido - agora usando HttpLoggingHandler do namespace BoletoNetCore.Util
 
 namespace BoletoNetCore
 {
@@ -67,6 +39,7 @@ namespace BoletoNetCore
     {
         public bool Homologacao { get; set; } = true;
         public byte[] PrivateKey { get; set; }
+        public Func<HttpLogData, Task>? HttpLoggingCallback { get; set; }
         // implementar este flow id de alguma forma, por enquanto deixar fixo
         private string flowID = "d7cd52b3-6c4b-46db-94e7-13850cacae8b";
         private string v3Url { get; set; } = "https://boletos.cloud.itau.com.br/boletos/v3/";
@@ -76,7 +49,6 @@ namespace BoletoNetCore
         {
             get
             {
-
                 var handler = new HttpClientHandler();
                 Uri uri;
                 if (Homologacao)
@@ -90,9 +62,9 @@ namespace BoletoNetCore
                     X509Certificate2 certificate = new X509Certificate2(Certificado, CertificadoSenha);
                     handler.ClientCertificates.Add(certificate);
                 }
-                this._httpClient = new HttpClient(new LoggingHandler(handler));
+                // HttpClient será usado com SendWithLoggingAsync que registra automaticamente via HttpLoggingCallback
+                this._httpClient = new HttpClient(handler);
                 this._httpClient.BaseAddress = uri;
-
 
                 return this._httpClient;
             }
@@ -131,7 +103,7 @@ namespace BoletoNetCore
             request.Headers.Add("x-itau-correlationID", correlation);
             request.Headers.Add("x-itau-flowID", flowID);
             request.Headers.Add("Accept", "application/json");
-            var result = await this.httpClient.SendAsync(request);
+            var result = await this.SendWithLoggingAsync(this.httpClient, request, "ConsultarStatus");
             var retString = await result.Content.ReadAsStringAsync();
             var ret = JsonConvert.DeserializeObject<JObject>(retString);
             try
@@ -187,7 +159,7 @@ namespace BoletoNetCore
             dict["client_id"] = ChaveApi;
             dict["client_secret"] = SecretApi;
             request.Content = new FormUrlEncodedContent(dict);
-            var response = await this.httpClient.SendAsync(request);
+            var response = await this.SendWithLoggingAsync(this.httpClient, request, "GerarToken");
             await this.CheckHttpResponseError(response);
             var respString = await response.Content.ReadAsStringAsync();
             var ret = JsonConvert.DeserializeObject<AutenticacaoItauResponse>(respString);
@@ -357,7 +329,7 @@ namespace BoletoNetCore
             request.Headers.Add("x-itau-correlationID", correlation);
             request.Headers.Add("x-itau-flowID", flowID);
             request.Headers.Add("Accept", "application/json");
-            var response = await this.httpClient.SendAsync(request);
+            var response = await this.SendWithLoggingAsync(this.httpClient, request, "RegistrarBoleto");
             await this.CheckHttpResponseError(response);
             if (boleto.Banco.Beneficiario.ContaBancaria.PixHabilitado)
             {
@@ -409,7 +381,7 @@ namespace BoletoNetCore
 
             request.Content = new StringContent("{}", System.Text.Encoding.UTF8, "application/json");
 
-            var response = await this.httpClient.SendAsync(request);
+            var response = await this.SendWithLoggingAsync(this.httpClient, request, "CancelarBoleto");
             await this.CheckHttpResponseError(response);
 
             return correlation;
@@ -431,7 +403,7 @@ namespace BoletoNetCore
             request.Headers.Add("x-itau-flowID", flowID);
             request.Headers.Add("x-itau-correlationid", System.Guid.NewGuid().ToString());
             request.Headers.Add("Accept", "application/json");
-            var response = await this.httpClient.SendAsync(request);
+            var response = await this.SendWithLoggingAsync(this.httpClient, request, "SolicitarMovimentacao");
             if (!response.IsSuccessStatusCode)
             {
                 if (response.StatusCode == HttpStatusCode.BadRequest || response.StatusCode == HttpStatusCode.UnprocessableEntity || (response.StatusCode == HttpStatusCode.NotFound && response.Content.Headers.ContentType.MediaType == "application/json"))
@@ -476,7 +448,7 @@ namespace BoletoNetCore
             request.Headers.Add("x-itau-flowID", flowID);
             request.Headers.Add("x-itau-correlationid", System.Guid.NewGuid().ToString());
             request.Headers.Add("Accept", "application/json");
-            var response = await this.httpClient.SendAsync(request);
+            var response = await this.SendWithLoggingAsync(this.httpClient, request, "DownloadArquivoMovimentacao");
             if (!response.IsSuccessStatusCode)
             {
                 return items.ToArray();
@@ -571,7 +543,7 @@ namespace BoletoNetCore
             request.Headers.Add("x-itau-flowID", flowID);
             request.Headers.Add("x-itau-correlationid", System.Guid.NewGuid().ToString());
             request.Headers.Add("Accept", "application/json");
-            var response = await this.httpClient.SendAsync(request);
+            var response = await this.SendWithLoggingAsync(this.httpClient, request, "CreateWebhook");
             if (!response.IsSuccessStatusCode)
                 if (response.StatusCode == HttpStatusCode.BadRequest || response.StatusCode == HttpStatusCode.UnprocessableEntity || (response.StatusCode == HttpStatusCode.NotFound && response.Content.Headers.ContentType.MediaType == "application/json"))
                 {
@@ -591,7 +563,7 @@ namespace BoletoNetCore
             request.Headers.Add("x-itau-flowID", flowID);
             request.Headers.Add("x-itau-correlationid", System.Guid.NewGuid().ToString());
             request.Headers.Add("Accept", "application/json");
-            var response = await this.httpClient.SendAsync(request);
+            var response = await this.SendWithLoggingAsync(this.httpClient, request, "GetWebhooks");
             if (!response.IsSuccessStatusCode)
                 if (response.StatusCode == HttpStatusCode.BadRequest || response.StatusCode == HttpStatusCode.UnprocessableEntity || (response.StatusCode == HttpStatusCode.NotFound && response.Content.Headers.ContentType.MediaType == "application/json"))
                 {
@@ -611,7 +583,7 @@ namespace BoletoNetCore
             request.Headers.Add("x-itau-flowID", flowID);
             request.Headers.Add("x-itau-correlationid", System.Guid.NewGuid().ToString());
             request.Headers.Add("Accept", "application/json");
-            var response = await this.httpClient.SendAsync(request);
+            var response = await this.SendWithLoggingAsync(this.httpClient, request, "DeleteWebhook");
             if (!response.IsSuccessStatusCode)
                 if (response.StatusCode == HttpStatusCode.BadRequest || response.StatusCode == HttpStatusCode.UnprocessableEntity || (response.StatusCode == HttpStatusCode.NotFound && response.Content.Headers.ContentType.MediaType == "application/json"))
                 {

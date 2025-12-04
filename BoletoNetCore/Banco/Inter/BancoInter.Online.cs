@@ -11,6 +11,7 @@ namespace BoletoNetCore
 {
     partial class BancoInter : IBancoOnlineRest
     {
+        public Func<HttpLogData, Task>? HttpLoggingCallback { get; set; }
         public string Id { get; set; }
         public string WorkspaceId { get; set; }
         public string ChaveApi { get; set; }

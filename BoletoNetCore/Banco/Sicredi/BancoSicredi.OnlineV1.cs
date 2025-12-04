@@ -6,6 +6,7 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Threading.Tasks;
 using BoletoNetCore.Exceptions;
+using BoletoNetCore.Util;
 
 namespace BoletoNetCore
 {
@@ -14,6 +15,7 @@ namespace BoletoNetCore
         public bool Homologacao { get; set; } = true;
 
         public byte[] PrivateKey { get; set; }
+        public Func<HttpLogData, Task>? HttpLoggingCallback { get; set; }
         #region HttpClient
         private HttpClient _httpClient;
         private HttpClient httpClient
@@ -23,7 +25,7 @@ namespace BoletoNetCore
                 if (this._httpClient == null)
                 {
                     var handler = new HttpClientHandler();
-                    this._httpClient = new HttpClient(new LoggingHandler(handler));
+                    this._httpClient = new HttpClient(handler);
                     this._httpClient.BaseAddress = new Uri("https://cobrancaonline.sicredi.com.br/sicredi-cobranca-ws-ecomm-api/ecomm/v1/boleto/");
                 }
 
@@ -79,7 +81,7 @@ namespace BoletoNetCore
             var request = new HttpRequestMessage(HttpMethod.Post, "autenticacao");
             request.Headers.Add("token", this.ChaveApi);
 
-            var response = await this.httpClient.SendAsync(request);
+            var response = await this.SendWithLoggingAsync(this.httpClient, request, "GerarToken");
             await this.CheckHttpResponseError(response);
             var ret = await response.Content.ReadFromJsonAsync<ChaveTransacaoSicrediApi>();
             this.Token = ret.ChaveTransacao;
@@ -135,7 +137,7 @@ namespace BoletoNetCore
             var request = new HttpRequestMessage(HttpMethod.Post, "emissao");
             request.Headers.Add("token", this.Token);
             request.Content = JsonContent.Create(emissao);
-            var response = await this.httpClient.SendAsync(request);
+            var response = await this.SendWithLoggingAsync(this.httpClient, request, "RegistrarBoleto");
             await this.CheckHttpResponseError(response);
 
             // todo: verificar a necessidade de preencher dados do boleto com o retorno do sicredi
@@ -172,7 +174,7 @@ namespace BoletoNetCore
 
             var request = new HttpRequestMessage(HttpMethod.Get, url);
             request.Headers.Add("token", this.Token);
-            var response = await this.httpClient.SendAsync(request);
+            var response = await this.SendWithLoggingAsync(this.httpClient, request, "ConsultarStatus");
             await this.CheckHttpResponseError(response);
             var ret = await response.Content.ReadFromJsonAsync<RetornoConsultaBoletoSicrediApi[]>();
 
