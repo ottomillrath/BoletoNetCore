@@ -188,6 +188,7 @@ namespace BoletoNetCore
             boleto.CodigoBarra.CodigoDeBarras = boletoEmitido[0].CodigoBarras;
             boleto.NossoNumero = boletoEmitido[0].NossoNumero.ToString().PadLeft(11, '0');
             boleto.NossoNumeroDV = boletoEmitido[0].DvNossoNumero;
+            boleto.NossoNumeroFormatado = "09/" + boletoEmitido[0].NossoNumero.ToString().PadLeft(11, '0') + "-" + boletoEmitido[0].DvNossoNumero;
             string ld = boletoEmitido[0].LinhaDigitavel;
             boleto.CodigoBarra.LinhaDigitavel = ld;
             boleto.CodigoBarra.CampoLivre = $"{ld.Substring(4, 5)}{ld.Substring(10, 10)}{ld.Substring(21, 10)}";
