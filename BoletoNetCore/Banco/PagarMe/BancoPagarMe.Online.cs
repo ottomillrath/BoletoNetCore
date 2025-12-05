@@ -166,11 +166,18 @@ namespace BoletoNetCore
             customer.Address.State = boleto.Pagador.Endereco.UF;
             customer.Address.ZipCode = boleto.Pagador.Endereco.CEP;
             customer.Address.Country = "BR";
+
+            var phone = Utils.OnlyNumbers(boleto.Pagador.Telefone);
+            if (phone == "")
+            {
+                phone = "00900000000";
+            }
+
             customer.Phones = new();
             customer.Phones.MobilePhone = new();
             customer.Phones.MobilePhone.CountryCode = "55";
-            customer.Phones.MobilePhone.AreaCode = boleto.Pagador.Telefone.Substring(0, 2);
-            customer.Phones.MobilePhone.Number = boleto.Pagador.Telefone;
+            customer.Phones.MobilePhone.AreaCode = phone.Substring(0, 2);
+            customer.Phones.MobilePhone.Number = phone;
 
             CreateBoletoPaymentRequest sBol = new();
             sBol.Instructions = boleto.CodigoInstrucao1;
