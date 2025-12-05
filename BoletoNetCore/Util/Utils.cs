@@ -1,5 +1,6 @@
 using SkiaSharp;
 using System;
+using System.Collections;
 using System.Globalization;
 using System.IO;
 using System.Linq;
@@ -261,6 +262,25 @@ namespace BoletoNetCore
                 }
             }
             return img;
+        }
+
+        public static bool In<T>(this T item, params T[] items)
+        {
+            if (items == null)
+                throw new ArgumentNullException(nameof(items));
+
+            return ((IList)items).Contains(item);
+        }
+
+        public static string OnlyNumbers(this string str)
+        {
+            string tmp = string.Empty;
+
+            foreach (char c in str)
+                if (c.In('0', '1', '2', '3', '4', '5', '6', '7', '8', '9'))
+                    tmp += c;
+
+            return tmp;
         }
     }
 }
