@@ -104,7 +104,7 @@ namespace BoletoNetCore
 
         public int Codigo => throw new NotImplementedException();
 
-        public string Nome => throw new NotImplementedException();
+        public string Nome { get; set; }
 
         public string Digito => throw new NotImplementedException();
 

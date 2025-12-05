@@ -430,7 +430,7 @@ namespace BoletoNetCore
 
         public Beneficiario Beneficiario { get; set; }
         public int Codigo { get; }
-        public string Nome { get; }
+        public string Nome { get; set; }
         public string Digito { get; }
         public List<string> IdsRetornoCnab400RegistroDetalhe { get; }
         public bool RemoveAcentosArquivoRemessa { get; }

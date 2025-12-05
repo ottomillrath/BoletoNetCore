@@ -122,7 +122,9 @@ namespace BoletoNetCore
                         Token = m_token,
                         Homologacao = m_homologacao,
                         Certificado = m_certificado,
-                        CertificadoSenha = m_certificadoSenha
+                        CertificadoSenha = m_certificadoSenha,
+                        Nome = this.Nome,
+                        HttpLoggingCallback = HttpLoggingCallback,
                     };
                     return;
                 }
@@ -135,7 +137,9 @@ namespace BoletoNetCore
                     Token = m_token,
                     Homologacao = m_homologacao,
                     Certificado = m_certificado,
-                    CertificadoSenha = m_certificadoSenha
+                    CertificadoSenha = m_certificadoSenha,
+                    Nome = this.Nome,
+                    HttpLoggingCallback = HttpLoggingCallback,
                 };
             }
         }

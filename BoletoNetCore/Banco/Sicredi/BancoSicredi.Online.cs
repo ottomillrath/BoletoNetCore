@@ -117,6 +117,8 @@ namespace BoletoNetCore
                         Certificado = m_certificado,
                         CertificadoSenha = m_certificadoSenha,
                         Beneficiario = this.Beneficiario,
+                        Nome = this.Nome,
+                        HttpLoggingCallback = HttpLoggingCallback,
                     };
                     return;
                 }
@@ -131,6 +133,8 @@ namespace BoletoNetCore
                     Certificado = m_certificado,
                     CertificadoSenha = m_certificadoSenha,
                     Beneficiario = this.Beneficiario,
+                    Nome = this.Nome,
+                    HttpLoggingCallback = HttpLoggingCallback,
                 };
             }
         }
