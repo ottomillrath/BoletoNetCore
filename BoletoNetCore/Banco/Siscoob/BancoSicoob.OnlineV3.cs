@@ -259,7 +259,14 @@ namespace BoletoNetCore
             };
             if (boleto.TipoJuros == TipoJuros.Simples)
             {
-                emissao.ValorJurosMora = boleto.ValorTitulo * boleto.PercentualJurosDia / 100;
+                if (boleto.ValorJurosDia > 0)
+                {
+                    emissao.ValorJurosMora = boleto.ValorJurosDia;
+                }
+                else if (boleto.PercentualJurosDia > 0)
+                {
+                    emissao.ValorJurosMora = boleto.ValorTitulo * boleto.PercentualJurosDia / 100;
+                }
             }
             else if (boleto.TipoJuros == TipoJuros.TaxaMensal)
             {
