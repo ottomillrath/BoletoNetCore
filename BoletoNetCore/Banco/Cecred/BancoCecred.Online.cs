@@ -1,1158 +1,817 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
-using static System.String;
-using BoletoNetCore.Extensions;
-using BoletoNetCore.Exceptions;
-using BoletoNetCore.Util;
-using System.Net.Http.Json;
-using System.Net.Http;
 using System.Net;
-using System.Text.Json.Serialization;
-using System.Drawing;
-using System.ComponentModel;
-using Newtonsoft.Json;
-using System.Security.Cryptography.X509Certificates;
+using System.Net.Http;
 using System.Net.Http.Headers;
-using Newtonsoft.Json.Linq;
-using System.Reflection.Metadata;
-using System.Text.Json.Nodes;
-using System.Text;
-using System.Text.Encodings.Web;
-using Microsoft.AspNetCore.Mvc.ViewFeatures;
-using System.ComponentModel.DataAnnotations;
-using System.Threading;
+using System.Net.Http.Json;
+using System.Threading.Tasks;
+using BoletoNetCore.Exceptions;
 
 namespace BoletoNetCore
 {
     partial class BancoCecred : IBancoOnlineRest // o nome do banco mudou para Ailos, mas mantive Cecred para não alterar a implementação que já existe
     {
         public Func<HttpLogData, Task>? HttpLoggingCallback { get; set; }
-        // se você chegou aqui pq precisa dar manutenção em algo relacionado a esse maravilhoso banco,
-        // eu lhe desejo sorte, abaixo estão algumas coisas para te ajudar nessa jornada:
-        // - apis: https://apihml.ailos.coop.br/devportal/apis (login: dev_zion, senha: dev_zion)
-        // - contato do whatsapp: (47) 99260-7906 (responde uma vez por dia)
-        // - email do suporte: homologacaocobranca@ailos.coop.br
-        // - task original: https://app.clickup.com/t/86893bh1d
-        // - o login é feito em 4 etapas: WSO2, TokenJwt, Login do cooperado (UI) e webhook
-        // - o token usado nas requisições vem pelo webhook e é armazendo no TokenCache
-        // - sim, precisa fazer login do cooperado toda vez e o token dura uma hora
-        // - login do cooperado Sandbox: Evolua, 81061641, aaaaa11111@ (para o Da Luz)
-        // - a segunda etapa do login retorna GatewayTimeout em 90% das chamadas, é normal, insista
-        // - o login do cooperado vai dizer que a url do callback é inválida, é mentira, é só tentar login de novo que passa (as vezes mais de uma vez)
-
-        public bool Homologacao { get; set; } = true;
-
-        public byte[] PrivateKey { get; set; }
-
+        #region props
+        private string m_chaveApi;
+        private string m_secretApi;
+        private string m_token;
+        private string m_tokenWso2;
+        private bool m_homologacao;
+        private byte[] m_certificado;
+        private string m_certificadoSenha;
+        private uint m_versaoApi;
         public string AppKey { get; set; }
+        public byte[] m_privateKey { get; set; }
 
-        #region HttpClient
-        private HttpClient _httpClient;
-
-        private HttpClient httpClient
-        {
-            get
-            {
-                var handler = new HttpClientHandler();
-                Uri uri;
-                if (Homologacao)
-                {
-                    uri = new Uri("https://apiendpointhml.ailos.coop.br/ailos/cobranca/api/v1/");
-                }
-                else
-                {
-                    uri = new Uri("https://apiendpoint.ailos.coop.br/ailos/cobranca/api/v1/");
-                }
-
-                X509Certificate2 certificate = new X509Certificate2(Certificado, CertificadoSenha);
-                handler.ClientCertificates.Add(certificate);
-                this._httpClient = new HttpClient(handler);
-                this._httpClient.BaseAddress = uri;
-
-                return this._httpClient;
-            }
-        }
-        #endregion 
-
-        #region Chaves de Acesso Api 
         public string Id { get; set; }
+
         public string WorkspaceId { get; set; }
-        public string ChaveApi { get; set; }
-        public string SecretApi { get; set; }
-        public string Token { get; set; }
-        public string TokenWso2 { get; set; }
-        public byte[] Certificado { get; set; }
-        public string CertificadoSenha { get; set; }
-        public uint VersaoApi { get; set; }
-        private readonly static string Scopes = "boletos_inclusao boletos_consulta boletos_alteracao";
-        #endregion
 
-        public string GerarTokenTeste()
+        public string ChaveApi
         {
-            Token = "eyJhbGciOiJIUzUxMiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiIzYjk4Y2QwZi1kNDM0LTRmZDgtODczMi1mOTEzODgxMTBmN2MiLCJzdWIiOiJhaUhOcWlrUFBKSStDMXdablhYa3Q3cmJ6N0x0Tzh5UkF6YjltU1BxYityZ3g2YWNkMUR0TTJOTXhycW13ZG4yZHBJUW1zZU03bVR5Y2pnUFJiWWZuVlAyTktGS1FaNm5IN25lMGdaTStjNFhyUkY3RUpoQUF2eCtNUlJvL1RzS3AwR29iK2ZGbHQ4K2kvcFlhTlEzOVF5WitNeU51U2s1dDFwOU1sbGVaTVlsajRmTFN5WGw5dVJwcjNDN0RaSGdtY1pDY0NsVVVwRDFxa0FIaEFIdWhGeWRoK3pIV0ZId2FrZE55eVRyV1BJcW9RKzNMNmg3bG1sREYzWEd3M05BczlsN1NMUzJkOWhCUXZKazNLY1o0RUtWUU1jYnloZkZHWGE4Mmh3OWorWnUvVnUzNVdMRW9seHlIeUZFcTlMU0g4M2Nsa3ppblpoMmFVbVZWUjVxeGlwcEJyRWdsdXVxcktVbFhPOEZZZkk9IiwibmJmIjoxNzMwMjI1NDEyLCJleHAiOjE3MzAyMjcyMTIsImlhdCI6MTczMDIyNTQxMn0.0TVz4kNP-6HfuV-hlmJbxZ-9U87uuNMpo0v7NmpPyuW_JE2FayDO3-537DwZNAkWT3mrU5FtuVqVtRp80ukF7g";
-
-            TokenWso2 = "4d19b3fe-8f6a-3a3d-bcf7-96e11a0ce336";
-
-            using (TokenCache tokenCache = new TokenCache())
+            get => m_chaveApi;
+            set
             {
-                tokenCache.AddOrUpdateToken($"{Id}-WSO2", TokenWso2, DateTime.Now.AddMinutes(55));
-                tokenCache.AddOrUpdateToken(Id.ToString(), Token, DateTime.Now.AddMinutes(55));
-            }
-
-            return Token;
-        }
-
-        public async Task<string> GerarToken()
-        {
-            // somente para teste:
-            // return GerarTokenTeste();
-
-            using (TokenCache tokenCache = new TokenCache())
-            {
-                this.Token = tokenCache.GetToken(Id.ToString()); // token é recebido por webhook
-                this.TokenWso2 = tokenCache.GetToken($"{Id}-WSO2"); // token da primeira etapa da autenticação
-            }
-
-            if (this.Token != null)
-            {
-                return this.Token;
-            }
-
-            // se não tem token e precisa gerar um
-            string authUrlWso2 = "https://apiendpoint.ailos.coop.br/token";
-            string authUrlJwt = "https://apiendpoint.ailos.coop.br/ailos/identity/api/v1/autenticacao/login/obter/id";
-            string loginUrl = "https://apiendpoint.ailos.coop.br/ailos/identity/api/v1/login/index?id=";
-
-            if (Homologacao)
-            {
-                authUrlWso2 = "https://apiendpointhml.ailos.coop.br/token";
-                authUrlJwt = "https://apiendpointhml.ailos.coop.br/ailos/identity/api/v1/autenticacao/login/obter/id";
-                loginUrl = "https://apiendpointhml.ailos.coop.br/ailos/identity/api/v1/login/index?id=";
-            }
-
-            var handler = new HttpClientHandler();
-            if (Certificado == null || Certificado.Length == 0)
-                throw BoletoNetCoreException.CertificadoNaoInformado();
-
-            X509Certificate2 certificate = new X509Certificate2(Certificado, CertificadoSenha);
-            handler.ClientCertificates.Add(certificate);
-            var httpClient = new HttpClient(handler);
-            httpClient.Timeout = TimeSpan.FromMinutes(100);
-
-            // ETAPA 1: recuperar wso02
-            var request = new HttpRequestMessage(HttpMethod.Post, authUrlWso2);
-            var dict = new Dictionary<string, string>();
-            dict["grant_type"] = "client_credentials";
-            request.Content = new FormUrlEncodedContent(dict);
-
-            var authenticationString = $"{ChaveApi}:{SecretApi}";
-            var base64 = Convert.ToBase64String(System.Text.ASCIIEncoding.ASCII.GetBytes(authenticationString));
-            request.Headers.Authorization = new AuthenticationHeaderValue("Basic", base64);
-
-            var accessToken = "";
-            try
-            {
-                var response = await this.SendWithLoggingAsync(this.httpClient, request, "GerarTokenWso2");
-                await this.CheckHttpResponseError(response);
-                var respString = await response.Content.ReadAsStringAsync();
-                var ret = JsonConvert.DeserializeObject<AilosWso2Token>(respString);
-                Console.WriteLine($"Etapa1 OK: {ret.AccessToken}");
-                accessToken = ret.AccessToken;
-
-                using TokenCache tokenCache = new();
-                tokenCache.AddOrUpdateToken($"{Id}-WSO2", accessToken, DateTime.Now.AddMinutes(55));
-            }
-            catch (Exception ex)
-            {
-                using TokenCache tokenCache = new();
-                tokenCache.RemoveToken($"{Id}-WSO2");
-                tokenCache.RemoveToken(Id.ToString());
-                Console.WriteLine($"Erro ao gerar token ailos [1]: {ex.Message}");
-                throw BoletoNetCoreException.ErroAoRegistrarTituloOnline(new Exception("Não foi possível efetuar o login do cooperado!"));
-            }
-            // ETAPA 2: token jwt
-            request = new HttpRequestMessage(HttpMethod.Post, authUrlJwt);
-
-            var requestBody = new
-            {
-                //urlCallBack = "https://eobd34eg5ac16vk.m.pipedream.net/token", // teste
-                urlCallback = $"https://ailos-boleto-token.zionerp.com.br/{(this as IBanco).Subdomain}",
-                ailosApiKeyDeveloper = Homologacao ? "1f823198-096c-03d2-e063-0a29143552f3" : "1f035782-dabf-066c-e063-0a29357c870d",
-                state = Id.ToString()
-            };
-
-            request.Content = new StringContent(Newtonsoft.Json.JsonConvert.SerializeObject(requestBody), Encoding.UTF8, "application/json");
-
-            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
-            request.Content.Headers.ContentType = new MediaTypeHeaderValue("application/json");
-            httpClient.DefaultRequestHeaders.Add("Accept", "text/plain");
-
-            var tokenJwt = "";
-            try
-            {
-                var response = await this.SendWithLoggingAsync(this.httpClient, request, "GerarTokenJwt");
-                await this.CheckHttpResponseError(response);
-                tokenJwt = await response.Content.ReadAsStringAsync();
-
-                Console.WriteLine($"Etapa2 OK: {tokenJwt}");
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Erro ao gerar token ailos [2]: {ex.Message}");
-                using TokenCache tokenCache = new();
-                tokenCache.RemoveToken($"{Id}-WSO2");
-                tokenCache.RemoveToken(Id.ToString());
-                throw BoletoNetCoreException.ErroAoRegistrarTituloOnline(new Exception("Não foi possível efetuar o login do cooperado!"));
-            }
-
-            // ETAPA 3 login do cooperado 
-            // https://apiendpointhml.ailos.coop.br/ailos/identity/api/v1/login/index?id=token 
-
-            var tentativasEtapa3 = 0;
-            var sucessoEtapa3 = false;
-            do
-            {
-                tentativasEtapa3++;
-                sucessoEtapa3 = await GeraTokenEtapa3(loginUrl, tokenJwt);
-            }
-            while (tentativasEtapa3 < 3 && sucessoEtapa3 == false);
-
-            if (sucessoEtapa3)
-            {
-                Thread.Sleep(2000);
-                return await GerarToken(); // volta lá no começo para recuperar do cache (e não repetir o código todo)
-            }
-            else
-            {   // caso de erro, mostra a tela de login
-                throw new TokenNotFoundException($"{loginUrl}{System.Web.HttpUtility.UrlEncode(tokenJwt)}");
-            }
-
-            throw BoletoNetCoreException.ErroAoRegistrarTituloOnline(new Exception("Não foi possível efetuar o login do cooperado!"));
-        }
-
-        public async Task<bool> GeraTokenEtapa3(string loginUrl, string tokenJwt)
-        {
-            try
-            {
-                string url = $"{loginUrl}{System.Web.HttpUtility.UrlEncode(tokenJwt)}";
-
-                Console.WriteLine($"Etapa3: {url}");
-
-                HttpClient client = new HttpClient();
-
-                var operacao = (this as IBanco).Beneficiario.ContaBancaria.OperacaoConta;
-
-                if (string.IsNullOrEmpty(operacao) || !operacao.Contains(":")) // essa é uma solução temporária, vamos criar uma tela para solicitar esses valores e salvar em uma config
-                {
-                    throw BoletoNetCoreException.ErroAoRegistrarTituloOnline(new Exception("Preencha a operação do boleto com o login e senha do cooperado no formato login:senha (somente números)"));
-                }
-
-                var login = operacao.Split(":");
-
-                var formData = new FormUrlEncodedContent(new[]
-                {
-                    new KeyValuePair<string, string>("Login.CodigoCooperativa", "14"), // 14 é a cooperativa Evolua
-                    new KeyValuePair<string, string>("Login.CodigoConta", login[0]),
-                    new KeyValuePair<string, string>("Login.Senha", login[1])
-                });
-
-                HttpResponseMessage response = await client.PostAsync(url, formData);
-                string responseBody = await response.Content.ReadAsStringAsync();
-
-                if (responseBody.Contains("Parabéns"))
-                {
-                    Console.WriteLine($"Etapa3 OK: login efetuado");
-                    return true;
-                }
-
-                Console.WriteLine($"Etapa3 Erro: autenticação manual");
-                return false;
-            }
-            catch
-            {
-                return false;
+                m_chaveApi = value;
+                if (Cliente != null) Cliente.ChaveApi = m_chaveApi;
             }
         }
 
-        public async Task<string> RegistrarBoleto(Boleto boleto)
+        public string SecretApi
         {
-            var emissao = new AilosRegistrarBoletoRequest();
-
-            emissao.Instrucoes = new AilosInstrucoes
+            get => m_secretApi;
+            set
             {
-                DiasProtesto = boleto.DiasProtesto,
-                TipoJurosMora = 3,
-                TipoDesconto = 3,
-                TipoMulta = 3,
-            };
-
-            if (boleto.ValorJurosDia > 0)
-            {
-                emissao.Instrucoes.TipoJurosMora = 1;
-                emissao.Instrucoes.ValorJurosMora = boleto.ValorJurosDia;
+                m_secretApi = value;
+                if (Cliente != null) Cliente.SecretApi = m_secretApi;
             }
-            else if (boleto.PercentualJurosDia > 0)
+        }
+
+        public string Token
+        {
+            get => m_token;
+            set
             {
-                emissao.Instrucoes.TipoJurosMora = 2;
-                var perc = Math.Round(boleto.PercentualJurosDia * 30, 2);
-                emissao.Instrucoes.PercentualJurosMora = perc;
+                m_token = value;
+                if (Cliente != null) Cliente.Token = m_token;
             }
+        }
 
-            if (boleto.ValorMulta > 0)
+        public string TokenWso2
+        {
+            get => m_tokenWso2;
+            set
             {
-                emissao.Instrucoes.TipoMulta = 1;
-                emissao.Instrucoes.ValorMulta = boleto.ValorMulta;
+                m_tokenWso2 = value;
+                if (Cliente is BancoCecredOnlineV1 v1)
+                    v1.TokenWso2 = m_tokenWso2;
+                else if (Cliente is BancoCecredOnlineV2 v2)
+                    v2.TokenWso2 = m_tokenWso2;
             }
-            else if (boleto.PercentualMulta > 0)
+        }
+
+        public bool Homologacao
+        {
+            get => m_homologacao;
+            set
             {
-                emissao.Instrucoes.TipoMulta = 2;
-                emissao.Instrucoes.PercentualMulta = boleto.PercentualMulta;
+                m_homologacao = value;
+                if (Cliente != null) Cliente.Homologacao = m_homologacao;
             }
+        }
 
-            if (boleto.ValorDesconto > 0)
+        public byte[] Certificado
+        {
+            get => m_certificado;
+            set
             {
-                emissao.Instrucoes.TipoDesconto = 1;
-                emissao.Instrucoes.ValorDesconto = boleto.ValorDesconto;
+                m_certificado = value;
+                if (Cliente != null) Cliente.Certificado = m_certificado;
             }
+        }
 
-            emissao.ConvenioCobranca = new AilosConvenioCobranca
+        public string CertificadoSenha
+        {
+            get => m_certificadoSenha;
+            set
             {
-                NumeroConvenioCobranca = int.Parse(boleto.Banco.Beneficiario.Codigo),
-                CodigoCarteiraCobranca = int.Parse(boleto.Carteira)
-            };
-
-            emissao.Vencimento = new AilosVencimento { DataVencimento = boleto.DataVencimento };
-
-            emissao.ValorBoleto = new AilosValorBoleto { ValorTitulo = boleto.ValorTitulo };
-
-            emissao.Documento = new AilosDocumentoRequest
-            {
-                NumeroDocumento = int.Parse(boleto.Id),
-                DescricaoDocumento = "Boleto",
-                // NossoNumero = boleto.NossoNumero
-            };
-
-            if (Homologacao)
-                emissao.Documento.NumeroDocumento = (new Random().Next(9000001, 9999991)); // numero do documento duplicado por motivo desconhecido
-
-            //(1 = DM – Duplicata Mercantil, 2 = DS – Duplicata de Serviço , 3 = NP – Nota Promissória,
-            //4 = MENS - Mensalidade , 5 = NF – Nota Fiscal, 6 = RECI - Recibo , 7 = OUTR – Outros )
-            switch (boleto.EspecieDocumento)
-            {
-                case TipoEspecieDocumento.DM:
-                    emissao.Documento.EspecieDocumento = 1;
-                    break;
-                case TipoEspecieDocumento.DS:
-                    emissao.Documento.EspecieDocumento = 2;
-                    break;
-                case TipoEspecieDocumento.NP:
-                    emissao.Documento.EspecieDocumento = 3;
-                    break;
-                case TipoEspecieDocumento.ME:
-                    emissao.Documento.EspecieDocumento = 4;
-                    break;
-                case TipoEspecieDocumento.NF:
-                    emissao.Documento.EspecieDocumento = 5;
-                    break;
-                case TipoEspecieDocumento.RC:
-                    emissao.Documento.EspecieDocumento = 6;
-                    break;
-                default:
-                    emissao.Documento.EspecieDocumento = 7;
-                    break;
+                m_certificadoSenha = value;
+                if (Cliente != null) Cliente.CertificadoSenha = m_certificadoSenha;
             }
+        }
 
-            emissao.Emissao = new AilosEmissao { DataEmissaoDocumento = DateTime.Now };
-
-            //(2 = Cooperado emite e Expede , 3 = Cooperativa emite e Expede)
-            switch (boleto.Banco.Beneficiario.ContaBancaria.TipoDistribuicao)
+        public byte[] PrivateKey
+        {
+            get => m_privateKey; set
             {
-                case TipoDistribuicaoBoleto.BancoDistribui:
-                    emissao.Emissao.FormaEmissao = 3; // No enumerador existe o "banco expede", mas no manual, só existem os tipos 2 e 3
-                    break;
-                case TipoDistribuicaoBoleto.ClienteDistribui:
-                    emissao.Emissao.FormaEmissao = 2;
-                    break;
-                default:
-                    emissao.Emissao.FormaEmissao = 2;
-                    break;
+                m_privateKey = value;
+                if (Cliente != null) Cliente.PrivateKey = m_privateKey;
             }
+        }
 
-            // (1 = Registro Online , 2 = Registro Offline )
-            emissao.IndicadorRegistroCip = 1;
-
-            emissao.NumeroParcelas = 1;
-            emissao.Pagador = new AilosPagador
+        public uint VersaoApi
+        {
+            get => m_versaoApi;
+            set
             {
-                EntidadeLegal = new AilosEntidadeLegal
+                if (value < 1 || value > 2)
+                    throw new Exception("Versão de API inválida");
+                m_versaoApi = value;
+
+                if (m_versaoApi == 1)
                 {
-                    IdentificadorReceitaFederal = boleto.Pagador.CPFCNPJ,
-                    Nome = boleto.Pagador.Nome,
-                    TipoPessoa = boleto.Pagador.CPFCNPJ.Length == 11 ? 1 : 2 // 1 PF, 2 PJ
-                },
-                Endereco = new AilosEndereco
-                {
-                    Bairro = boleto.Pagador.Endereco.Bairro,
-                    Cep = boleto.Pagador.Endereco.CEP,
-                    Cidade = boleto.Pagador.Endereco.Cidade,
-                    Complemento = boleto.Pagador.Endereco.LogradouroComplemento,
-                    Logradouro = boleto.Pagador.Endereco.LogradouroEndereco,
-                    Numero = boleto.Pagador.Endereco.LogradouroNumero,
-                    Uf = boleto.Pagador.Endereco.UF
-                },
-                Dda = true,
-                MensagemPagador = new List<string> { boleto.MensagemInstrucoesCaixaFormatado },
-            };
-            if (emissao.Pagador.EntidadeLegal.Nome.Length > 50)
-            {
-                emissao.Pagador.EntidadeLegal.Nome = emissao.Pagador.EntidadeLegal.Nome[..50];
-            }
-            if (emissao.Pagador.Endereco.Complemento.Length > 40)
-            {
-                emissao.Pagador.Endereco.Complemento = emissao.Pagador.Endereco.Complemento[..40];
-            }
-            if (emissao.Pagador.Endereco.Bairro.Length > 30)
-            {
-                emissao.Pagador.Endereco.Bairro = emissao.Pagador.Endereco.Bairro[..30];
-            }
-
-            if (!string.IsNullOrEmpty(boleto.Pagador.Telefone))
-            {
-                emissao.Pagador.Telefone = new AilosTelefone
-                {
-                    Ddd = boleto.Pagador.Telefone.Substring(0, 2),
-                    Numero = boleto.Pagador.Telefone.Substring(2)
-                };
-            }
-
-            if (!string.IsNullOrEmpty(boleto.Avalista.CPFCNPJ))
-                emissao.Avalista = new AilosAvalista
-                {
-                    EntidadeLegal = new AilosEntidadeLegal
+                    Cliente = new BancoCecredOnlineV1()
                     {
-                        IdentificadorReceitaFederal = boleto.Avalista.CPFCNPJ,
-                        Nome = boleto.Avalista.Nome,
-                        TipoPessoa = boleto.Avalista.CPFCNPJ.Length == 11 ? 1 : 2 // 1 PF, 2 PJ
-                    }
+                        VersaoApi = m_versaoApi,
+                        ChaveApi = m_chaveApi,
+                        SecretApi = m_secretApi,
+                        Token = m_token,
+                        TokenWso2 = m_tokenWso2,
+                        Homologacao = m_homologacao,
+                        Certificado = m_certificado,
+                        CertificadoSenha = m_certificadoSenha,
+                        Beneficiario = this.Beneficiario,
+                        Nome = this.Nome,
+                        HttpLoggingCallback = HttpLoggingCallback,
+                        Subdomain = Subdomain,
+                    };
+                    return;
+                }
+
+                Cliente = new BancoCecredOnlineV2()
+                {
+                    VersaoApi = m_versaoApi,
+                    ChaveApi = m_chaveApi,
+                    SecretApi = m_secretApi,
+                    Token = m_token,
+                    TokenWso2 = m_tokenWso2,
+                    Homologacao = m_homologacao,
+                    Certificado = m_certificado,
+                    CertificadoSenha = m_certificadoSenha,
+                    Beneficiario = this.Beneficiario,
+                    Nome = this.Nome,
+                    HttpLoggingCallback = HttpLoggingCallback,
+                    Subdomain = Subdomain,
                 };
-
-            emissao.AvisoSMS = new AilosAvisoSMS()
-            {
-                EnviarAvisoVencimentoSms = 0,
-                EnviarAvisoVencimentoSmsAntesVencimento = false,
-                EnviarAvisoVencimentoSmsAposVencimento = false,
-                EnviarAvisoVencimentoSmsDiaVencimento = false
-            };
-
-            emissao.PagamentoDivergente = new AilosPagamentoDivergente()
-            {
-                TipoPagamentoDivergente = 0
-            };
-
-            emissao.ValorBoleto = new AilosValorBoleto
-            {
-                ValorTitulo = boleto.ValorTitulo
-            };
-
-            var request = new HttpRequestMessage(HttpMethod.Post, $"boletos/gerar/boleto/convenios/{boleto.Banco.Beneficiario.Codigo}");
-            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", this.TokenWso2);
-            request.Headers.Add("x-ailos-authentication", $"Bearer {this.Token}");
-            request.Content = new StringContent(Newtonsoft.Json.JsonConvert.SerializeObject(emissao), Encoding.UTF8, "application/json");
-
-            var response = await this.SendWithLoggingAsync(this.httpClient, request, "RegistrarBoleto");
-            await this.CheckHttpResponseError(response);
-
-            var responseString = await response.Content.ReadAsStringAsync();
-
-            var boletoEmitido = await response.Content.ReadFromJsonAsync<AilosRegistraBoletoResponse>();
-            boleto.NossoNumero = boletoEmitido.Boleto.Documento.NossoNumero;
-            boleto.NossoNumeroDV = "";
-            FormataNossoNumero(boleto);
-            boleto.NossoNumeroFormatado = boletoEmitido.Boleto.Documento.NossoNumero;
-            boleto.CodigoBarra.CodigoDeBarras = boletoEmitido.Boleto.CodigoBarras.CodigoBarras;
-            boleto.CodigoBarra.LinhaDigitavel = boletoEmitido.Boleto.CodigoBarras.LinhaDigitavel;
-            boleto.CodigoBarra.CampoLivre = $"{boleto.CodigoBarra.CodigoDeBarras.Substring(4, 5)}{boleto.CodigoBarra.CodigoDeBarras.Substring(10, 10)}{boleto.CodigoBarra.CodigoDeBarras.Substring(21, 10)}";
-
-            return boleto.Id;
+            }
         }
 
-        private async Task CheckHttpResponseError(HttpResponseMessage response)
+        public IBancoOnlineRest Cliente { get; set; }
+
+        #endregion
+        public Task<string> GerarToken()
         {
-            if (response.IsSuccessStatusCode)
-                return;
-
-            var responseString = await response.Content.ReadAsStringAsync();
-
-            Console.WriteLine($"!!!!!!!!!! ERRO: {responseString}");
-
-            if ((response.StatusCode == HttpStatusCode.BadRequest || response.StatusCode == HttpStatusCode.NotFound) && !string.IsNullOrEmpty(responseString))
+            if (Cliente == null)
             {
-                var bad = await response.Content.ReadFromJsonAsync<AilosErroResponse>();
-                throw BoletoNetCoreException.ErroAoRegistrarTituloOnline(new Exception(string.Format("{0} {1}", bad.Message, bad.Details?.FirstOrDefault()?.Message).Trim()));
+                // Default to V1 if not set
+                VersaoApi = 1;
             }
-            else
-                throw BoletoNetCoreException.ErroAoRegistrarTituloOnline(new Exception(string.Format("Erro desconhecido: {0}", response.StatusCode)));
+            return Cliente.GerarToken();
         }
 
-        public async Task<StatusTituloOnline> ConsultarStatus(Boleto boleto)
+        public Task<string> RegistrarBoleto(Boleto boleto)
         {
-            var url = $"boletos/consultar/boleto/convenios/{boleto.Banco.Beneficiario.Codigo}/{boleto.Id}";
-
-            var request = new HttpRequestMessage(HttpMethod.Get, url);
-            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", this.TokenWso2);
-            request.Headers.Add("x-ailos-authentication", $"Bearer {this.Token}");
-            var response = await this.SendWithLoggingAsync(this.httpClient, request, "ConsultarStatus");
-            await this.CheckHttpResponseError(response);
-
-            if (response.StatusCode == HttpStatusCode.NoContent)
-                return new() { Status = StatusBoleto.Nenhum };
-
-            var ret = await response.Content.ReadFromJsonAsync<AilosConsultaBoletoResponse>();
-
-            // deixei compativel com Itau
-            switch (ret.Boleto.IndicadorSituacaoBoleto)
+            if (Cliente == null)
             {
-                case 0: // Em aberto
-                    return new() { Status = StatusBoleto.EmAberto };
-                case 3: // BAixado
-                    return new() { Status = StatusBoleto.Baixado };
-                case 5: // Liquidado
-                    return new() { Status = StatusBoleto.Liquidado };
-                default:
-                    return new() { Status = StatusBoleto.Nenhum };
+                // Default to V1 if not set
+                VersaoApi = 1;
             }
+            return Cliente.RegistrarBoleto(boleto);
         }
 
         public Task<string> CancelarBoleto(Boleto boleto)
         {
-            throw new NotImplementedException();
+            if (Cliente == null)
+            {
+                // Default to V1 if not set
+                VersaoApi = 1;
+            }
+            return Cliente.CancelarBoleto(boleto);
+        }
+
+        public Task<StatusTituloOnline> ConsultarStatus(Boleto boleto)
+        {
+            if (Cliente == null)
+            {
+                // Default to V1 if not set
+                VersaoApi = 1;
+            }
+            return Cliente.ConsultarStatus(boleto);
         }
 
         public Task<int> SolicitarMovimentacao(TipoMovimentacao tipo, int numeroContrato, DateTime inicio, DateTime fim)
         {
-            throw new NotImplementedException();
+            if (Cliente == null)
+            {
+                // Default to V1 if not set
+                VersaoApi = 1;
+            }
+            return Cliente.SolicitarMovimentacao(tipo, numeroContrato, inicio, fim);
         }
 
         public Task<int[]> ConsultarStatusSolicitacaoMovimentacao(int numeroContrato, int codigoSolicitacao)
         {
-            throw new NotImplementedException();
+            if (Cliente == null)
+            {
+                // Default to V1 if not set
+                VersaoApi = 1;
+            }
+            return Cliente.ConsultarStatusSolicitacaoMovimentacao(numeroContrato, codigoSolicitacao);
         }
 
         public Task<DownloadArquivoRetornoItem[]> DownloadArquivoMovimentacao(int numeroContrato, int codigoSolicitacao, int idArquivo, DateTime inicio, DateTime fim)
         {
-            throw new NotImplementedException();
+            if (Cliente == null)
+            {
+                // Default to V1 if not set
+                VersaoApi = 1;
+            }
+            return Cliente.DownloadArquivoMovimentacao(numeroContrato, codigoSolicitacao, idArquivo, inicio, fim);
         }
+
     }
 
     #region json
     public class AilosAvalista
     {
-        [JsonPropertyName("entidadeLegal")]
+        [System.Text.Json.Serialization.JsonPropertyName("entidadeLegal")]
         public AilosEntidadeLegal EntidadeLegal { get; set; }
     }
 
     public class AilosWso2Token
     {
-        [JsonProperty("access_token")]
+        [Newtonsoft.Json.JsonProperty("access_token")]
         public string AccessToken { get; set; }
 
-        [JsonProperty("expires_in")]
+        [Newtonsoft.Json.JsonProperty("expires_in")]
         public int ExpiresIn { get; set; }
 
-        [JsonProperty("token_type")]
+        [Newtonsoft.Json.JsonProperty("token_type")]
         public string TokenType { get; set; }
 
-        [JsonProperty("scope")]
+        [Newtonsoft.Json.JsonProperty("scope")]
         public string Scope { get; set; }
     }
 
     public class AilosAvisoSMS
     {
-        [JsonPropertyName("enviarAvisoVencimentoSms")]
+        [System.Text.Json.Serialization.JsonPropertyName("enviarAvisoVencimentoSms")]
         public int EnviarAvisoVencimentoSms { get; set; }
 
-        [JsonPropertyName("enviarAvisoVencimentoSmsAntesVencimento")]
+        [System.Text.Json.Serialization.JsonPropertyName("enviarAvisoVencimentoSmsAntesVencimento")]
         public bool EnviarAvisoVencimentoSmsAntesVencimento { get; set; }
 
-        [JsonPropertyName("enviarAvisoVencimentoSmsDiaVencimento")]
+        [System.Text.Json.Serialization.JsonPropertyName("enviarAvisoVencimentoSmsDiaVencimento")]
         public bool EnviarAvisoVencimentoSmsDiaVencimento { get; set; }
 
-        [JsonPropertyName("enviarAvisoVencimentoSmsAposVencimento")]
+        [System.Text.Json.Serialization.JsonPropertyName("enviarAvisoVencimentoSmsAposVencimento")]
         public bool EnviarAvisoVencimentoSmsAposVencimento { get; set; }
     }
 
     public class AilosConvenioCobranca
     {
-        [JsonPropertyName("numeroConvenioCobranca")]
+        [System.Text.Json.Serialization.JsonPropertyName("numeroConvenioCobranca")]
         public int NumeroConvenioCobranca { get; set; }
 
-        [JsonPropertyName("codigoCarteiraCobranca")]
+        [System.Text.Json.Serialization.JsonPropertyName("codigoCarteiraCobranca")]
         public int CodigoCarteiraCobranca { get; set; }
     }
 
     public class AilosDocumentoRequest
     {
-        [JsonPropertyName("numeroDocumento")]
+        [System.Text.Json.Serialization.JsonPropertyName("numeroDocumento")]
         public int NumeroDocumento { get; set; }
 
-        [JsonPropertyName("descricaoDocumento")]
+        [System.Text.Json.Serialization.JsonPropertyName("descricaoDocumento")]
         public string DescricaoDocumento { get; set; }
 
-        [JsonPropertyName("especieDocumento")]
+        [System.Text.Json.Serialization.JsonPropertyName("especieDocumento")]
         public int EspecieDocumento { get; set; }
-
-        // [JsonPropertyName("nossoNumero")]
-        // public string NossoNumero { get; set; }
     }
 
     public class AilosDocumento
     {
-        [JsonPropertyName("numeroDocumento")]
+        [System.Text.Json.Serialization.JsonPropertyName("numeroDocumento")]
         public int NumeroDocumento { get; set; }
 
-        [JsonPropertyName("descricaoDocumento")]
+        [System.Text.Json.Serialization.JsonPropertyName("descricaoDocumento")]
         public string DescricaoDocumento { get; set; }
 
-        [JsonPropertyName("especieDocumento")]
+        [System.Text.Json.Serialization.JsonPropertyName("especieDocumento")]
         public int EspecieDocumento { get; set; }
 
-        [JsonPropertyName("nossoNumero")]
+        [System.Text.Json.Serialization.JsonPropertyName("nossoNumero")]
         public string NossoNumero { get; set; }
     }
 
     public class AilosEmail
     {
-        [JsonPropertyName("endereco")]
+        [System.Text.Json.Serialization.JsonPropertyName("endereco")]
         public string Endereco { get; set; }
     }
 
     public class AilosEmissao
     {
-        [JsonPropertyName("formaEmissao")]
+        [System.Text.Json.Serialization.JsonPropertyName("formaEmissao")]
         public int FormaEmissao { get; set; }
 
-        [JsonPropertyName("dataEmissaoDocumento")]
+        [System.Text.Json.Serialization.JsonPropertyName("dataEmissaoDocumento")]
         public DateTime DataEmissaoDocumento { get; set; }
     }
 
     public class AilosEndereco
     {
-        [JsonPropertyName("cep")]
+        [System.Text.Json.Serialization.JsonPropertyName("cep")]
         public string Cep { get; set; }
 
-        [JsonPropertyName("logradouro")]
+        [System.Text.Json.Serialization.JsonPropertyName("logradouro")]
         public string Logradouro { get; set; }
 
-        [JsonPropertyName("numero")]
-        public string Numero { get; set; } // essa porcaria é string na requisição, mas é int na resposta, por isso removi do response
+        [System.Text.Json.Serialization.JsonPropertyName("numero")]
+        public string Numero { get; set; }
 
-        [JsonPropertyName("complemento")]
+        [System.Text.Json.Serialization.JsonPropertyName("complemento")]
         public string Complemento { get; set; }
 
-        [JsonPropertyName("bairro")]
+        [System.Text.Json.Serialization.JsonPropertyName("bairro")]
         public string Bairro { get; set; }
 
-        [JsonPropertyName("cidade")]
+        [System.Text.Json.Serialization.JsonPropertyName("cidade")]
         public string Cidade { get; set; }
 
-        [JsonPropertyName("uf")]
+        [System.Text.Json.Serialization.JsonPropertyName("uf")]
         public string Uf { get; set; }
     }
 
     public class AilosEnderecoResponse
     {
-        [JsonPropertyName("cep")]
+        [System.Text.Json.Serialization.JsonPropertyName("cep")]
         public string Cep { get; set; }
 
-        [JsonPropertyName("logradouro")]
+        [System.Text.Json.Serialization.JsonPropertyName("logradouro")]
         public string Logradouro { get; set; }
 
-        [JsonPropertyName("numero")]
-        public int Numero { get; set; } // essa porcaria é string na requisição, mas é int na resposta, por isso removi do response
+        [System.Text.Json.Serialization.JsonPropertyName("numero")]
+        public int Numero { get; set; }
 
-        [JsonPropertyName("complemento")]
+        [System.Text.Json.Serialization.JsonPropertyName("complemento")]
         public string Complemento { get; set; }
 
-        [JsonPropertyName("bairro")]
+        [System.Text.Json.Serialization.JsonPropertyName("bairro")]
         public string Bairro { get; set; }
 
-        [JsonPropertyName("cidade")]
+        [System.Text.Json.Serialization.JsonPropertyName("cidade")]
         public AilosCidade Cidade { get; set; }
 
-        [JsonPropertyName("uf")]
+        [System.Text.Json.Serialization.JsonPropertyName("uf")]
         public string Uf { get; set; }
     }
 
     public class AilosEntidadeLegal
     {
-        [JsonPropertyName("identificadorReceitaFederal")]
+        [System.Text.Json.Serialization.JsonPropertyName("identificadorReceitaFederal")]
         public string IdentificadorReceitaFederal { get; set; }
 
-        [JsonPropertyName("tipoPessoa")]
+        [System.Text.Json.Serialization.JsonPropertyName("tipoPessoa")]
         public int TipoPessoa { get; set; }
 
-        [JsonPropertyName("nome")]
+        [System.Text.Json.Serialization.JsonPropertyName("nome")]
         public string Nome { get; set; }
     }
 
     public class AilosInstrucoes
     {
-        [JsonPropertyName("tipoDesconto")]
+        [System.Text.Json.Serialization.JsonPropertyName("tipoDesconto")]
         public int TipoDesconto { get; set; }
 
-        [JsonPropertyName("valorDesconto")]
+        [System.Text.Json.Serialization.JsonPropertyName("valorDesconto")]
         public decimal ValorDesconto { get; set; }
 
-        [JsonPropertyName("percentualDesconto")]
+        [System.Text.Json.Serialization.JsonPropertyName("percentualDesconto")]
         public decimal PercentualDesconto { get; set; }
 
-        [JsonPropertyName("tipoMulta")]
+        [System.Text.Json.Serialization.JsonPropertyName("tipoMulta")]
         public int TipoMulta { get; set; }
 
-        [JsonPropertyName("valorMulta")]
+        [System.Text.Json.Serialization.JsonPropertyName("valorMulta")]
         public decimal ValorMulta { get; set; }
 
-        [JsonPropertyName("percentualMulta")]
+        [System.Text.Json.Serialization.JsonPropertyName("percentualMulta")]
         public decimal PercentualMulta { get; set; }
 
-        [JsonPropertyName("tipoJurosMora")]
+        [System.Text.Json.Serialization.JsonPropertyName("tipoJurosMora")]
         public int TipoJurosMora { get; set; }
 
-        [JsonPropertyName("valorJurosMora")]
+        [System.Text.Json.Serialization.JsonPropertyName("valorJurosMora")]
         public decimal ValorJurosMora { get; set; }
 
-        [JsonPropertyName("percentualJurosMora")]
+        [System.Text.Json.Serialization.JsonPropertyName("percentualJurosMora")]
         public decimal PercentualJurosMora { get; set; }
 
-        [JsonPropertyName("valorAbatimento")]
+        [System.Text.Json.Serialization.JsonPropertyName("valorAbatimento")]
         public int ValorAbatimento { get; set; }
 
-        [JsonPropertyName("diasNegativacaoSerasa")]
+        [System.Text.Json.Serialization.JsonPropertyName("diasNegativacaoSerasa")]
         public int DiasNegativacaoSerasa { get; set; }
 
-        [JsonPropertyName("diasProtesto")]
+        [System.Text.Json.Serialization.JsonPropertyName("diasProtesto")]
         public int DiasProtesto { get; set; }
     }
 
     public class AilosPagador
     {
-        [JsonPropertyName("entidadeLegal")]
+        [System.Text.Json.Serialization.JsonPropertyName("entidadeLegal")]
         public AilosEntidadeLegal EntidadeLegal { get; set; }
 
-        [JsonPropertyName("telefone")]
+        [System.Text.Json.Serialization.JsonPropertyName("telefone")]
         public AilosTelefone Telefone { get; set; }
 
-        [JsonPropertyName("emails")]
-        public List<AilosEmail> Emails { get; set; }
+        [System.Text.Json.Serialization.JsonPropertyName("emails")]
+        public System.Collections.Generic.List<AilosEmail> Emails { get; set; }
 
-        [JsonPropertyName("endereco")]
+        [System.Text.Json.Serialization.JsonPropertyName("endereco")]
         public AilosEndereco Endereco { get; set; }
 
-        [JsonPropertyName("mensagemPagador")]
-        public List<string> MensagemPagador { get; set; }
+        [System.Text.Json.Serialization.JsonPropertyName("mensagemPagador")]
+        public System.Collections.Generic.List<string> MensagemPagador { get; set; }
 
-        [JsonPropertyName("dda")]
+        [System.Text.Json.Serialization.JsonPropertyName("dda")]
         public bool Dda { get; set; }
     }
 
     public class AilosPagadorResponse
     {
-        [JsonPropertyName("entidadeLegal")]
+        [System.Text.Json.Serialization.JsonPropertyName("entidadeLegal")]
         public AilosEntidadeLegal EntidadeLegal { get; set; }
 
-        [JsonPropertyName("telefone")]
+        [System.Text.Json.Serialization.JsonPropertyName("telefone")]
         public AilosTelefone Telefone { get; set; }
 
-        [JsonPropertyName("emails")]
-        public List<AilosEmail> Emails { get; set; }
+        [System.Text.Json.Serialization.JsonPropertyName("emails")]
+        public System.Collections.Generic.List<AilosEmail> Emails { get; set; }
 
-        [JsonPropertyName("endereco")]
+        [System.Text.Json.Serialization.JsonPropertyName("endereco")]
         public AilosEnderecoResponse Endereco { get; set; }
 
-        [JsonPropertyName("mensagemPagador")]
-        public List<string> MensagemPagador { get; set; }
+        [System.Text.Json.Serialization.JsonPropertyName("mensagemPagador")]
+        public System.Collections.Generic.List<string> MensagemPagador { get; set; }
 
-        [JsonPropertyName("dda")]
+        [System.Text.Json.Serialization.JsonPropertyName("dda")]
         public bool Dda { get; set; }
     }
 
     public class AilosPagamentoDivergente
     {
-        [JsonPropertyName("tipoPagamentoDivergente")]
+        [System.Text.Json.Serialization.JsonPropertyName("tipoPagamentoDivergente")]
         public int TipoPagamentoDivergente { get; set; }
 
-        [JsonPropertyName("valorMinimoParaPagamentoDivergente")]
+        [System.Text.Json.Serialization.JsonPropertyName("valorMinimoParaPagamentoDivergente")]
         public int ValorMinimoParaPagamentoDivergente { get; set; }
     }
 
     public class AilosRegistrarBoletoRequest
     {
-        [JsonPropertyName("convenioCobranca")]
+        [System.Text.Json.Serialization.JsonPropertyName("convenioCobranca")]
         public AilosConvenioCobranca ConvenioCobranca { get; set; }
 
-        [JsonPropertyName("documento")]
+        [System.Text.Json.Serialization.JsonPropertyName("documento")]
         public AilosDocumentoRequest Documento { get; set; }
 
-        [JsonPropertyName("emissao")]
+        [System.Text.Json.Serialization.JsonPropertyName("emissao")]
         public AilosEmissao Emissao { get; set; }
 
-        [JsonPropertyName("pagador")]
+        [System.Text.Json.Serialization.JsonPropertyName("pagador")]
         public AilosPagador Pagador { get; set; }
 
-        [JsonPropertyName("numeroParcelas")]
+        [System.Text.Json.Serialization.JsonPropertyName("numeroParcelas")]
         public int NumeroParcelas { get; set; }
 
-        [JsonPropertyName("vencimento")]
+        [System.Text.Json.Serialization.JsonPropertyName("vencimento")]
         public AilosVencimento Vencimento { get; set; }
 
-        [JsonPropertyName("instrucoes")]
+        [System.Text.Json.Serialization.JsonPropertyName("instrucoes")]
         public AilosInstrucoes Instrucoes { get; set; }
 
-        [JsonPropertyName("valorBoleto")]
+        [System.Text.Json.Serialization.JsonPropertyName("valorBoleto")]
         public AilosValorBoleto ValorBoleto { get; set; }
 
-        [JsonPropertyName("avisoSMS")]
+        [System.Text.Json.Serialization.JsonPropertyName("avisoSMS")]
         public AilosAvisoSMS AvisoSMS { get; set; }
 
-        [JsonPropertyName("pagamentoDivergente")]
+        [System.Text.Json.Serialization.JsonPropertyName("pagamentoDivergente")]
         public AilosPagamentoDivergente PagamentoDivergente { get; set; }
 
-        [JsonPropertyName("avalista")]
+        [System.Text.Json.Serialization.JsonPropertyName("avalista")]
         public AilosAvalista Avalista { get; set; }
 
-        [JsonPropertyName("reciboBeneficiario")]
+        [System.Text.Json.Serialization.JsonPropertyName("reciboBeneficiario")]
         public bool ReciboBeneficiario { get; set; }
 
-        [JsonPropertyName("indicadorRegistroCip")]
+        [System.Text.Json.Serialization.JsonPropertyName("indicadorRegistroCip")]
         public int IndicadorRegistroCip { get; set; }
     }
 
     public class AilosTelefone
     {
-        [JsonPropertyName("ddi")]
+        [System.Text.Json.Serialization.JsonPropertyName("ddi")]
         public string Ddi { get; set; }
 
-        [JsonPropertyName("ddd")]
+        [System.Text.Json.Serialization.JsonPropertyName("ddd")]
         public string Ddd { get; set; }
 
-        [JsonPropertyName("numero")]
+        [System.Text.Json.Serialization.JsonPropertyName("numero")]
         public string Numero { get; set; }
     }
 
     public class AilosValorBoleto
     {
-        [JsonPropertyName("valorTitulo")]
+        [System.Text.Json.Serialization.JsonPropertyName("valorTitulo")]
         public decimal ValorTitulo { get; set; }
     }
 
     public class AilosVencimento
     {
-        [JsonPropertyName("dataVencimento")]
+        [System.Text.Json.Serialization.JsonPropertyName("dataVencimento")]
         public DateTime DataVencimento { get; set; }
-    }
-
-    public class Avalista
-    {
-        [JsonPropertyName("entidadeLegalResponse")]
-        public AilosEntidadeLegalResponse EntidadeLegalResponse { get; set; }
-    }
-
-    public class AvisoSMS
-    {
-        [JsonPropertyName("enviarAvisoVencimentoSms")]
-        public int EnviarAvisoVencimentoSms { get; set; }
-
-        [JsonPropertyName("enviarAvisoVencimentoSmsAntesVencimento")]
-        public bool EnviarAvisoVencimentoSmsAntesVencimento { get; set; }
-
-        [JsonPropertyName("enviarAvisoVencimentoSmsDiaVencimento")]
-        public bool EnviarAvisoVencimentoSmsDiaVencimento { get; set; }
-
-        [JsonPropertyName("enviarAvisoVencimentoSmsAposVencimento")]
-        public bool EnviarAvisoVencimentoSmsAposVencimento { get; set; }
     }
 
     public class AilosBanco
     {
-        [JsonPropertyName("codigo")]
+        [System.Text.Json.Serialization.JsonPropertyName("codigo")]
         public string Codigo { get; set; }
 
-        [JsonPropertyName("descricao")]
+        [System.Text.Json.Serialization.JsonPropertyName("descricao")]
         public string Descricao { get; set; }
 
-        [JsonPropertyName("codigoISPB")]
+        [System.Text.Json.Serialization.JsonPropertyName("codigoISPB")]
         public string CodigoISPB { get; set; }
 
-        [JsonPropertyName("nomeAbreviado")]
+        [System.Text.Json.Serialization.JsonPropertyName("nomeAbreviado")]
         public string NomeAbreviado { get; set; }
     }
 
     public class AilosBeneficiario
     {
-        [JsonPropertyName("entidadeLegal")]
+        [System.Text.Json.Serialization.JsonPropertyName("entidadeLegal")]
         public AilosEntidadeLegal EntidadeLegal { get; set; }
 
-        [JsonPropertyName("emails")]
-        public List<AilosEmail> Emails { get; set; }
+        [System.Text.Json.Serialization.JsonPropertyName("emails")]
+        public System.Collections.Generic.List<AilosEmail> Emails { get; set; }
 
-        [JsonPropertyName("endereco")]
+        [System.Text.Json.Serialization.JsonPropertyName("endereco")]
         public AilosEnderecoResponse Endereco { get; set; }
     }
 
     public class AilosBoleto
     {
-        [JsonPropertyName("beneficiario")]
+        [System.Text.Json.Serialization.JsonPropertyName("beneficiario")]
         public AilosBeneficiario Beneficiario { get; set; }
 
-        [JsonPropertyName("contaCorrente")]
+        [System.Text.Json.Serialization.JsonPropertyName("contaCorrente")]
         public AilosContaCorrente ContaCorrente { get; set; }
 
-        [JsonPropertyName("convenioCobranca")]
+        [System.Text.Json.Serialization.JsonPropertyName("convenioCobranca")]
         public AilosConvenioCobranca ConvenioCobranca { get; set; }
 
-        [JsonPropertyName("documento")]
+        [System.Text.Json.Serialization.JsonPropertyName("documento")]
         public AilosDocumento Documento { get; set; }
 
-        [JsonPropertyName("emissao")]
+        [System.Text.Json.Serialization.JsonPropertyName("emissao")]
         public AilosEmissao Emissao { get; set; }
 
-        [JsonPropertyName("pagador")]
+        [System.Text.Json.Serialization.JsonPropertyName("pagador")]
         public AilosPagadorResponse Pagador { get; set; }
 
-        [JsonPropertyName("vencimento")]
+        [System.Text.Json.Serialization.JsonPropertyName("vencimento")]
         public AilosVencimento Vencimento { get; set; }
 
-        [JsonPropertyName("instrucao")]
+        [System.Text.Json.Serialization.JsonPropertyName("instrucao")]
         public AilosInstrucao Instrucao { get; set; }
 
-        [JsonPropertyName("valorBoleto")]
+        [System.Text.Json.Serialization.JsonPropertyName("valorBoleto")]
         public AilosValorBoleto ValorBoleto { get; set; }
 
-        [JsonPropertyName("avisoSMS")]
+        [System.Text.Json.Serialization.JsonPropertyName("avisoSMS")]
         public AilosAvisoSMS AvisoSMS { get; set; }
 
-        [JsonPropertyName("pagamentoDivergente")]
+        [System.Text.Json.Serialization.JsonPropertyName("pagamentoDivergente")]
         public AilosPagamentoDivergente PagamentoDivergente { get; set; }
 
-        [JsonPropertyName("dataMovimentoDoSistema")]
+        [System.Text.Json.Serialization.JsonPropertyName("dataMovimentoDoSistema")]
         public DateTime DataMovimentoDoSistema { get; set; }
 
-        [JsonPropertyName("avalista")]
+        [System.Text.Json.Serialization.JsonPropertyName("avalista")]
         public AilosAvalista Avalista { get; set; }
 
-        [JsonPropertyName("codigoBarras")]
+        [System.Text.Json.Serialization.JsonPropertyName("codigoBarras")]
         public AilosCodigoBarras CodigoBarras { get; set; }
 
-        [JsonPropertyName("pagamento")]
+        [System.Text.Json.Serialization.JsonPropertyName("pagamento")]
         public AilosPagamento Pagamento { get; set; }
 
-        [JsonPropertyName("listaInstrucao")]
-        public List<string> ListaInstrucao { get; set; }
+        [System.Text.Json.Serialization.JsonPropertyName("listaInstrucao")]
+        public System.Collections.Generic.List<string> ListaInstrucao { get; set; }
 
-        [JsonPropertyName("indicadorSituacaoBoleto")]
+        [System.Text.Json.Serialization.JsonPropertyName("indicadorSituacaoBoleto")]
         public int IndicadorSituacaoBoleto { get; set; }
 
-        [JsonPropertyName("situacaoProcessoDda")]
+        [System.Text.Json.Serialization.JsonPropertyName("situacaoProcessoDda")]
         public int SituacaoProcessoDda { get; set; }
 
-        [JsonPropertyName("serasa")]
+        [System.Text.Json.Serialization.JsonPropertyName("serasa")]
         public AilosSerasa Serasa { get; set; }
 
-        [JsonPropertyName("protesto")]
+        [System.Text.Json.Serialization.JsonPropertyName("protesto")]
         public AilosProtesto Protesto { get; set; }
     }
 
-
     public class AilosBoletoResponse
     {
-        [JsonPropertyName("contaCorrente")]
+        [System.Text.Json.Serialization.JsonPropertyName("contaCorrente")]
         public AilosContaCorrente ContaCorrente { get; set; }
 
-        [JsonPropertyName("convenioCobranca")]
+        [System.Text.Json.Serialization.JsonPropertyName("convenioCobranca")]
         public AilosConvenioCobranca ConvenioCobranca { get; set; }
 
-        [JsonPropertyName("documento")]
+        [System.Text.Json.Serialization.JsonPropertyName("documento")]
         public AilosDocumento Documento { get; set; }
 
-        [JsonPropertyName("emissao")]
+        [System.Text.Json.Serialization.JsonPropertyName("emissao")]
         public AilosEmissao Emissao { get; set; }
 
-        [JsonPropertyName("indicadorSituacaoBoleto")]
+        [System.Text.Json.Serialization.JsonPropertyName("indicadorSituacaoBoleto")]
         public int IndicadorSituacaoBoleto { get; set; }
 
-        [JsonPropertyName("situacaoProcessoDda")]
+        [System.Text.Json.Serialization.JsonPropertyName("situacaoProcessoDda")]
         public int SituacaoProcessoDda { get; set; }
 
-        [JsonPropertyName("codigoBarras")]
+        [System.Text.Json.Serialization.JsonPropertyName("codigoBarras")]
         public AilosCodigoBarras CodigoBarras { get; set; }
     }
 
-
     public class AilosCidade
     {
-        [JsonPropertyName("codigo")]
+        [System.Text.Json.Serialization.JsonPropertyName("codigo")]
         public string Codigo { get; set; }
 
-        [JsonPropertyName("codigoMunicipioIBGE")]
+        [System.Text.Json.Serialization.JsonPropertyName("codigoMunicipioIBGE")]
         public int CodigoMunicipioIBGE { get; set; }
 
-        [JsonPropertyName("nome")]
+        [System.Text.Json.Serialization.JsonPropertyName("nome")]
         public string Nome { get; set; }
 
-        [JsonPropertyName("uf")]
+        [System.Text.Json.Serialization.JsonPropertyName("uf")]
         public string Uf { get; set; }
     }
 
     public class AilosCodigoBarras
     {
-        [JsonPropertyName("codigoBarras")]
+        [System.Text.Json.Serialization.JsonPropertyName("codigoBarras")]
         public string CodigoBarras { get; set; }
 
-        [JsonPropertyName("linhaDigitavel")]
+        [System.Text.Json.Serialization.JsonPropertyName("linhaDigitavel")]
         public string LinhaDigitavel { get; set; }
     }
 
     public class AilosContaCorrente
     {
-        [JsonPropertyName("codigo")]
+        [System.Text.Json.Serialization.JsonPropertyName("codigo")]
         public int Codigo { get; set; }
 
-        [JsonPropertyName("numero")]
+        [System.Text.Json.Serialization.JsonPropertyName("numero")]
         public int Numero { get; set; }
 
-        [JsonPropertyName("digito")]
+        [System.Text.Json.Serialization.JsonPropertyName("digito")]
         public int Digito { get; set; }
 
-        [JsonPropertyName("cooperativa")]
+        [System.Text.Json.Serialization.JsonPropertyName("cooperativa")]
         public AilosCooperativa Cooperativa { get; set; }
     }
 
     public class AilosCooperativa
     {
-        [JsonPropertyName("codigoBanco")]
+        [System.Text.Json.Serialization.JsonPropertyName("codigoBanco")]
         public string CodigoBanco { get; set; }
 
-        [JsonPropertyName("codigo")]
+        [System.Text.Json.Serialization.JsonPropertyName("codigo")]
         public int Codigo { get; set; }
 
-        [JsonPropertyName("nome")]
+        [System.Text.Json.Serialization.JsonPropertyName("nome")]
         public string Nome { get; set; }
     }
 
     public class AilosDetail
     {
-        [JsonPropertyName("message")]
+        [System.Text.Json.Serialization.JsonPropertyName("message")]
         public string Message { get; set; }
     }
 
     public class AilosEntidadeLegalResponse
     {
-        [JsonPropertyName("identificadorReceitaFederal")]
+        [System.Text.Json.Serialization.JsonPropertyName("identificadorReceitaFederal")]
         public string IdentificadorReceitaFederal { get; set; }
 
-        [JsonPropertyName("tipoPessoa")]
+        [System.Text.Json.Serialization.JsonPropertyName("tipoPessoa")]
         public int TipoPessoa { get; set; }
 
-        [JsonPropertyName("nome")]
+        [System.Text.Json.Serialization.JsonPropertyName("nome")]
         public string Nome { get; set; }
     }
 
     public class AilosInstrucao
     {
-        [JsonPropertyName("tipoDesconto")]
+        [System.Text.Json.Serialization.JsonPropertyName("tipoDesconto")]
         public int TipoDesconto { get; set; }
 
-        [JsonPropertyName("valorDesconto")]
+        [System.Text.Json.Serialization.JsonPropertyName("valorDesconto")]
         public decimal ValorDesconto { get; set; }
 
-        [JsonPropertyName("percentualDesconto")]
+        [System.Text.Json.Serialization.JsonPropertyName("percentualDesconto")]
         public int PercentualDesconto { get; set; }
 
-        [JsonPropertyName("tipoMulta")]
+        [System.Text.Json.Serialization.JsonPropertyName("tipoMulta")]
         public int TipoMulta { get; set; }
 
-        [JsonPropertyName("valorMulta")]
+        [System.Text.Json.Serialization.JsonPropertyName("valorMulta")]
         public decimal ValorMulta { get; set; }
 
-        [JsonPropertyName("percentualMulta")]
+        [System.Text.Json.Serialization.JsonPropertyName("percentualMulta")]
         public decimal PercentualMulta { get; set; }
 
-        [JsonPropertyName("tipoJurosMora")]
+        [System.Text.Json.Serialization.JsonPropertyName("tipoJurosMora")]
         public int TipoJurosMora { get; set; }
 
-        [JsonPropertyName("valorJurosMora")]
+        [System.Text.Json.Serialization.JsonPropertyName("valorJurosMora")]
         public decimal ValorJurosMora { get; set; }
 
-        [JsonPropertyName("percentualJurosMora")]
+        [System.Text.Json.Serialization.JsonPropertyName("percentualJurosMora")]
         public decimal PercentualJurosMora { get; set; }
 
-        [JsonPropertyName("valorAbatimento")]
+        [System.Text.Json.Serialization.JsonPropertyName("valorAbatimento")]
         public decimal ValorAbatimento { get; set; }
     }
 
     public class AilosPagamento
     {
-        [JsonPropertyName("indicadorPagamento")]
+        [System.Text.Json.Serialization.JsonPropertyName("indicadorPagamento")]
         public int IndicadorPagamento { get; set; }
 
-        [JsonPropertyName("banco")]
+        [System.Text.Json.Serialization.JsonPropertyName("banco")]
         public AilosBanco Banco { get; set; }
 
-        [JsonPropertyName("agenciaPagamento")]
+        [System.Text.Json.Serialization.JsonPropertyName("agenciaPagamento")]
         public string AgenciaPagamento { get; set; }
 
-        [JsonPropertyName("dataPagamento")]
+        [System.Text.Json.Serialization.JsonPropertyName("dataPagamento")]
         public DateTime DataPagamento { get; set; }
 
-        [JsonPropertyName("dataBaixadoBoleto")]
+        [System.Text.Json.Serialization.JsonPropertyName("dataBaixadoBoleto")]
         public DateTime DataBaixadoBoleto { get; set; }
     }
 
     public class AilosProtesto
     {
-        [JsonPropertyName("tipoProstesto")]
+        [System.Text.Json.Serialization.JsonPropertyName("tipoProstesto")]
         public int TipoProstesto { get; set; }
 
-        [JsonPropertyName("diasProtesto")]
+        [System.Text.Json.Serialization.JsonPropertyName("diasProtesto")]
         public int DiasProtesto { get; set; }
     }
 
     public class AilosRegistraBoletoResponse
     {
-        [JsonPropertyName("message")]
+        [System.Text.Json.Serialization.JsonPropertyName("message")]
         public string Message { get; set; }
 
-        [JsonPropertyName("details")]
-        public List<AilosDetail> Details { get; set; }
+        [System.Text.Json.Serialization.JsonPropertyName("details")]
+        public System.Collections.Generic.List<AilosDetail> Details { get; set; }
 
-        [JsonPropertyName("boleto")]
+        [System.Text.Json.Serialization.JsonPropertyName("boleto")]
         public AilosBoletoResponse Boleto { get; set; }
     }
 
     public class AilosSerasa
     {
-        [JsonPropertyName("flagNegativarSerasa")]
+        [System.Text.Json.Serialization.JsonPropertyName("flagNegativarSerasa")]
         public bool FlagNegativarSerasa { get; set; }
 
-        [JsonPropertyName("diasNegativacaoSerasa")]
+        [System.Text.Json.Serialization.JsonPropertyName("diasNegativacaoSerasa")]
         public int DiasNegativacaoSerasa { get; set; }
     }
 
     public class AilosConsultaBoletoResponse
     {
-        [JsonPropertyName("boleto")]
+        [System.Text.Json.Serialization.JsonPropertyName("boleto")]
         public AilosBoleto Boleto { get; set; }
     }
 
     public class AilosErroResponse
     {
-        [JsonPropertyName("message")]
+        [System.Text.Json.Serialization.JsonPropertyName("message")]
         public string Message { get; set; }
 
-        [JsonPropertyName("details")]
-        public List<AilosDetail> Details { get; set; }
+        [System.Text.Json.Serialization.JsonPropertyName("details")]
+        public System.Collections.Generic.List<AilosDetail> Details { get; set; }
     }
     #endregion
 }
