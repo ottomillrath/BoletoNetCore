@@ -122,6 +122,7 @@ namespace BoletoNetCore
                 {
                     Cliente = new BancoCecredOnlineV1()
                     {
+                        Id = Id,
                         VersaoApi = m_versaoApi,
                         ChaveApi = m_chaveApi,
                         SecretApi = m_secretApi,
@@ -140,6 +141,7 @@ namespace BoletoNetCore
 
                 Cliente = new BancoCecredOnlineV2()
                 {
+                    Id = Id,
                     VersaoApi = m_versaoApi,
                     ChaveApi = m_chaveApi,
                     SecretApi = m_secretApi,

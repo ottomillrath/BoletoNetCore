@@ -237,6 +237,7 @@ namespace BoletoNetCore
             }
 
             CreateOrderRequest order = new();
+            order.Code = Id;
             order.Closed = true;
             order.Items = items;
             order.Payments = [pm];

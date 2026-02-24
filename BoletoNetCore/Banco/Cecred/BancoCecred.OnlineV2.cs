@@ -18,6 +18,8 @@ using BoletoNetCore.Util;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using QRCoder;
+using System.Threading;
+using System.Text;
 
 namespace BoletoNetCore
 {
@@ -131,8 +133,8 @@ namespace BoletoNetCore
         {
             using (TokenCache tokenCache = new TokenCache())
             {
-                this.Token = tokenCache.GetToken(Id.ToString());
-                this.TokenWso2 = tokenCache.GetToken($"{Id}-WSO2");
+                this.Token = tokenCache.GetToken(Id.ToString()); // token é recebido por webhook
+                this.TokenWso2 = tokenCache.GetToken($"{Id}-WSO2"); // token da primeira etapa da autenticação
             }
 
             if (this.Token != null)
@@ -140,14 +142,16 @@ namespace BoletoNetCore
                 return this.Token;
             }
 
-            // V2 API authentication - simplified version
+            // se não tem token e precisa gerar um
             string authUrlWso2 = "https://apiendpoint.ailos.coop.br/token";
-            string authUrlJwt = "https://apiendpoint.ailos.coop.br/ailos/identity/api/v2/autenticacao/login/obter/id";
+            string authUrlJwt = "https://apiendpoint.ailos.coop.br/ailos/identity/api/v1/autenticacao/login/obter/id";
+            string loginUrl = "https://apiendpoint.ailos.coop.br/ailos/identity/api/v1/login/index?id=";
 
             if (Homologacao)
             {
                 authUrlWso2 = "https://apiendpointhml.ailos.coop.br/token";
-                authUrlJwt = "https://apiendpointhml.ailos.coop.br/ailos/identity/api/v2/autenticacao/login/obter/id";
+                authUrlJwt = "https://apiendpointhml.ailos.coop.br/ailos/identity/api/v1/autenticacao/login/obter/id";
+                loginUrl = "https://apiendpointhml.ailos.coop.br/ailos/identity/api/v1/login/index?id=";
             }
 
             var handler = new HttpClientHandler();
@@ -159,7 +163,7 @@ namespace BoletoNetCore
             var httpClient = new HttpClient(handler);
             httpClient.Timeout = TimeSpan.FromMinutes(100);
 
-            // ETAPA 1: recuperar wso2
+            // ETAPA 1: recuperar wso02
             var request = new HttpRequestMessage(HttpMethod.Post, authUrlWso2);
             var dict = new Dictionary<string, string>();
             dict["grant_type"] = "client_credentials";
@@ -172,16 +176,11 @@ namespace BoletoNetCore
             var accessToken = "";
             try
             {
-                var response = await this.SendWithLoggingAsync(this.authClient, request, "GerarTokenWso2");
-                await CheckHttpResponseError(response);
+                var response = await this.SendWithLoggingAsync(this.httpClient, request, "GerarTokenWso2");
+                await this.CheckHttpResponseError(response);
                 var respString = await response.Content.ReadAsStringAsync();
-                var ret = JsonConvert.DeserializeObject<CecredV2Wso2TokenResponse>(respString);
-                if (ret == null || string.IsNullOrEmpty(ret.AccessToken))
-                    throw BoletoNetCoreException.ErroAoRegistrarTituloOnline(new Exception("Token WSO2 inválido ou não gerado. Verifique as credenciais e tente novamente."));
-                TokenWso2 = ret.AccessToken;
-                Console.WriteLine($"Token WSO2 gerado: {TokenWso2}");
-                if (string.IsNullOrEmpty(TokenWso2))
-                    throw BoletoNetCoreException.ErroAoRegistrarTituloOnline(new Exception("Token WSO2 inválido ou não gerado. Verifique as credenciais e tente novamente."));
+                var ret = JsonConvert.DeserializeObject<AilosWso2Token>(respString);
+                Console.WriteLine($"Etapa1 OK: {ret.AccessToken}");
                 accessToken = ret.AccessToken;
 
                 using TokenCache tokenCache = new();
@@ -192,21 +191,22 @@ namespace BoletoNetCore
                 using TokenCache tokenCache = new();
                 tokenCache.RemoveToken($"{Id}-WSO2");
                 tokenCache.RemoveToken(Id.ToString());
-                Console.WriteLine($"Erro ao gerar token ailos V2 [1]: {ex.Message}");
+                Console.WriteLine($"Erro ao gerar token ailos [1]: {ex.Message}");
                 throw BoletoNetCoreException.ErroAoRegistrarTituloOnline(new Exception("Não foi possível efetuar o login do cooperado!"));
             }
-
-            // ETAPA 2: token jwt para V2
+            // ETAPA 2: token jwt
             request = new HttpRequestMessage(HttpMethod.Post, authUrlJwt);
 
             var requestBody = new
             {
+                //urlCallBack = "https://eobd34eg5ac16vk.m.pipedream.net/token", // teste
                 urlCallback = $"https://ailos-boleto-token.zionerp.com.br/{Subdomain ?? ""}",
                 ailosApiKeyDeveloper = Homologacao ? "1f823198-096c-03d2-e063-0a29143552f3" : "1f035782-dabf-066c-e063-0a29357c870d",
                 state = Id.ToString()
             };
 
-            request.Content = new StringContent(Newtonsoft.Json.JsonConvert.SerializeObject(requestBody), System.Text.Encoding.UTF8, "application/json");
+            request.Content = new StringContent(Newtonsoft.Json.JsonConvert.SerializeObject(requestBody), Encoding.UTF8, "application/json");
+
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
             request.Content.Headers.ContentType = new MediaTypeHeaderValue("application/json");
             httpClient.DefaultRequestHeaders.Add("Accept", "text/plain");
@@ -214,23 +214,88 @@ namespace BoletoNetCore
             var tokenJwt = "";
             try
             {
-                var response = await this.SendWithLoggingAsync(this.authClient, request, "GerarTokenJwt");
-                await CheckHttpResponseError(response);
+                var response = await this.SendWithLoggingAsync(this.httpClient, request, "GerarTokenJwt");
+                await this.CheckHttpResponseError(response);
                 tokenJwt = await response.Content.ReadAsStringAsync();
+
                 Console.WriteLine($"Etapa2 OK: {tokenJwt}");
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Erro ao gerar token ailos V2 [2]: {ex.Message}");
+                Console.WriteLine($"Erro ao gerar token ailos [2]: {ex.Message}");
                 using TokenCache tokenCache = new();
                 tokenCache.RemoveToken($"{Id}-WSO2");
                 tokenCache.RemoveToken(Id.ToString());
                 throw BoletoNetCoreException.ErroAoRegistrarTituloOnline(new Exception("Não foi possível efetuar o login do cooperado!"));
             }
 
-            // V2 may use a different authentication flow - for now, return WSO2 token
-            // The actual token will be received via webhook and cached
-            return TokenWso2;
+            // ETAPA 3 login do cooperado 
+            // https://apiendpointhml.ailos.coop.br/ailos/identity/api/v1/login/index?id=token 
+
+            var tentativasEtapa3 = 0;
+            var sucessoEtapa3 = false;
+            do
+            {
+                tentativasEtapa3++;
+                sucessoEtapa3 = await GeraTokenEtapa3(loginUrl, tokenJwt);
+            }
+            while (tentativasEtapa3 < 3 && sucessoEtapa3 == false);
+
+            if (sucessoEtapa3)
+            {
+                Thread.Sleep(2000);
+                return await GerarToken(); // volta lá no começo para recuperar do cache (e não repetir o código todo)
+            }
+            else
+            {   // caso de erro, mostra a tela de login
+                throw new TokenNotFoundException($"{loginUrl}{System.Web.HttpUtility.UrlEncode(tokenJwt)}");
+            }
+
+            throw BoletoNetCoreException.ErroAoRegistrarTituloOnline(new Exception("Não foi possível efetuar o login do cooperado!"));
+        }
+
+        public async Task<bool> GeraTokenEtapa3(string loginUrl, string tokenJwt)
+        {
+            try
+            {
+                string url = $"{loginUrl}{System.Web.HttpUtility.UrlEncode(tokenJwt)}";
+
+                Console.WriteLine($"Etapa3: {url}");
+
+                HttpClient client = new HttpClient();
+
+                var operacao = Beneficiario?.ContaBancaria?.OperacaoConta;
+
+                if (string.IsNullOrEmpty(operacao) || !operacao.Contains(":")) // essa é uma solução temporária, vamos criar uma tela para solicitar esses valores e salvar em uma config
+                {
+                    throw BoletoNetCoreException.ErroAoRegistrarTituloOnline(new Exception("Preencha a operação do boleto com o login e senha do cooperado no formato login:senha (somente números)"));
+                }
+
+                var login = operacao.Split(":");
+
+                var formData = new FormUrlEncodedContent(new[]
+                {
+                    new KeyValuePair<string, string>("Login.CodigoCooperativa", "14"), // 14 é a cooperativa Evolua
+                    new KeyValuePair<string, string>("Login.CodigoConta", login[0]),
+                    new KeyValuePair<string, string>("Login.Senha", login[1])
+                });
+
+                HttpResponseMessage response = await client.PostAsync(url, formData);
+                string responseBody = await response.Content.ReadAsStringAsync();
+
+                if (responseBody.Contains("Parabéns"))
+                {
+                    Console.WriteLine($"Etapa3 OK: login efetuado");
+                    return true;
+                }
+
+                Console.WriteLine($"Etapa3 Erro: autenticação manual");
+                return false;
+            }
+            catch
+            {
+                return false;
+            }
         }
 
         public async Task<string> RegistrarBoleto(Boleto boleto)
@@ -254,7 +319,7 @@ namespace BoletoNetCore
             {
                 emissao.Instrucoes.TipoJurosMora = 2;
                 var perc = Math.Round(boleto.PercentualJurosDia * 30, 2);
-                emissao.Instrucoes.PercentualJurosMora = perc;
+                emissao.Instrucoes.ValorJurosMora = perc;
             }
 
             if (boleto.ValorMulta > 0)
@@ -265,7 +330,7 @@ namespace BoletoNetCore
             else if (boleto.PercentualMulta > 0)
             {
                 emissao.Instrucoes.TipoMulta = 2;
-                emissao.Instrucoes.PercentualMulta = boleto.PercentualMulta;
+                emissao.Instrucoes.ValorMulta = boleto.PercentualMulta;
             }
 
             // Suporte a múltiplos descontos com dias de antecipação (V2)
@@ -287,7 +352,7 @@ namespace BoletoNetCore
 
             emissao.Vencimento = new AilosVencimento { DataVencimento = boleto.DataVencimento };
 
-            emissao.ValorBoleto = new AilosValorBoleto { ValorTitulo = boleto.ValorTitulo };
+            emissao.ValorBoleto = new AilosValorBoletoV2 { ValorNominal = boleto.ValorTitulo };
 
             emissao.Documento = new AilosDocumentoRequest
             {
@@ -412,15 +477,15 @@ namespace BoletoNetCore
                 TipoPagamentoDivergente = 0
             };
 
-            emissao.ValorBoleto = new AilosValorBoleto
+            emissao.ValorBoleto = new AilosValorBoletoV2
             {
-                ValorTitulo = boleto.ValorTitulo
+                ValorNominal = boleto.ValorTitulo
             };
 
             // V2 suporta bolePix - habilitar se PIX estiver habilitado na conta bancária
             emissao.BolePix = Beneficiario?.ContaBancaria?.PixHabilitado ?? false;
 
-            var request = new HttpRequestMessage(HttpMethod.Post, $"boletos/v2/gerar/boleto/convenios/{boleto.Banco.Beneficiario.Codigo}");
+            var request = new HttpRequestMessage(HttpMethod.Post, $"boletos/gerar/boleto/convenios/{boleto.Banco.Beneficiario.Codigo}");
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", this.TokenWso2);
             request.Headers.Add("x-ailos-authentication", $"Bearer {this.Token}");
             request.Content = new StringContent(Newtonsoft.Json.JsonConvert.SerializeObject(emissao), System.Text.Encoding.UTF8, "application/json");
@@ -430,7 +495,7 @@ namespace BoletoNetCore
 
             var responseString = await response.Content.ReadAsStringAsync();
             var boletoEmitido = await response.Content.ReadFromJsonAsync<AilosRegistraBoletoResponseV2>();
-            
+
             if (boletoEmitido?.Boleto == null)
                 throw BoletoNetCoreException.ErroAoRegistrarTituloOnline(new Exception("Resposta da API inválida. Boleto não foi retornado."));
 
@@ -438,7 +503,7 @@ namespace BoletoNetCore
             boleto.NossoNumeroDV = "";
             boleto.Banco.FormataNossoNumero(boleto);
             boleto.NossoNumeroFormatado = boletoEmitido.Boleto.Documento?.NossoNumero ?? string.Empty;
-            
+
             if (boletoEmitido.Boleto.CodigoBarras != null)
             {
                 boleto.CodigoBarra.CodigoDeBarras = boletoEmitido.Boleto.CodigoBarras.CodigoBarras ?? string.Empty;
@@ -450,19 +515,19 @@ namespace BoletoNetCore
             }
 
             // V2 suporta QRCode/PIX
-            if (boletoEmitido.Boleto.QrCode != null && !string.IsNullOrEmpty(boletoEmitido.Boleto.QrCode.QrCode))
+            if (boletoEmitido.Boleto.Pix != null && !string.IsNullOrEmpty(boletoEmitido.Boleto.Pix.CopiaECola))
             {
-                boleto.PixEmv = boletoEmitido.Boleto.QrCode.QrCode;
+                boleto.PixEmv = boletoEmitido.Boleto.Pix.CopiaECola;
+                // boleto.PixQrCode = boletoEmitido.Boleto.Pix.QrCode;
                 if (!string.IsNullOrEmpty(boleto.PixEmv))
                 {
                     using (QRCodeGenerator qrGenerator = new())
-                    using (QRCodeData qrCodeData = qrGenerator.CreateQrCode(boletoEmitido.Boleto.QrCode.QrCode, QRCodeGenerator.ECCLevel.H))
+                    using (QRCodeData qrCodeData = qrGenerator.CreateQrCode(boleto.PixEmv, QRCodeGenerator.ECCLevel.H))
                     using (Base64QRCode qrCode = new(qrCodeData))
                     {
                         boleto.PixQrCode = qrCode.GetGraphic(1);
                     }
                 }
-                boleto.PixTxId = boletoEmitido.Boleto.QrCode.TxId ?? string.Empty;
             }
 
             return boleto.Id;
@@ -496,7 +561,7 @@ namespace BoletoNetCore
 
         public async Task<StatusTituloOnline> ConsultarStatus(Boleto boleto)
         {
-            var url = $"boletos/v2/consultar/boleto/convenios/{Beneficiario.Codigo}/{boleto.Id}";
+            var url = $"boletos/consultar/boleto/convenios/{Beneficiario.Codigo}/{boleto.Id}";
 
             var request = new HttpRequestMessage(HttpMethod.Get, url);
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", this.TokenWso2);
@@ -507,10 +572,26 @@ namespace BoletoNetCore
             if (response.StatusCode == HttpStatusCode.NoContent)
                 return new() { Status = StatusBoleto.Nenhum };
 
-            var ret = await response.Content.ReadFromJsonAsync<AilosConsultaBoletoResponse>();
-            
+            var ret = await response.Content.ReadFromJsonAsync<AilosConsultaBoletoResponseV2>();
+
             if (ret?.Boleto == null)
                 return new() { Status = StatusBoleto.Nenhum };
+
+            Console.WriteLine($"!!!!!!!!!! PIX: {ret.Boleto.Pix?.CopiaECola} {ret.Boleto.Pix?.QrCode}");
+            Console.WriteLine($"!!!!!!!!!! BOLETO: {boleto.PixEmv} {boleto.PixQrCode}");
+            if (string.IsNullOrEmpty(boleto.PixEmv) && ret.Boleto.Pix != null && !string.IsNullOrEmpty(ret.Boleto.Pix.CopiaECola))
+            {
+                boleto.PixEmv = ret.Boleto.Pix.CopiaECola;
+                if (!string.IsNullOrEmpty(boleto.PixEmv))
+                {
+                    using (QRCodeGenerator qrGenerator = new())
+                    using (QRCodeData qrCodeData = qrGenerator.CreateQrCode(boleto.PixEmv, QRCodeGenerator.ECCLevel.H))
+                    using (Base64QRCode qrCode = new(qrCodeData))
+                    {
+                        boleto.PixQrCode = qrCode.GetGraphic(1);
+                    }
+                }
+            }
 
             // Compatível com V1 - usando IndicadorSituacaoBoleto
             switch (ret.Boleto.IndicadorSituacaoBoleto)
@@ -524,6 +605,12 @@ namespace BoletoNetCore
                 default:
                     return new() { Status = StatusBoleto.Nenhum };
             }
+        }
+
+        public class AilosConsultaBoletoResponseV2
+        {
+            [System.Text.Json.Serialization.JsonPropertyName("boleto")]
+            public AilosBoletoResponseV2? Boleto { get; set; }
         }
 
         // Classes V2 baseadas na estrutura Ailos
@@ -551,7 +638,7 @@ namespace BoletoNetCore
             public AilosInstrucoesV2? Instrucoes { get; set; }
 
             [System.Text.Json.Serialization.JsonPropertyName("valorBoleto")]
-            public AilosValorBoleto? ValorBoleto { get; set; }
+            public AilosValorBoletoV2? ValorBoleto { get; set; }
 
             [System.Text.Json.Serialization.JsonPropertyName("avisoSMS")]
             public AilosAvisoSMS? AvisoSMS { get; set; }
@@ -596,6 +683,12 @@ namespace BoletoNetCore
             public AilosBoletoResponseV2? Boleto { get; set; }
         }
 
+        public class AilosValorBoletoV2
+        {
+            [System.Text.Json.Serialization.JsonPropertyName("valorNominal")]
+            public decimal ValorNominal { get; set; }
+        }
+
         public class AilosBoletoResponseV2
         {
             [System.Text.Json.Serialization.JsonPropertyName("contaCorrente")]
@@ -619,17 +712,17 @@ namespace BoletoNetCore
             [System.Text.Json.Serialization.JsonPropertyName("codigoBarras")]
             public AilosCodigoBarras? CodigoBarras { get; set; }
 
-            [System.Text.Json.Serialization.JsonPropertyName("qrCode")]
-            public AilosQrCode? QrCode { get; set; }
+            [System.Text.Json.Serialization.JsonPropertyName("pix")]
+            public AilosPix? Pix { get; set; }
         }
 
-        public class AilosQrCode
+        public class AilosPix
         {
             [System.Text.Json.Serialization.JsonPropertyName("qrCode")]
             public string? QrCode { get; set; }
 
-            [System.Text.Json.Serialization.JsonPropertyName("txId")]
-            public string? TxId { get; set; }
+            [System.Text.Json.Serialization.JsonPropertyName("copiaECola")]
+            public string? CopiaECola { get; set; }
         }
 
         public class CecredV2Wso2TokenResponse
@@ -692,7 +785,7 @@ namespace BoletoNetCore
                     foreach (var item in ret.Resultado)
                     {
                         if (item == null) continue;
-                        
+
                         var ritem = new DownloadArquivoRetornoItem()
                         {
                             NossoNumero = item.NossoNumero ?? string.Empty,
