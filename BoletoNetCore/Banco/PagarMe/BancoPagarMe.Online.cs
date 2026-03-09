@@ -232,7 +232,7 @@ namespace BoletoNetCore
                     Code = i.Codigo,
                     Description = i.Descricao,
                     Quantity = (int)(i.Quantidade * 100),
-                    Amount = (int)(i.Valor * 100),
+                    Amount = (int)i.Valor,
                 });
             }
 
