@@ -556,7 +556,21 @@ namespace BoletoNetCore
                 }
             }
             else
+            {
+                if (response.StatusCode == HttpStatusCode.Unauthorized)
+                {
+                    // Limpar todos os tokens utilizados na autenticação
+                    this.TokenWso2 = string.Empty;
+                    this.Token = string.Empty;
+
+                    using (TokenCache tokenCache = new TokenCache())
+                    {
+                        tokenCache.RemoveToken(Id.ToString()); // token é recebido por webhook
+                        tokenCache.RemoveToken($"{Id}-WSO2"); // token da primeira etapa da autenticação
+                    }
+                }
                 throw BoletoNetCoreException.ErroAoRegistrarTituloOnline(new Exception(string.Format("Erro desconhecido: {0}", response.StatusCode)));
+            }
         }
 
         public async Task<StatusTituloOnline> ConsultarStatus(Boleto boleto)
