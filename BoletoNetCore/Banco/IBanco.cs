@@ -203,6 +203,13 @@ namespace BoletoNetCore
         public string AppKey { get; set; }
 
         Task<string> GerarToken();
+
+        /// <summary>
+        /// Garante que o workspace existe. Busca pelo nome; se não encontrado, cria.
+        /// Retorna o ID do workspace.
+        /// </summary>
+        Task<string> EnsureWorkspace(string descricao);
+
         /// <summary>
         /// REgistra Boleto no banco e Retorna o ID do boleto quando disponivel
         /// </summary>

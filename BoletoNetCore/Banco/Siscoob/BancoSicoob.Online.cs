@@ -168,6 +168,8 @@ namespace BoletoNetCore
             return Cliente.ConsultarStatus(boleto);
         }
 
+        public Task<string> EnsureWorkspace(string descricao) => throw new NotImplementedException();
+
         public Task<int> SolicitarMovimentacao(TipoMovimentacao tipo, int numeroContrato, DateTime inicio, DateTime fim)
         {
             return Cliente.SolicitarMovimentacao(tipo, numeroContrato, inicio, fim);

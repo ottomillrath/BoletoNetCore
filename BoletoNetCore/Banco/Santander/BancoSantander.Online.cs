@@ -5,8 +5,10 @@ using BoletoNetCore.Util;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Net.Http;
 using System.Net.Http.Headers;
+using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -41,30 +43,45 @@ namespace BoletoNetCore
         private string CacheKey => $"Santander_{Id ?? ChaveApi}";
 
         private static readonly TokenCache _tokenCache = new();
-        private static readonly HttpClient _httpClient = new();
         private static readonly System.Text.Json.JsonSerializerOptions _jsonOptions = new()
         {
             DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
         };
+
+        private HttpClient _httpClient;
+        private HttpClient httpClient
+        {
+            get
+            {
+                var handler = new HttpClientHandler();
+                if (Certificado != null && Certificado.Length > 0)
+                {
+                    var certificate = new X509Certificate2(Certificado, CertificadoSenha);
+                    handler.ClientCertificates.Add(certificate);
+                }
+                _httpClient = new HttpClient(handler);
+                return _httpClient;
+            }
+        }
 
         private async Task<string> GetAccessToken()
         {
             var cached = _tokenCache.GetToken(CacheKey);
             if (cached != null) return cached;
 
-            var credentials = Convert.ToBase64String(Encoding.UTF8.GetBytes($"{ChaveApi}:{SecretApi}"));
             var request = new HttpRequestMessage(HttpMethod.Post, TokenUrl);
-            request.Headers.Authorization = new AuthenticationHeaderValue("Basic", credentials);
-            if (!string.IsNullOrEmpty(AppKey))
-                request.Headers.Add("X-Application-Key", AppKey);
             request.Content = new FormUrlEncodedContent(new[]
             {
+                new KeyValuePair<string, string>("client_id", ChaveApi),
+                new KeyValuePair<string, string>("client_secret", SecretApi),
                 new KeyValuePair<string, string>("grant_type", "client_credentials"),
             });
 
-            var response = await _httpClient.SendAsync(request);
+            var response = await httpClient.SendAsync(request);
             var body = await response.Content.ReadAsStringAsync();
-            response.EnsureSuccessStatusCode();
+
+            if (!response.IsSuccessStatusCode)
+                throw new Exception($"Santander GerarToken erro {(int)response.StatusCode}: {body}");
 
             var tokenResponse = System.Text.Json.JsonSerializer.Deserialize<SantanderTokenResponse>(body, _jsonOptions)
                 ?? throw new Exception("Falha ao obter token Santander");
@@ -80,13 +97,70 @@ namespace BoletoNetCore
             return await GetAccessToken();
         }
 
+        public async Task<string> EnsureWorkspace(string descricao)
+        {
+            // 1. List all workspaces and look for one with matching description
+            int offset = 0;
+            const int limit = 50;
+
+            while (true)
+            {
+                var listRequest = await BuildRequest(HttpMethod.Get, $"{BaseUrl}/workspaces?limit={limit}&offset={offset}");
+                var listResponse = await this.SendWithLoggingAsync(httpClient, listRequest, "Santander_ListWorkspaces");
+                var listBody = await listResponse.Content.ReadAsStringAsync();
+
+                if (!listResponse.IsSuccessStatusCode)
+                    throw new Exception($"Santander EnsureWorkspace (list) erro {(int)listResponse.StatusCode}: {listBody}");
+
+                var page = System.Text.Json.JsonSerializer.Deserialize<SantanderPageableWorkspace>(listBody, _jsonOptions);
+
+                foreach (var ws in page?.Content ?? [])
+                {
+                    if (string.Equals(ws.Description, descricao, StringComparison.OrdinalIgnoreCase))
+                        return ws.Id ?? throw new Exception("Workspace encontrado sem ID");
+                }
+
+                var pageable = page?.Pageable;
+                if (pageable == null || (offset + limit) >= pageable._totalElements)
+                    break;
+
+                offset += limit;
+            }
+
+            // 2. Not found — create it
+            var createPayload = new SantanderWorkspaceRequest
+            {
+                Type = "BILLING",
+                Description = descricao,
+                Covenants = new List<SantanderWorkspaceCovenant>
+                {
+                    new SantanderWorkspaceCovenant { Code = Beneficiario.Codigo }
+                },
+            };
+
+            var json = System.Text.Json.JsonSerializer.Serialize(createPayload, _jsonOptions);
+            var createRequest = await BuildRequest(HttpMethod.Post, $"{BaseUrl}/workspaces");
+            createRequest.Content = new StringContent(json, Encoding.UTF8, "application/json");
+
+            var createResponse = await this.SendWithLoggingAsync(httpClient, createRequest, "Santander_CreateWorkspace");
+            var createBody = await createResponse.Content.ReadAsStringAsync();
+
+            if (!createResponse.IsSuccessStatusCode)
+                throw new Exception($"Santander EnsureWorkspace (create) erro {(int)createResponse.StatusCode}: {createBody}");
+
+            var created = System.Text.Json.JsonSerializer.Deserialize<SantanderWorkspaceResponse>(createBody, _jsonOptions)
+                ?? throw new Exception("Resposta vazia ao criar workspace Santander");
+
+            return created.Id ?? throw new Exception("Workspace criado sem ID na resposta");
+        }
+
         private async Task<HttpRequestMessage> BuildRequest(HttpMethod method, string url)
         {
             var token = await GetAccessToken();
             var request = new HttpRequestMessage(method, url);
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
-            if (!string.IsNullOrEmpty(AppKey))
-                request.Headers.Add("X-Application-Key", AppKey);
+            if (!string.IsNullOrEmpty(ChaveApi))
+                request.Headers.Add("X-Application-Key", ChaveApi);
             return request;
         }
 
@@ -106,7 +180,7 @@ namespace BoletoNetCore
                 var request = await BuildRequest(HttpMethod.Post, $"{BaseUrl}/workspaces/{WorkspaceId}/bank_slips");
                 request.Content = new StringContent(json, Encoding.UTF8, "application/json");
 
-                var response = await this.SendWithLoggingAsync(_httpClient, request, "Santander_RegistrarBoleto");
+                var response = await this.SendWithLoggingAsync(httpClient, request, "Santander_RegistrarBoleto");
                 var body = await response.Content.ReadAsStringAsync();
 
                 if (!response.IsSuccessStatusCode)
@@ -156,7 +230,7 @@ namespace BoletoNetCore
                 var request = await BuildRequest(HttpMethod.Patch, $"{BaseUrl}/workspaces/{WorkspaceId}/bank_slips");
                 request.Content = new StringContent(json, Encoding.UTF8, "application/json");
 
-                var response = await this.SendWithLoggingAsync(_httpClient, request, "Santander_CancelarBoleto");
+                var response = await this.SendWithLoggingAsync(httpClient, request, "Santander_CancelarBoleto");
                 var body = await response.Content.ReadAsStringAsync();
 
                 if (!response.IsSuccessStatusCode)
@@ -178,20 +252,18 @@ namespace BoletoNetCore
         {
             try
             {
-                if (string.IsNullOrEmpty(WorkspaceId))
-                    throw new Exception("WorkspaceId não informado para o Santander");
+                var url = $"{BaseUrl}/bills?bankNumber={boleto.NossoNumero}&beneficiaryCode={Beneficiario.Codigo}";
+                var request = await BuildRequest(HttpMethod.Get, url);
 
-                var bankSlipId = boleto.Id;
-                var request = await BuildRequest(HttpMethod.Get, $"{BaseUrl}/workspaces/{WorkspaceId}/bank_slips/{bankSlipId}");
-
-                var response = await this.SendWithLoggingAsync(_httpClient, request, "Santander_ConsultarStatus");
+                var response = await this.SendWithLoggingAsync(httpClient, request, "Santander_ConsultarStatus");
                 var body = await response.Content.ReadAsStringAsync();
 
                 if (!response.IsSuccessStatusCode)
                     throw new Exception($"Santander ConsultarStatus erro {(int)response.StatusCode}: {body}");
 
-                var result = System.Text.Json.JsonSerializer.Deserialize<SantanderBankSlipResponse>(body, _jsonOptions)
-                    ?? throw new Exception("Resposta vazia ao consultar boleto Santander");
+                var page = System.Text.Json.JsonSerializer.Deserialize<SantanderPageableBankSlip>(body, _jsonOptions);
+                var result = page?.Content?.FirstOrDefault()
+                    ?? throw new Exception("Boleto não encontrado na consulta Santander");
 
                 var ret = new StatusTituloOnline { Status = StatusBoleto.Nenhum };
 
@@ -204,24 +276,20 @@ namespace BoletoNetCore
                     case "LIQUIDADO":
                     case "LIQUIDADO PARCIALMENTE":
                         ret.Status = StatusBoleto.Liquidado;
-                        if (result.Payment != null)
+                        if (!string.IsNullOrEmpty(result.PaidValue))
                         {
-                            var paidValue = ParseDecimal(result.Payment.PaidValue);
-                            var nominalValue = ParseDecimal(result.NominalValue);
-                            var dataPagamento = result.Payment.Date != null
-                                ? DateTime.Parse(result.Payment.Date)
-                                : DateTime.Now;
+                            var dataPagamento = DateTime.Now;
                             ret.DadosLiquidacao = new DadosLiquidacao
                             {
                                 CodigoMovimento = "06",
                                 DataProcessamento = dataPagamento,
                                 DataCredito = dataPagamento,
-                                ValorPago = (double)paidValue,
-                                ValorDesconto = ParseDouble(result.Payment.RebateValue),
-                                ValorJurosDia = ParseDouble(result.Payment.InterestValue),
-                                ValorMulta = ParseDouble(result.Payment.FineValue),
-                                ValorIof = ParseDouble(result.Payment.IofValue),
-                                ValorAbatimento = 0,
+                                ValorPago = ParseDouble(result.PaidValue),
+                                ValorDesconto = ParseDouble(result.DiscountValue),
+                                ValorJurosDia = ParseDouble(result.InterestValue),
+                                ValorMulta = 0,
+                                ValorIof = 0,
+                                ValorAbatimento = ParseDouble(result.DeductionValue),
                                 ValorPagoCredito = 0,
                                 ValorOutrasDespesas = 0,
                                 ValorOutrosCreditos = 0,
@@ -234,13 +302,6 @@ namespace BoletoNetCore
                         ret.Status = StatusBoleto.Baixado;
                         break;
                 }
-
-                if (!string.IsNullOrEmpty(result.Barcode))
-                    boleto.CodigoBarra.CodigoDeBarras = result.Barcode;
-                if (!string.IsNullOrEmpty(result.DigitableLine))
-                    boleto.CodigoBarra.LinhaDigitavel = result.DigitableLine;
-                if (!string.IsNullOrEmpty(result.QrCodePix))
-                    boleto.PixEmv = result.QrCodePix;
 
                 return ret;
             }
@@ -283,7 +344,7 @@ namespace BoletoNetCore
                           $"&limit=50&offset={offset}";
 
                 var request = await BuildRequest(HttpMethod.Get, url);
-                var response = await _httpClient.SendAsync(request);
+                var response = await httpClient.SendAsync(request);
                 var body = await response.Content.ReadAsStringAsync();
 
                 if (!response.IsSuccessStatusCode)
@@ -580,6 +641,78 @@ namespace BoletoNetCore
             public string? Barcode { get; set; }
             [JsonPropertyName("payment")]
             public SantanderPayment? Payment { get; set; }
+        }
+
+        // DTOs para Workspaces
+        private class SantanderPageableWorkspace
+        {
+            [JsonPropertyName("_pageable")]
+            public SantanderPageable? Pageable { get; set; }
+            [JsonPropertyName("_content")]
+            public List<SantanderWorkspaceResponse>? Content { get; set; }
+        }
+
+        private class SantanderWorkspaceResponse
+        {
+            [JsonPropertyName("id")]
+            public string? Id { get; set; }
+            [JsonPropertyName("type")]
+            public string? Type { get; set; }
+            [JsonPropertyName("status")]
+            public string? Status { get; set; }
+            [JsonPropertyName("description")]
+            public string? Description { get; set; }
+            [JsonPropertyName("covenants")]
+            public List<SantanderWorkspaceCovenant>? Covenants { get; set; }
+        }
+
+        private class SantanderWorkspaceRequest
+        {
+            [JsonPropertyName("type")]
+            public string Type { get; set; } = "BILLING";
+            [JsonPropertyName("description")]
+            public string? Description { get; set; }
+            [JsonPropertyName("covenants")]
+            public List<SantanderWorkspaceCovenant>? Covenants { get; set; }
+        }
+
+        private class SantanderWorkspaceCovenant
+        {
+            [JsonPropertyName("code")]
+            public string? Code { get; set; }
+        }
+
+        // DTOs para GET /bills (BankSlipSimpleResponse — campos de pagamento são top-level)
+        private class SantanderPageableBankSlip
+        {
+            [JsonPropertyName("_pageable")]
+            public SantanderPageable? Pageable { get; set; }
+            [JsonPropertyName("_content")]
+            public List<SantanderBankSlipSimple>? Content { get; set; }
+        }
+
+        private class SantanderBankSlipSimple
+        {
+            [JsonPropertyName("bankNumber")]
+            public long BankNumber { get; set; }
+            [JsonPropertyName("clientNumber")]
+            public string? ClientNumber { get; set; }
+            [JsonPropertyName("dueDate")]
+            public string? DueDate { get; set; }
+            [JsonPropertyName("nominalValue")]
+            public long NominalValue { get; set; }
+            [JsonPropertyName("status")]
+            public string? Status { get; set; }
+            [JsonPropertyName("statusComplement")]
+            public string? StatusComplement { get; set; }
+            [JsonPropertyName("paidValue")]
+            public string? PaidValue { get; set; }
+            [JsonPropertyName("interestValue")]
+            public string? InterestValue { get; set; }
+            [JsonPropertyName("discountValue")]
+            public string? DiscountValue { get; set; }
+            [JsonPropertyName("deductionValue")]
+            public string? DeductionValue { get; set; }
         }
     }
 }

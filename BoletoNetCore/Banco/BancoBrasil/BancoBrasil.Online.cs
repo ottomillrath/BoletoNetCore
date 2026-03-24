@@ -348,6 +348,8 @@ namespace BoletoNetCore
             return "";
         }
 
+        public Task<string> EnsureWorkspace(string descricao) => throw new NotImplementedException();
+
         public async Task<int> SolicitarMovimentacao(TipoMovimentacao tipo, int numeroContrato, DateTime inicio, DateTime fim)
         {
             return 1;

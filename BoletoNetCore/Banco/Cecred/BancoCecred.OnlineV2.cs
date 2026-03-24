@@ -759,6 +759,8 @@ namespace BoletoNetCore
             throw new NotImplementedException("Cancelamento de boleto na V2 ainda não está implementado");
         }
 
+        public Task<string> EnsureWorkspace(string descricao) => throw new NotImplementedException();
+
         public async Task<int> SolicitarMovimentacao(TipoMovimentacao tipo, int numeroContrato, DateTime inicio, DateTime fim)
         {
             return 1;
