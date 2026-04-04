@@ -27,13 +27,9 @@ namespace BoletoNetCore
         public string AppKey { get; set; }
         public uint VersaoApi { get; set; }
 
-        private string BaseUrl => Homologacao
-            ? "https://apidev.banrisul.com.br/cobranca/v1"
-            : "https://api.banrisul.com.br/cobranca/v1";
+        private string BaseUrl = "https://api.banrisul.com.br/cobranca/v1";
 
-        private string TokenUrl => Homologacao
-            ? "https://apidev.banrisul.com.br/auth/oauth/v2/token"
-            : "https://api.banrisul.com.br/auth/oauth/v2/token";
+        private string TokenUrl = "https://api.banrisul.com.br/auth/oauth/v2/token";
 
         private string Ambiente => Homologacao ? "T" : "P";
         private string CacheKey => Id ?? ChaveApi;
@@ -50,15 +46,16 @@ namespace BoletoNetCore
             var cached = _tokenCache.GetToken(CacheKey);
             if (cached != null) return cached;
 
-            var credentials = Convert.ToBase64String(Encoding.UTF8.GetBytes($"{ChaveApi}:{SecretApi}"));
             var request = new HttpRequestMessage(HttpMethod.Post, TokenUrl);
-            request.Headers.Authorization = new AuthenticationHeaderValue("Basic", credentials);
             request.Content = new FormUrlEncodedContent(new[]
             {
                 new KeyValuePair<string, string>("grant_type", "client_credentials"),
+                new KeyValuePair<string, string>("client_id", ChaveApi),
+                new KeyValuePair<string, string>("client_secret", SecretApi),
+                new KeyValuePair<string, string>("scope", "boletos"),
             });
 
-            var response = await _httpClient.SendAsync(request);
+            var response = await this.SendWithLoggingAsync(_httpClient, request, "GerarToken");
             var body = await response.Content.ReadAsStringAsync();
             response.EnsureSuccessStatusCode();
 
@@ -76,7 +73,7 @@ namespace BoletoNetCore
             var token = await GetAccessToken();
             var request = new HttpRequestMessage(method, url);
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
-            request.Headers.Add("bergs-beneficiario", Beneficiario.Codigo);
+            request.Headers.Add("bergs-beneficiario", Beneficiario.Codigo.PadLeft(13, '0'));
             request.Headers.Add("bergs-ambiente", Ambiente);
             return request;
         }
@@ -96,18 +93,26 @@ namespace BoletoNetCore
                 var request = await BuildRequest(HttpMethod.Post, $"{BaseUrl}/boletos");
                 request.Content = new StringContent(json, Encoding.UTF8, "application/json");
 
-                var response = await _httpClient.SendAsync(request);
+                var response = await this.SendWithLoggingAsync(_httpClient, request, "RegistrarBoleto");
                 var body = await response.Content.ReadAsStringAsync();
 
                 if (!response.IsSuccessStatusCode)
                     throw new Exception($"Banrisul RegistrarBoleto erro {(int)response.StatusCode}: {body}");
 
-                var result = JsonSerializer.Deserialize<BanrisulBoletoResponse>(body, _jsonOptions)
+                var result = JsonSerializer.Deserialize<BanrisulBoletoResponse>(body, _jsonOptions)?.Titulo
                     ?? throw new Exception("Resposta vazia ao registrar boleto Banrisul");
 
+                if (string.IsNullOrEmpty(result.NossoNumero))
+                    throw new Exception("Nosso Número não informado pelo Banrisul");
+
                 boleto.NossoNumero = result.NossoNumero;
-                boleto.NossoNumeroFormatado = result.NossoNumero;
-                boleto.NossoNumeroDV = "";
+                if (boleto.NossoNumero.Length > 8)
+                {
+                    boleto.NossoNumeroDV = boleto.NossoNumero.Substring(8, 2);
+                    boleto.NossoNumero = boleto.NossoNumero.Substring(0, 8);
+                }
+
+                boleto.NossoNumeroFormatado = result.NossoNumero + '-' + boleto.NossoNumeroDV;
                 boleto.CodigoBarra.CodigoDeBarras = result.CodigoBarras;
                 boleto.CodigoBarra.LinhaDigitavel = result.LinhaDigitavel;
                 boleto.Id = result.NossoNumero;
@@ -140,7 +145,7 @@ namespace BoletoNetCore
                 var request = await BuildRequest(HttpMethod.Post, $"{BaseUrl}/boletos/{boleto.Id}/baixar");
                 request.Content = new StringContent("{}", Encoding.UTF8, "application/json");
 
-                var response = await _httpClient.SendAsync(request);
+                var response = await this.SendWithLoggingAsync(_httpClient, request, "CancelarBoleto");
                 var body = await response.Content.ReadAsStringAsync();
 
                 if (!response.IsSuccessStatusCode)
@@ -162,8 +167,8 @@ namespace BoletoNetCore
         {
             try
             {
-                var request = await BuildRequest(HttpMethod.Get, $"{BaseUrl}/boletos/{boleto.Id}");
-                var response = await _httpClient.SendAsync(request);
+                var request = await BuildRequest(HttpMethod.Get, $"{BaseUrl}/boletos/{boleto.NossoNumero}{boleto.NossoNumeroDV}");
+                var response = await this.SendWithLoggingAsync(_httpClient, request, "ConsultarStatus");
                 var body = await response.Content.ReadAsStringAsync();
 
                 if (!response.IsSuccessStatusCode)
@@ -247,7 +252,7 @@ namespace BoletoNetCore
             return await DownloadMovimentacaoPaginado(inicio, fim, null);
         }
 
-        public Task<string> EnsureWorkspace(string descricao) => throw new NotImplementedException();
+        public Task<string> EnsureWorkspace(string descricao, string? webhookUrl = null) => throw new NotImplementedException();
 
         public async Task<int> SolicitarMovimentacao(TipoMovimentacao tipo, int numeroContrato, DateTime inicio, DateTime fim)
         {
@@ -263,7 +268,7 @@ namespace BoletoNetCore
                     url += $"&nosso_numero={proximoNossoNumero}";
 
                 var request = await BuildRequest(HttpMethod.Get, url);
-                var response = await _httpClient.SendAsync(request);
+                var response = await this.SendWithLoggingAsync(_httpClient, request, "DownloadMovimentacao");
                 var body = await response.Content.ReadAsStringAsync();
 
                 if (!response.IsSuccessStatusCode)
@@ -311,7 +316,7 @@ namespace BoletoNetCore
         private async Task<string> GetPdfBase64(string nossoNumero)
         {
             var request = await BuildRequest(HttpMethod.Get, $"{BaseUrl}/boletos/{nossoNumero}/emitir");
-            var response = await _httpClient.SendAsync(request);
+            var response = await this.SendWithLoggingAsync(_httpClient, request, "EmitirBoleto");
             response.EnsureSuccessStatusCode();
             var body = await response.Content.ReadAsStringAsync();
             var result = JsonSerializer.Deserialize<BanrisulEmitirResponse>(body, _jsonOptions);
@@ -326,7 +331,8 @@ namespace BoletoNetCore
                 TipoPessoa = tipoPessoa,
                 Nome = boleto.Pagador.Nome,
                 CpfCnpj = boleto.Pagador.CPFCNPJ,
-                Logradouro = boleto.Pagador.Endereco.LogradouroEndereco,
+                Aceite = "N",
+                Endereco = boleto.Pagador.Endereco.LogradouroEndereco,
                 Numero = boleto.Pagador.Endereco.LogradouroNumero,
                 Complemento = string.IsNullOrEmpty(boleto.Pagador.Endereco.LogradouroComplemento)
                     ? null
@@ -341,18 +347,17 @@ namespace BoletoNetCore
 
             var titulo = new BanrisulTitulo
             {
-                SeuNumero = boleto.NumeroDocumento,
+                SeuNumero = boleto.Id,
                 DataVencimento = boleto.DataVencimento.ToString("yyyy-MM-dd"),
-                ValorNominal = boleto.ValorTitulo,
+                ValorNominal = boleto.ValorTitulo.ToString("F2", System.Globalization.CultureInfo.InvariantCulture),
                 Especie = "02",
                 DataEmissao = boleto.DataEmissao.ToString("yyyy-MM-dd"),
                 Pagador = pagador,
                 Instrucoes = instrucoes,
-                PagParcial = false,
             };
 
             if (!string.IsNullOrEmpty(boleto.NossoNumero))
-                titulo.NossoNumero = boleto.NossoNumero;
+                titulo.NossoNumero = boleto.NossoNumero + boleto.NossoNumeroDV;
 
             if (Beneficiario.ContaBancaria.PixHabilitado)
                 titulo.Hibrido = new BanrisulHibrido();
@@ -364,13 +369,15 @@ namespace BoletoNetCore
         {
             var instrucoes = new BanrisulInstrucoes();
 
+            var inv = System.Globalization.CultureInfo.InvariantCulture;
+
             // Juros (required)
             if (boleto.ValorJurosDia > 0 && boleto.TipoJuros == TipoJuros.Simples)
-                instrucoes.Juros = new BanrisulJuros { Codigo = 1, Valor = (double)boleto.ValorJurosDia };
+                instrucoes.Juros = new BanrisulJuros { Codigo = 1, Valor = boleto.ValorJurosDia.ToString("F2", inv) };
             else if (boleto.ValorJurosDia > 0 && boleto.TipoJuros == TipoJuros.TaxaMensal)
-                instrucoes.Juros = new BanrisulJuros { Codigo = 2, Valor = (double)boleto.ValorJurosDia };
+                instrucoes.Juros = new BanrisulJuros { Codigo = 2, Valor = boleto.ValorJurosDia.ToString("F2", inv) };
             else
-                instrucoes.Juros = new BanrisulJuros { Codigo = 3, Valor = 0 };
+                instrucoes.Juros = new BanrisulJuros { Codigo = 3, Valor = "0.00" };
 
             // Multa
             if (boleto.ValorMulta > 0)
@@ -381,7 +388,7 @@ namespace BoletoNetCore
                         instrucoes.Multa = new BanrisulMulta
                         {
                             Codigo = 1,
-                            Valor = (double)boleto.ValorMulta,
+                            Valor = boleto.ValorMulta.ToString("F2", inv),
                             Data = boleto.DataMulta.ToString("yyyy-MM-dd"),
                         };
                         break;
@@ -389,7 +396,7 @@ namespace BoletoNetCore
                         instrucoes.Multa = new BanrisulMulta
                         {
                             Codigo = 2,
-                            Valor = (double)boleto.ValorMulta,
+                            Valor = boleto.ValorMulta.ToString("F2", inv),
                             Data = boleto.DataMulta.ToString("yyyy-MM-dd"),
                         };
                         break;
@@ -401,7 +408,7 @@ namespace BoletoNetCore
                 instrucoes.Desconto = new BanrisulDesconto
                 {
                     Codigo = 1,
-                    Valor = (double)boleto.ValorDesconto,
+                    Valor = boleto.ValorDesconto.ToString("F2", inv),
                     Data = boleto.DataDesconto.ToString("yyyy-MM-dd"),
                 };
 
@@ -433,6 +440,14 @@ namespace BoletoNetCore
         }
 
         private class BanrisulBoletoResponse
+        {
+            [JsonPropertyName("titulo")]
+            public BanrisulBoletoTituloResponse? Titulo { get; set; }
+            [JsonPropertyName("retorno")]
+            public string? Retorno { get; set; }
+        }
+
+        private class BanrisulBoletoTituloResponse
         {
             [JsonPropertyName("nosso_numero")]
             public string NossoNumero { get; set; } = "";
@@ -523,8 +538,10 @@ namespace BoletoNetCore
             public string Nome { get; set; } = "";
             [JsonPropertyName("cpf_cnpj")]
             public string CpfCnpj { get; set; } = "";
-            [JsonPropertyName("logradouro")]
-            public string Logradouro { get; set; } = "";
+            [JsonPropertyName("aceite")]
+            public string Aceite { get; set; } = "N";
+            [JsonPropertyName("endereco")]
+            public string Endereco { get; set; } = "";
             [JsonPropertyName("numero")]
             public string? Numero { get; set; }
             [JsonPropertyName("complemento")]
@@ -548,7 +565,7 @@ namespace BoletoNetCore
             [JsonPropertyName("data_vencimento")]
             public string DataVencimento { get; set; } = "";
             [JsonPropertyName("valor_nominal")]
-            public decimal ValorNominal { get; set; }
+            public string ValorNominal { get; set; } = "";
             [JsonPropertyName("especie")]
             public string Especie { get; set; } = "02";
             [JsonPropertyName("data_emissao")]
@@ -558,12 +575,20 @@ namespace BoletoNetCore
             [JsonPropertyName("instrucoes")]
             public BanrisulInstrucoes Instrucoes { get; set; } = new();
             [JsonPropertyName("pag_parcial")]
-            public bool PagParcial { get; set; }
+            public BanrisulPagParcial PagParcial { get; set; } = new();
             [JsonPropertyName("hibrido")]
             public BanrisulHibrido? Hibrido { get; set; }
         }
 
         private class BanrisulHibrido { }
+
+        private class BanrisulPagParcial
+        {
+            [JsonPropertyName("autoriza")]
+            public int Autoriza { get; set; } = 1; // 1 = Não autoriza pagamento parcial
+            [JsonPropertyName("codigo")]
+            public int Codigo { get; set; } = 3;   // 3 = Não aceita valor divergente
+        }
 
         private class BanrisulInstrucoes
         {
@@ -584,7 +609,7 @@ namespace BoletoNetCore
             [JsonPropertyName("codigo")]
             public int Codigo { get; set; }
             [JsonPropertyName("valor")]
-            public double Valor { get; set; }
+            public string Valor { get; set; } = "0.00";
         }
 
         private class BanrisulMulta
@@ -592,7 +617,7 @@ namespace BoletoNetCore
             [JsonPropertyName("codigo")]
             public int Codigo { get; set; }
             [JsonPropertyName("valor")]
-            public double Valor { get; set; }
+            public string Valor { get; set; } = "0.00";
             [JsonPropertyName("data")]
             public string Data { get; set; } = "";
         }
@@ -602,7 +627,7 @@ namespace BoletoNetCore
             [JsonPropertyName("codigo")]
             public int Codigo { get; set; }
             [JsonPropertyName("valor")]
-            public double Valor { get; set; }
+            public string Valor { get; set; } = "0.00";
             [JsonPropertyName("data")]
             public string Data { get; set; } = "";
         }

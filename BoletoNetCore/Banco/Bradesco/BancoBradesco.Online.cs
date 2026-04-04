@@ -447,7 +447,7 @@ namespace BoletoNetCore
             return "";
         }
 
-        public Task<string> EnsureWorkspace(string descricao) => throw new NotImplementedException();
+        public Task<string> EnsureWorkspace(string descricao, string? webhookUrl = null) => throw new NotImplementedException();
 
         public Task<int> SolicitarMovimentacao(TipoMovimentacao tipo, int numeroContrato, DateTime inicio, DateTime fim)
         {

@@ -208,7 +208,7 @@ namespace BoletoNetCore
         /// Garante que o workspace existe. Busca pelo nome; se não encontrado, cria.
         /// Retorna o ID do workspace.
         /// </summary>
-        Task<string> EnsureWorkspace(string descricao);
+        Task<string> EnsureWorkspace(string descricao, string? webhookUrl = null);
 
         /// <summary>
         /// REgistra Boleto no banco e Retorna o ID do boleto quando disponivel

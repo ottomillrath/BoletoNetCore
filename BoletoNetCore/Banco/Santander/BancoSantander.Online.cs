@@ -97,7 +97,7 @@ namespace BoletoNetCore
             return await GetAccessToken();
         }
 
-        public async Task<string> EnsureWorkspace(string descricao)
+        public async Task<string> EnsureWorkspace(string descricao, string? webhookUrl = null)
         {
             // 1. List all workspaces and look for one with matching description
             int offset = 0;
@@ -136,6 +136,9 @@ namespace BoletoNetCore
                 {
                     new SantanderWorkspaceCovenant { Code = Beneficiario.Codigo }
                 },
+                WebhookUrl = webhookUrl,
+                BankSlipBillingWebhookActive = !string.IsNullOrEmpty(webhookUrl) ? true : null,
+                PixBillingWebhookActive = !string.IsNullOrEmpty(webhookUrl) ? true : null,
             };
 
             var json = System.Text.Json.JsonSerializer.Serialize(createPayload, _jsonOptions);
@@ -674,6 +677,12 @@ namespace BoletoNetCore
             public string? Description { get; set; }
             [JsonPropertyName("covenants")]
             public List<SantanderWorkspaceCovenant>? Covenants { get; set; }
+            [JsonPropertyName("webhookUrl")]
+            public string? WebhookUrl { get; set; }
+            [JsonPropertyName("bankSlipBillingWebhookActive")]
+            public bool? BankSlipBillingWebhookActive { get; set; }
+            [JsonPropertyName("pixBillingWebhookActive")]
+            public bool? PixBillingWebhookActive { get; set; }
         }
 
         private class SantanderWorkspaceCovenant
