@@ -415,21 +415,6 @@ namespace BoletoNetCore
                 }
             }
 
-            var resp = JsonConvert.DeserializeObject<SolicitarMovimentacaoResponse>(await response.Content.ReadAsStringAsync());
-            var hasPosicao = false;
-            foreach (DateTime day in DateTimeExtensions.EachDay(inicio, fim))
-            {
-                var posicao = resp.Data.FirstOrDefault(d => d.Posicao.DataPosicao == day.ToString("yyyy-MM-dd"));
-                if (posicao != null)
-                {
-                    hasPosicao = true;
-                    break;
-                }
-            }
-            if (!hasPosicao)
-            {
-                throw new Exception("Posição não encontrada");
-            }
             return 1;
         }
 
