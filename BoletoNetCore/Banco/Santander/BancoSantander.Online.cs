@@ -138,10 +138,13 @@ namespace BoletoNetCore
                 },
                 WebhookUrl = webhookUrl,
                 BankSlipBillingWebhookActive = !string.IsNullOrEmpty(webhookUrl) ? true : null,
-                PixBillingWebhookActive = !string.IsNullOrEmpty(webhookUrl) ? true : null,
+                // PixBillingWebhookActive = !string.IsNullOrEmpty(webhookUrl) ? true : null,
             };
 
             var json = System.Text.Json.JsonSerializer.Serialize(createPayload, _jsonOptions);
+
+            Console.WriteLine(json);
+            Console.WriteLine($"{BaseUrl}/workspaces");
             var createRequest = await BuildRequest(HttpMethod.Post, $"{BaseUrl}/workspaces");
             createRequest.Content = new StringContent(json, Encoding.UTF8, "application/json");
 
@@ -401,6 +404,38 @@ namespace BoletoNetCore
             return $"{ts}{suffix}"; // 20 chars
         }
 
+        // Keeps only chars matched by the predicate after accent removal
+        private static string SanitizarCampo(string text, Func<char, bool> permitido)
+        {
+            var semAcento = RemoverAcentos(text);
+            var sb = new System.Text.StringBuilder(semAcento.Length);
+            foreach (var c in semAcento)
+                if (permitido(c)) sb.Append(c);
+            return sb.ToString();
+        }
+
+        private static bool IsNomePermitido(char c) =>
+            char.IsLetterOrDigit(c) || c == ' ' || c == '&';
+
+        private static bool IsEnderecoPermitido(char c) =>
+            char.IsLetterOrDigit(c) || c == ' ' || c == '.' || c == ',' || c == '-' || c == 'º' || c == 'ª';
+
+        private static bool IsBairroPermitido(char c) =>
+            char.IsLetterOrDigit(c) || c == ' ';
+
+        private static string RemoverAcentos(string text)
+        {
+            if (string.IsNullOrEmpty(text)) return text;
+            var normalized = text.Normalize(System.Text.NormalizationForm.FormD);
+            var sb = new System.Text.StringBuilder(normalized.Length);
+            foreach (var c in normalized)
+            {
+                if (System.Globalization.CharUnicodeInfo.GetUnicodeCategory(c) != System.Globalization.UnicodeCategory.NonSpacingMark)
+                    sb.Append(c);
+            }
+            return sb.ToString().Normalize(System.Text.NormalizationForm.FormC);
+        }
+
         private static string FormatarCep(string cep)
         {
             if (string.IsNullOrEmpty(cep)) return cep;
@@ -431,9 +466,10 @@ namespace BoletoNetCore
             if (!string.IsNullOrEmpty(boleto.Pagador.Endereco.LogradouroNumero))
                 endereco = $"{endereco}, {boleto.Pagador.Endereco.LogradouroNumero}";
 
-            var nome = boleto.Pagador.Nome ?? "";
-            var bairro = boleto.Pagador.Endereco.Bairro ?? "";
-            var cidade = boleto.Pagador.Endereco.Cidade ?? "";
+            var nome = SanitizarCampo(boleto.Pagador.Nome ?? "", IsNomePermitido);
+            var bairro = SanitizarCampo(boleto.Pagador.Endereco.Bairro ?? "", IsBairroPermitido);
+            var cidade = SanitizarCampo(boleto.Pagador.Endereco.Cidade ?? "", IsEnderecoPermitido);
+            endereco = SanitizarCampo(endereco, IsEnderecoPermitido);
             var payer = new SantanderPayer
             {
                 Name = nome.Length > 40 ? nome.Substring(0, 40) : nome,
@@ -677,7 +713,7 @@ namespace BoletoNetCore
             public string? Description { get; set; }
             [JsonPropertyName("covenants")]
             public List<SantanderWorkspaceCovenant>? Covenants { get; set; }
-            [JsonPropertyName("webhookUrl")]
+            [JsonPropertyName("webhookURL")]
             public string? WebhookUrl { get; set; }
             [JsonPropertyName("bankSlipBillingWebhookActive")]
             public bool? BankSlipBillingWebhookActive { get; set; }
