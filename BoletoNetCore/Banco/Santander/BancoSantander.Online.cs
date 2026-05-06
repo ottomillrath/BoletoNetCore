@@ -121,7 +121,7 @@ namespace BoletoNetCore
                 }
 
                 var pageable = page?.Pageable;
-                if (pageable == null || (offset + limit) >= pageable._totalElements)
+                if (pageable == null || (offset + limit) >= (pageable._totalElements ?? 0))
                     break;
 
                 offset += limit;
@@ -282,7 +282,7 @@ namespace BoletoNetCore
                     case "LIQUIDADO":
                     case "LIQUIDADO PARCIALMENTE":
                         ret.Status = StatusBoleto.Liquidado;
-                        if (!string.IsNullOrEmpty(result.PaidValue))
+                        if (result.PaidValue.HasValue)
                         {
                             var dataPagamento = DateTime.Now;
                             ret.DadosLiquidacao = new DadosLiquidacao
@@ -290,12 +290,12 @@ namespace BoletoNetCore
                                 CodigoMovimento = "06",
                                 DataProcessamento = dataPagamento,
                                 DataCredito = dataPagamento,
-                                ValorPago = ParseDouble(result.PaidValue),
-                                ValorDesconto = ParseDouble(result.DiscountValue),
-                                ValorJurosDia = ParseDouble(result.InterestValue),
+                                ValorPago = (double)(result.PaidValue ?? 0),
+                                ValorDesconto = (double)(result.DiscountValue ?? 0),
+                                ValorJurosDia = (double)(result.InterestValue ?? 0),
                                 ValorMulta = 0,
                                 ValorIof = 0,
-                                ValorAbatimento = ParseDouble(result.DeductionValue),
+                                ValorAbatimento = (double)(result.DeductionValue ?? 0),
                                 ValorPagoCredito = 0,
                                 ValorOutrasDespesas = 0,
                                 ValorOutrosCreditos = 0,
@@ -350,7 +350,7 @@ namespace BoletoNetCore
                           $"&limit=50&offset={offset}";
 
                 var request = await BuildRequest(HttpMethod.Get, url);
-                var response = await httpClient.SendAsync(request);
+                var response = await this.SendWithLoggingAsync(httpClient, request, "Santander_DownloadMovimentacao");
                 var body = await response.Content.ReadAsStringAsync();
 
                 if (!response.IsSuccessStatusCode)
@@ -369,6 +369,9 @@ namespace BoletoNetCore
                     var dataVenc = b.DueDate != null
                         ? DateTime.Parse(b.DueDate)
                         : DateTime.MinValue;
+                    var dataCredito = b.Payment?.CreditDate != null
+                        ? DateTime.Parse(b.Payment.CreditDate)
+                        : dataLiq;
 
                     items.Add(new DownloadArquivoRetornoItem
                     {
@@ -380,7 +383,7 @@ namespace BoletoNetCore
                         ValorLiquido = ParseDecimal(b.Payment?.PaidValue),
                         DataLiquidacao = dataLiq,
                         DataMovimentoLiquidacao = dataLiq,
-                        DataPrevisaoCredito = dataLiq,
+                        DataPrevisaoCredito = dataCredito,
                         ValorTarifaMovimento = 0,
                     });
                 }
@@ -489,7 +492,7 @@ namespace BoletoNetCore
                 NsuDate = nsuDate,
                 CovenantCode = Beneficiario.Codigo,
                 BankNumber = boleto.NossoNumero,
-                ClientNumber = string.IsNullOrEmpty(boleto.NumeroDocumento) ? null : boleto.NumeroDocumento,
+                ClientNumber = string.IsNullOrEmpty(boleto.Id) ? null : boleto.Id,
                 DueDate = boleto.DataVencimento.ToString("yyyy-MM-dd"),
                 IssueDate = boleto.DataEmissao.ToString("yyyy-MM-dd"),
                 NominalValue = boleto.ValorTitulo.ToString("0.00").Replace(",", "."),
@@ -648,6 +651,8 @@ namespace BoletoNetCore
             public string? IofValue { get; set; }
             [JsonPropertyName("date")]
             public string? Date { get; set; }
+            [JsonPropertyName("creditDate")]
+            public string? CreditDate { get; set; }
         }
 
         private class SantanderPageablePayment
@@ -661,9 +666,9 @@ namespace BoletoNetCore
         private class SantanderPageable
         {
             [JsonPropertyName("_totalPages")]
-            public int _totalPages { get; set; }
+            public int? _totalPages { get; set; }
             [JsonPropertyName("_totalElements")]
-            public int _totalElements { get; set; }
+            public int? _totalElements { get; set; }
         }
 
         private class SantanderPaymentItem
@@ -745,19 +750,19 @@ namespace BoletoNetCore
             [JsonPropertyName("dueDate")]
             public string? DueDate { get; set; }
             [JsonPropertyName("nominalValue")]
-            public long NominalValue { get; set; }
+            public decimal NominalValue { get; set; }
             [JsonPropertyName("status")]
             public string? Status { get; set; }
             [JsonPropertyName("statusComplement")]
             public string? StatusComplement { get; set; }
             [JsonPropertyName("paidValue")]
-            public string? PaidValue { get; set; }
+            public decimal? PaidValue { get; set; }
             [JsonPropertyName("interestValue")]
-            public string? InterestValue { get; set; }
+            public decimal? InterestValue { get; set; }
             [JsonPropertyName("discountValue")]
-            public string? DiscountValue { get; set; }
+            public decimal? DiscountValue { get; set; }
             [JsonPropertyName("deductionValue")]
-            public string? DeductionValue { get; set; }
+            public decimal? DeductionValue { get; set; }
         }
     }
 }
