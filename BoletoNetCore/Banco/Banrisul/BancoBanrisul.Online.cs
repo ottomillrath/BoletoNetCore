@@ -249,7 +249,7 @@ namespace BoletoNetCore
 
         public async Task<DownloadArquivoRetornoItem[]> DownloadArquivoMovimentacao(int numeroContrato, int codigoSolicitacao, int idArquivo, DateTime inicio, DateTime fim)
         {
-            return await DownloadMovimentacaoPaginado(inicio, fim, null);
+            return await DownloadMovimentacaoPaginado(inicio, fim);
         }
 
         public Task<string> EnsureWorkspace(string descricao, string? webhookUrl = null) => throw new NotImplementedException();
@@ -259,13 +259,11 @@ namespace BoletoNetCore
             return 1;
         }
 
-        private async Task<DownloadArquivoRetornoItem[]> DownloadMovimentacaoPaginado(DateTime inicio, DateTime fim, string? proximoNossoNumero)
+        private async Task<DownloadArquivoRetornoItem[]> DownloadMovimentacaoPaginado(DateTime inicio, DateTime fim, int pagina = 1)
         {
             try
             {
-                var url = $"{BaseUrl}/boletos?situacao_titulo=L&data_liquidacao_inicial={inicio:yyyy-MM-dd}&data_liquidacao_final={fim:yyyy-MM-dd}";
-                if (proximoNossoNumero != null)
-                    url += $"&nosso_numero={proximoNossoNumero}";
+                var url = $"{BaseUrl}/boletos?situacao_titulo=B&data_baixa_inicial={inicio:yyyy-MM-dd}&data_baixa_final={fim:yyyy-MM-dd}&pagina={pagina}";
 
                 var request = await BuildRequest(HttpMethod.Get, url);
                 var response = await this.SendWithLoggingAsync(_httpClient, request, "DownloadMovimentacao");
@@ -281,29 +279,33 @@ namespace BoletoNetCore
                 var items = new List<DownloadArquivoRetornoItem>();
                 foreach (var b in result.Boletos)
                 {
-                    var dataLiq = b.Titulo?.DataPagamento != null
-                        ? DateTime.Parse(b.Titulo.DataPagamento)
+                    var dataLiq = b.Operacoes?.DataPagamento != null
+                        ? DateTime.Parse(b.Operacoes.DataPagamento)
                         : DateTime.MinValue;
-                    var dataVenc = b.Titulo?.DataVencimento != null
-                        ? DateTime.Parse(b.Titulo.DataVencimento)
+                    var dataVenc = b.DataVencimento != null
+                        ? DateTime.Parse(b.DataVencimento)
                         : DateTime.MinValue;
-                    items.Add(new DownloadArquivoRetornoItem
+                    if (b.SituacaoBanrisul == "L")
                     {
-                        NossoNumero = b.NossoNumero ?? "",
-                        SeuNumero = b.Titulo?.SeuNumero ?? "",
-                        CodigoBarras = b.Slip?.CodigoBarras ?? "",
-                        DataVencimentoTitulo = dataVenc,
-                        ValorTitulo = b.Titulo?.ValorNominal ?? 0,
-                        ValorLiquido = b.Titulo?.ValorPago ?? 0,
-                        DataLiquidacao = dataLiq,
-                        DataMovimentoLiquidacao = dataLiq,
-                        DataPrevisaoCredito = dataLiq,
-                        ValorTarifaMovimento = 0,
-                    });
+                        items.Add(new DownloadArquivoRetornoItem
+                        {
+                            NossoNumero = b.NossoNumero ?? "",
+                            SeuNumero = b.SeuNumero ?? "",
+                            CodigoBarras = b.CodigoBarras ?? "",
+                            DataVencimentoTitulo = dataVenc,
+                            ValorTitulo = b.ValorNominal,
+                            ValorLiquido = b.Operacoes?.ValorPagamento ?? 0,
+                            DataLiquidacao = dataLiq,
+                            DataMovimentoLiquidacao = dataLiq,
+                            DataPrevisaoCredito = dataLiq,
+                            ValorTarifaMovimento = 0,
+                        });
+                    }
                 }
 
-                if (result.Paginacao?.ProximoNossoNumero != null)
-                    items.AddRange(await DownloadMovimentacaoPaginado(inicio, fim, result.Paginacao.ProximoNossoNumero));
+                var pag = result.Paginacao;
+                if (pag != null && pag.PaginaAtual < pag.QuantidadeDePaginas)
+                    items.AddRange(await DownloadMovimentacaoPaginado(inicio, fim, pagina + 1));
 
                 return [.. items];
             }
@@ -469,28 +471,54 @@ namespace BoletoNetCore
         {
             [JsonPropertyName("nosso_numero")]
             public string? NossoNumero { get; set; }
-            [JsonPropertyName("situacao_banrisul")]
-            public string? SituacaoBanrisul { get; set; }
             [JsonPropertyName("titulo")]
             public BanrisulTituloResponse? Titulo { get; set; }
             [JsonPropertyName("slip")]
             public BanrisulSlipResponse? Slip { get; set; }
             [JsonPropertyName("hibrido")]
             public BanrisulHibridoResponse? Hibrido { get; set; }
+
+            public string? SituacaoBanrisul => Titulo?.SituacaoBanrisul;
         }
 
         private class BanrisulTituloResponse
         {
+            [JsonPropertyName("situacao_banrisul")]
+            public string? SituacaoBanrisul { get; set; }
             [JsonPropertyName("valor_nominal")]
+            [JsonConverter(typeof(DecimalStringConverter))]
             public decimal ValorNominal { get; set; }
-            [JsonPropertyName("valor_pago")]
-            public decimal ValorPago { get; set; }
-            [JsonPropertyName("data_pagamento")]
-            public string? DataPagamento { get; set; }
             [JsonPropertyName("data_vencimento")]
             public string? DataVencimento { get; set; }
             [JsonPropertyName("seu_numero")]
             public string? SeuNumero { get; set; }
+            [JsonPropertyName("operacoes")]
+            public BanrisulOperacoesResponse? Operacoes { get; set; }
+
+            public decimal ValorPago => Operacoes?.ValorPagamento ?? 0m;
+            public string? DataPagamento => Operacoes?.DataPagamento;
+        }
+
+        private class BanrisulOperacoesResponse
+        {
+            [JsonPropertyName("valor_pagamento")]
+            [JsonConverter(typeof(DecimalStringConverter))]
+            public decimal ValorPagamento { get; set; }
+            [JsonPropertyName("data_pagamento")]
+            public string? DataPagamento { get; set; }
+        }
+
+        private class DecimalStringConverter : JsonConverter<decimal>
+        {
+            public override decimal Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+            {
+                if (reader.TokenType == JsonTokenType.String)
+                    return decimal.Parse(reader.GetString() ?? "0", System.Globalization.CultureInfo.InvariantCulture);
+                return reader.GetDecimal();
+            }
+
+            public override void Write(Utf8JsonWriter writer, decimal value, JsonSerializerOptions options)
+                => writer.WriteNumberValue(value);
         }
 
         private class BanrisulSlipResponse
@@ -504,15 +532,36 @@ namespace BoletoNetCore
         private class BanrisulListaResponse
         {
             [JsonPropertyName("boletos")]
-            public List<BanrisulConsultaResponse>? Boletos { get; set; }
+            public List<BanrisulListaBoletoItem>? Boletos { get; set; }
             [JsonPropertyName("paginacao")]
             public BanrisulPaginacao? Paginacao { get; set; }
         }
 
+        private class BanrisulListaBoletoItem
+        {
+            [JsonPropertyName("nosso_numero")]
+            public string? NossoNumero { get; set; }
+            [JsonPropertyName("seu_numero")]
+            public string? SeuNumero { get; set; }
+            [JsonPropertyName("data_vencimento")]
+            public string? DataVencimento { get; set; }
+            [JsonPropertyName("valor_nominal")]
+            [JsonConverter(typeof(DecimalStringConverter))]
+            public decimal ValorNominal { get; set; }
+            [JsonPropertyName("codigo_barras")]
+            public string? CodigoBarras { get; set; }
+            [JsonPropertyName("situacao_banrisul")]
+            public string? SituacaoBanrisul { get; set; }
+            [JsonPropertyName("operacoes")]
+            public BanrisulOperacoesResponse? Operacoes { get; set; }
+        }
+
         private class BanrisulPaginacao
         {
-            [JsonPropertyName("proximo_nosso_numero")]
-            public string? ProximoNossoNumero { get; set; }
+            [JsonPropertyName("pagina_atual")]
+            public int PaginaAtual { get; set; }
+            [JsonPropertyName("quantidade_de_paginas")]
+            public int QuantidadeDePaginas { get; set; }
         }
 
         private class BanrisulEmitirResponse
