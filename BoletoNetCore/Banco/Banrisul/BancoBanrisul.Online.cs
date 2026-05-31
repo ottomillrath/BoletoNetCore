@@ -325,22 +325,36 @@ namespace BoletoNetCore
             return result?.Pdf ?? "";
         }
 
+        // Banrisul exige caracteres alfanuméricos, acentos PT-BR, espaço e um conjunto restrito de pontuação.
+        private static readonly System.Text.RegularExpressions.Regex BanrisulInvalidCharRegex =
+            new(@"[^A-Za-z0-9áàâãéêíóôõúüçÁÀÂÃÉÊÍÓÔÕÚÜÇ\\!#$%'()*+,./:;=?@\[\]\^_`{|}~& -]",
+                System.Text.RegularExpressions.RegexOptions.Compiled);
+
+        private static string SanitizeBanrisul(string? value, int maxLength)
+        {
+            if (string.IsNullOrEmpty(value)) return "";
+            var clean = BanrisulInvalidCharRegex.Replace(value, "");
+            clean = System.Text.RegularExpressions.Regex.Replace(clean, @"\s+", " ").Trim();
+            if (clean.Length > maxLength)
+                clean = clean.Substring(0, maxLength).Trim();
+            return clean;
+        }
+
         private object BuildRegistrarPayload(Boleto boleto)
         {
             var tipoPessoa = boleto.Pagador.CPFCNPJ.Length == 14 ? "J" : "F";
+            var complemento = SanitizeBanrisul(boleto.Pagador.Endereco.LogradouroComplemento, 15);
             var pagador = new BanrisulPagador
             {
                 TipoPessoa = tipoPessoa,
-                Nome = boleto.Pagador.Nome,
+                Nome = SanitizeBanrisul(boleto.Pagador.Nome, 40),
                 CpfCnpj = boleto.Pagador.CPFCNPJ,
                 Aceite = "N",
-                Endereco = boleto.Pagador.Endereco.LogradouroEndereco,
-                Numero = boleto.Pagador.Endereco.LogradouroNumero,
-                Complemento = string.IsNullOrEmpty(boleto.Pagador.Endereco.LogradouroComplemento)
-                    ? null
-                    : boleto.Pagador.Endereco.LogradouroComplemento,
-                Bairro = boleto.Pagador.Endereco.Bairro,
-                Cidade = boleto.Pagador.Endereco.Cidade,
+                Endereco = SanitizeBanrisul(boleto.Pagador.Endereco.LogradouroEndereco, 40),
+                Numero = SanitizeBanrisul(boleto.Pagador.Endereco.LogradouroNumero, 10),
+                Complemento = string.IsNullOrEmpty(complemento) ? null : complemento,
+                Bairro = SanitizeBanrisul(boleto.Pagador.Endereco.Bairro, 15),
+                Cidade = SanitizeBanrisul(boleto.Pagador.Endereco.Cidade, 20),
                 Uf = boleto.Pagador.Endereco.UF,
                 Cep = boleto.Pagador.Endereco.CEP,
             };
