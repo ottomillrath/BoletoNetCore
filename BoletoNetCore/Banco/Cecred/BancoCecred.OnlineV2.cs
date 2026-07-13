@@ -19,6 +19,8 @@ using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using QRCoder;
 using System.Threading;
+using System.IO;
+using System.IO.Compression;
 using System.Text;
 
 namespace BoletoNetCore
@@ -202,6 +204,7 @@ namespace BoletoNetCore
                 //urlCallBack = "https://eobd34eg5ac16vk.m.pipedream.net/token", // teste
                 urlCallback = $"https://ailos-boleto-token.zionerp.com.br/{Subdomain ?? ""}",
                 ailosApiKeyDeveloper = Homologacao ? "1f823198-096c-03d2-e063-0a29143552f3" : "1f035782-dabf-066c-e063-0a29357c870d",
+                // ailosApiKeyDeveloper = "ALGfSiV_1g4iXT6s33fUkXIfA6Ia",
                 state = Id.ToString()
             };
 
@@ -280,8 +283,46 @@ namespace BoletoNetCore
                     new KeyValuePair<string, string>("Login.Senha", login[1])
                 });
 
+                var etapa3Inicio = DateTime.UtcNow;
                 HttpResponseMessage response = await client.PostAsync(url, formData);
                 string responseBody = await response.Content.ReadAsStringAsync();
+
+                // Loga a chamada de login (esta etapa usa HttpClient cru, fora do SendWithLoggingAsync).
+                // A senha do cooperado é MASCARADA de propósito — nunca logar credencial.
+                if (HttpLoggingCallback != null)
+                {
+                    try
+                    {
+                        await HttpLoggingCallback(new HttpLogData
+                        {
+                            BancoId = this.Id,
+                            BancoNome = this.Nome,
+                            Operacao = "LoginCooperado",
+                            Request = new HttpRequestLogData
+                            {
+                                Url = url,
+                                Method = "POST",
+                                Headers = new Dictionary<string, string>(),
+                                Body = $"Login.CodigoCooperativa=14&Login.CodigoConta={login[0]}&Login.Senha=***",
+                                RequestTimestamp = etapa3Inicio,
+                            },
+                            Response = new HttpResponseLogData
+                            {
+                                StatusCode = (int)response.StatusCode,
+                                StatusMessage = response.ReasonPhrase ?? response.StatusCode.ToString(),
+                                Headers = new Dictionary<string, string>(),
+                                Body = responseBody,
+                                ResponseTimestamp = DateTime.UtcNow,
+                                ElapsedMilliseconds = (long)(DateTime.UtcNow - etapa3Inicio).TotalMilliseconds,
+                            },
+                            Sucesso = response.IsSuccessStatusCode,
+                        });
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"Etapa3: falha ao logar chamada: {ex.Message}");
+                    }
+                }
 
                 if (responseBody.Contains("Parabéns"))
                 {
@@ -289,11 +330,21 @@ namespace BoletoNetCore
                     return true;
                 }
 
-                Console.WriteLine($"Etapa3 Erro: autenticação manual");
+                // Diagnóstico: por que o login automático do cooperado não foi aceito.
+                // (não loga senha). Extrai a mensagem de erro do Ailos (div validation-summary-errors)
+                // porque o HTML tem um <head> grande e um truncamento simples esconderia o erro real.
+                string erroAilos = "";
+                var mErro = System.Text.RegularExpressions.Regex.Match(
+                    responseBody ?? "", "validation-summary-errors[^>]*>(.*?)</div>",
+                    System.Text.RegularExpressions.RegexOptions.Singleline);
+                if (mErro.Success)
+                    erroAilos = System.Text.RegularExpressions.Regex.Replace(mErro.Groups[1].Value, "<.*?>", " ").Trim();
+                Console.WriteLine($"Etapa3 Erro: autenticação manual. HTTP {(int)response.StatusCode} {response.StatusCode}. Subdomain='{Subdomain}' CodigoCooperativa=14 CodigoConta={login[0]}. Erro Ailos: '{erroAilos}'");
                 return false;
             }
-            catch
+            catch (Exception ex)
             {
+                Console.WriteLine($"Etapa3 Erro (exceção): {ex}");
                 return false;
             }
         }
@@ -784,6 +835,8 @@ namespace BoletoNetCore
             request.Headers.Add("posto", Beneficiario.ContaBancaria.DigitoAgencia);
             request.Headers.Add("Accept", "application/json");
             request.Headers.Add("data-movimento", "true");
+            // Diagnóstico do endpoint da francesinha (404 no WSO2): mostra a URL absoluta chamada
+            Console.WriteLine($"ConsultarMovimentacao URL: {new Uri(this.httpClient.BaseAddress, url)}");
             var result = await this.SendWithLoggingAsync(this.httpClient, request, "ConsultarMovimentacao");
             if (!result.IsSuccessStatusCode)
             {
@@ -935,15 +988,147 @@ namespace BoletoNetCore
             public int QuantidadePorPagina { get; set; } = 0;
         }
 
+        // Fluxo real do Ailos V2 (Manual API de Cobrança, seção 5.8), assíncrono por ticket:
+        //   POST /v1/boletos/solicitar/arquivo/retorno/convenios/{convenio}/{dataMovimento} -> { ticketLote }
+        //   GET  /v1/boletos/baixar/arquivo/retorno/convenios/{convenio}/{ticket}           -> 400 "em processamento" | 200 .zip (CNAB)
+        // O 'convenio' é o numeroContrato (código do beneficiário). codigoSolicitacao/idArquivo não se aplicam ao Ailos.
         public async Task<DownloadArquivoRetornoItem[]> DownloadArquivoMovimentacao(int numeroContrato, int codigoSolicitacao, int idArquivo, DateTime inicio, DateTime fim)
         {
             var items = new List<DownloadArquivoRetornoItem>();
-            var baseUrl = string.Format($"v2/cobranca-financeiro/movimentacoes/?codigoBeneficiario={Beneficiario?.Codigo ?? ""}&cooperativa={Beneficiario?.ContaBancaria?.Agencia ?? ""}&posto={Beneficiario?.ContaBancaria?.DigitoAgencia ?? ""}&tipoMovimento=CREDITO");
+            var host = Homologacao ? "https://apiendpointhml.ailos.coop.br" : "https://apiendpoint.ailos.coop.br";
             foreach (DateTime day in DateTimeExtensions.EachDay(inicio, fim))
             {
-                var dataLancamento = day.ToString("yyyy-MM-dd");
-                var url = $"{baseUrl}&dataLancamento={dataLancamento}";
-                items.AddRange(await downloadArquivo(url));
+                var dataMovimento = day.ToString("yyyy-MM-dd");
+                try
+                {
+                    var ticket = await SolicitarArquivoRetornoAilos(host, numeroContrato, dataMovimento);
+                    if (string.IsNullOrEmpty(ticket))
+                        continue;
+                    var zipBytes = await BaixarArquivoRetornoAilos(host, numeroContrato, ticket);
+                    if (zipBytes == null || zipBytes.Length == 0)
+                        continue;
+                    items.AddRange(ParseArquivoRetornoZipAilos(zipBytes));
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"DownloadArquivoMovimentacao Ailos erro ({dataMovimento}): {ex}");
+                }
+            }
+            return items.ToArray();
+        }
+
+        private void AddAilosAuthHeaders(HttpRequestMessage request)
+        {
+            request.Headers.Add("Authorization", $"Bearer {TokenWso2}");
+            request.Headers.Add("x-ailos-authentication", $"Bearer {Token}");
+            request.Headers.Add("cooperativa", Beneficiario?.ContaBancaria?.Agencia ?? "");
+            request.Headers.Add("posto", Beneficiario?.ContaBancaria?.DigitoAgencia ?? "");
+        }
+
+        private async Task<string?> SolicitarArquivoRetornoAilos(string host, int convenio, string dataMovimento)
+        {
+            var url = $"{host}/ailos/cobranca/api/v1/boletos/solicitar/arquivo/retorno/convenios/{convenio}/{dataMovimento}";
+            var request = new HttpRequestMessage(HttpMethod.Post, url);
+            AddAilosAuthHeaders(request);
+            request.Headers.Add("Accept", "application/json");
+            var resp = await this.SendWithLoggingAsync(this.httpClient, request, "SolicitarArquivoRetorno");
+            var body = await resp.Content.ReadAsStringAsync();
+            Console.WriteLine($"SolicitarArquivoRetorno {url} -> HTTP {(int)resp.StatusCode}: {body}");
+            // 204 (No Content) = sem arquivo de retorno para essa data
+            if (!resp.IsSuccessStatusCode || string.IsNullOrWhiteSpace(body))
+                return null;
+            try
+            {
+                var j = JObject.Parse(body);
+                // API real retorna "ticket"; o manual documenta "ticketLote" — aceita os dois.
+                return (j["ticket"] ?? j["ticketLote"])?.ToString();
+            }
+            catch { return null; }
+        }
+
+        private async Task<byte[]?> BaixarArquivoRetornoAilos(string host, int convenio, string ticket)
+        {
+            var url = $"{host}/ailos/cobranca/api/v1/boletos/baixar/arquivo/retorno/convenios/{convenio}/{ticket}";
+            for (int tentativa = 0; tentativa < 5; tentativa++)
+            {
+                var request = new HttpRequestMessage(HttpMethod.Get, url);
+                AddAilosAuthHeaders(request);
+                var resp = await this.SendWithLoggingAsync(this.httpClient, request, "BaixarArquivoRetorno");
+                if (resp.StatusCode == HttpStatusCode.OK)
+                    return await resp.Content.ReadAsByteArrayAsync();
+                // HTTP 400 = "[99] - Solicitação em processamento." -> aguarda e tenta de novo
+                var body = await resp.Content.ReadAsStringAsync();
+                Console.WriteLine($"BaixarArquivoRetorno {url} -> HTTP {(int)resp.StatusCode} (tentativa {tentativa + 1}/5): {body}");
+                await Task.Delay(3000);
+            }
+            return null;
+        }
+
+        private DownloadArquivoRetornoItem[] ParseArquivoRetornoZipAilos(byte[] zipBytes)
+        {
+            var items = new List<DownloadArquivoRetornoItem>();
+            using var zipStream = new MemoryStream(zipBytes);
+            ZipArchive zip;
+            try { zip = new ZipArchive(zipStream, ZipArchiveMode.Read); }
+            catch (Exception ex)
+            {
+                // não é zip? loga um trecho pra diagnóstico
+                var head = System.Text.Encoding.UTF8.GetString(zipBytes, 0, Math.Min(zipBytes.Length, 300));
+                Console.WriteLine($"ParseArquivoRetornoZipAilos: conteúdo não é zip ({ex.Message}). Início: {head}");
+                return items.ToArray();
+            }
+            using (zip)
+            {
+                foreach (var entry in zip.Entries)
+                {
+                    using var es = entry.Open();
+                    using var ms = new MemoryStream();
+                    es.CopyTo(ms);
+                    var bytes = ms.ToArray();
+                    var conteudo = System.Text.Encoding.UTF8.GetString(bytes);
+                    var primeiraLinha = (conteudo.Split('\n').FirstOrDefault() ?? "").TrimEnd('\r');
+                    Console.WriteLine($"ArquivoRetorno zip entry '{entry.Name}' ({bytes.Length} bytes); 1a linha (len={primeiraLinha.Length}): {primeiraLinha}");
+                    try
+                    {
+                        var tipo = primeiraLinha.Length > 250 ? TipoArquivo.CNAB400 : TipoArquivo.CNAB240;
+                        var banco = Banco.Instancia(85);
+                        banco.Beneficiario = this.Beneficiario;
+                        ms.Position = 0;
+                        var boletos = new ArquivoRetorno(banco, tipo).LerArquivoRetorno(ms);
+                        int liquidacoes = 0;
+                        foreach (var b in boletos)
+                        {
+                            // O retorno traz todas as ocorrências (02=entrada confirmada, etc.).
+                            // Só liquidação (06) vira baixa — mesma regra do ProcessarRetorno offline (Retorno.cs).
+                            if (b.CodigoMovimentoRetorno != "06")
+                                continue;
+                            liquidacoes++;
+                            // Ailos ("maldito ailos" no ProcessarRetorno): valor pago vem em ValorPago,
+                            // não em ValorPagoCredito, e não gera lançamento de tarifa separado.
+                            var dataCredito = b.DataCredito.Year > 1 ? b.DataCredito : b.DataProcessamento;
+                            items.Add(new DownloadArquivoRetornoItem
+                            {
+                                SiglaMovimento = b.CodigoMovimentoRetorno ?? string.Empty,
+                                NossoNumero = b.NossoNumero ?? string.Empty,
+                                SeuNumero = b.NumeroDocumento ?? string.Empty,
+                                ValorTitulo = b.ValorPago,
+                                ValorLiquido = b.ValorPagoCredito,
+                                ValorDesconto = b.ValorDesconto,
+                                ValorAbatimento = b.ValorAbatimento,
+                                ValorTarifaMovimento = 0m,
+                                DataLiquidacao = b.DataProcessamento,
+                                DataMovimentoLiquidacao = b.DataProcessamento,
+                                DataPrevisaoCredito = dataCredito,
+                                DataVencimentoTitulo = b.DataVencimento,
+                            });
+                        }
+                        Console.WriteLine($"ArquivoRetorno '{entry.Name}': {boletos.Count} registro(s), {liquidacoes} liquidação(ões) 06 (tipo {tipo}).");
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"Falha ao parsear CNAB de '{entry.Name}': {ex.Message}");
+                    }
+                }
             }
             return items.ToArray();
         }
