@@ -280,7 +280,8 @@ namespace BoletoNetCore
             }
             catch (ErrorException e)
             {
-                throw new Exception(e.Errors.ToString());
+                var detalhe = e.Errors?.ToString() ?? e.Message ?? e.ToString();
+                throw BoletoNetCoreException.ErroAoRegistrarTituloOnline(new Exception(detalhe, e));
             }
             catch (Exception e)
             {
