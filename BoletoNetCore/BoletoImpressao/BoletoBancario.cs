@@ -146,15 +146,88 @@ namespace BoletoNetCore
                 .Replace("@PIXSTRING", pixStr);
         }
 
-        private string GeraHtmlCarne(string telefone, string htmlBoleto)
+        /// <summary>
+        /// Monta o Html específico do formato Carnê: recibo do pagador (esquerda) e ficha de compensação (direita)
+        /// lado a lado dentro de uma moldura tracejada, com os valores auxiliares sempre exibidos (mesmo zerados)
+        /// e o QR Code do Pix embutido junto às instruções.
+        /// </summary>
+        private string MontaHtmlCarne(string urlImagemLogo, string imagemCodigoBarras, string pixStr)
         {
             var html = new StringBuilder();
+            html.Append(GetResourceHypertext("BoletoNetCore.BoletoImpressao.Parts.CarneCompleto.html"));
 
-            html.Append(GetResourceHypertext("BoletoNetCore.BoletoImpressao.Parts.Carne.html"));
+            // Dados do Pagador
+            var pagador = Boleto.Pagador.Nome;
+            switch (Boleto.Pagador.TipoCPFCNPJ("A"))
+            {
+                case "F":
+                    pagador += " - CPF: " + Utils.FormataCPF(Boleto.Pagador.CPFCNPJ);
+                    break;
+                case "J":
+                    pagador += " - CNPJ: " + Utils.FormataCNPJ(Boleto.Pagador.CPFCNPJ);
+                    break;
+            }
+            if (Boleto.Pagador.Observacoes != string.Empty)
+                pagador += " - " + Boleto.Pagador.Observacoes;
 
-            return html.ToString()
-                .Replace("@TELEFONE", telefone)
-                .Replace("#BOLETO#", htmlBoleto);
+            var enderecoPagador = string.Empty;
+            if (!OcultarEnderecoPagador)
+            {
+                enderecoPagador = Boleto.Pagador.Endereco.FormataLogradouro(0) + "<br />" + string.Format("{0} - {1}/{2}", Boleto.Pagador.Endereco.Bairro, Boleto.Pagador.Endereco.Cidade, Boleto.Pagador.Endereco.UF);
+                if (Boleto.Pagador.Endereco.CEP != string.Empty)
+                    enderecoPagador += string.Format(" - CEP: {0}", Utils.FormataCEP(Boleto.Pagador.Endereco.CEP));
+            }
+
+            var dataVencimento = Boleto.DataVencimento.ToString("dd/MM/yyyy");
+            if (MostrarContraApresentacaoNaDataVencimento)
+                dataVencimento = "Contra Apresentação";
+
+            string FormatarMoeda(decimal valor) => valor == 0 ? "" : valor.ToString("C", CultureInfo.GetCultureInfo("pt-BR"));
+            string FormatarMoedaAuxiliar(decimal valor) => (Boleto.ImprimirValoresAuxiliares == false || valor == 0) ? "" : valor.ToString("C", CultureInfo.GetCultureInfo("pt-BR"));
+
+            var pixQrCodeHtml = string.IsNullOrWhiteSpace(pixStr)
+                ? string.Empty
+                : $"<img class=\"crnPixQr\" src=\"data:image/png;base64,{pixStr}\" />";
+
+            var pixRodape = string.IsNullOrWhiteSpace(Boleto.PixEmv)
+                ? string.Empty
+                : GetResourceHypertext("BoletoNetCore.BoletoImpressao.Parts.CarnePixRodape.html").Replace("@CARNE_PIXCOPIAECOLA", Boleto.PixEmv);
+
+            return html
+                .Replace("@CODIGOBANCO", Utils.FormatCode(Boleto.Banco.Codigo.ToString(), 3))
+                .Replace("@DIGITOBANCO", Boleto.Banco.Digito.ToString())
+                .Replace("@URLIMAGEMLOGO", urlImagemLogo)
+                .Replace("@LINHADIGITAVEL", Boleto.CodigoBarra.LinhaDigitavel)
+                .Replace("@LOCALPAGAMENTO", Boleto.Banco.Beneficiario.ContaBancaria.LocalPagamento)
+                .Replace("@DATAVENCIMENTO", dataVencimento)
+                .Replace("@BENEFICIARIO", Boleto.Banco.Beneficiario.Nome)
+                .Replace("@CPFCNPJ", Utils.FormataCPFCPPJ(Boleto.Banco.Beneficiario.CPFCNPJ))
+                .Replace("@AGENCIACODIGOBENEFICIARIO", Boleto.Banco.Beneficiario.CodigoFormatado)
+                .Replace("@DATADOCUMENTO", Boleto.DataEmissao.ToString("dd/MM/yyyy"))
+                .Replace("@NUMERODOCUMENTO", Boleto.NumeroDocumento)
+                .Replace("@ESPECIEDOCUMENTO", Boleto.EspecieDocumento.ToString())
+                .Replace("@ACEITE", Boleto.Aceite)
+                .Replace("@DATAPROCESSAMENTO", Boleto.DataProcessamento.ToString("dd/MM/yyyy"))
+                .Replace("@NOSSONUMERO", Boleto.NossoNumeroFormatado)
+                .Replace("@CARTEIRA", Boleto.CarteiraImpressaoBoleto)
+                .Replace("@ESPECIE", Boleto.EspecieMoeda)
+                .Replace("@QUANTIDADE", (Boleto.QuantidadeMoeda == 0 ? "" : Boleto.QuantidadeMoeda.ToString()))
+                .Replace("@VALORDOCUMENTO", Boleto.ValorMoeda)
+                .Replace("@INSTRUCOES", Boleto.MensagemInstrucoesCaixaFormatado.Replace(Environment.NewLine, "<br/>"))
+                .Replace("@IMAGEMCODIGOBARRA", imagemCodigoBarras)
+                .Replace("@PAGADOR", pagador)
+                .Replace("@ENDERECOPAGADOR", enderecoPagador)
+                .Replace("@CARNE_VALORDOCUMENTO", FormatarMoeda(Boleto.ValorTitulo))
+                .Replace("@CARNE_DESCONTO", FormatarMoedaAuxiliar(Boleto.ValorDesconto))
+                .Replace("@CARNE_OUTRASDEDUCOES", FormatarMoedaAuxiliar(Boleto.ValorAbatimento))
+                .Replace("@CARNE_MORAMULTA", FormatarMoedaAuxiliar(Boleto.ValorMulta))
+                .Replace("@CARNE_OUTROSACRESCIMOS", FormatarMoedaAuxiliar(Boleto.ValorOutrasDespesas))
+                .Replace("@CARNE_VALORCOBRADO", FormatarMoedaAuxiliar(Boleto.ValorPago))
+                .Replace("@CARNE_PAGADORNOME", Boleto.Pagador.Nome)
+                .Replace("@CARNE_PAGADORDOC", Utils.FormataCPFCPPJ(Boleto.Pagador.CPFCNPJ))
+                .Replace("@CARNE_PIXQRCODEHTML", pixQrCodeHtml)
+                .Replace("@CARNE_PIXRODAPE", pixRodape)
+                .ToString();
         }
 
         public string GeraHtmlReciboPagador()
@@ -237,6 +310,9 @@ namespace BoletoNetCore
 
         private string MontaHtml(string urlImagemLogo, string urlImagemBarra, string imagemCodigoBarras, string pixStr = null)
         {
+            if (FormatoCarne)
+                return MontaHtmlCarne(urlImagemLogo, imagemCodigoBarras, pixStr);
+
             var html = new StringBuilder();
             var enderecoBeneficiario = "";
             var enderecoBeneficiarioCompacto = "";
@@ -292,38 +368,35 @@ namespace BoletoNetCore
                 html = html.Replace("@ITENSDEMONSTRATIVO", grupoDemonstrativo.ToString());
             }
 
-            if (!FormatoCarne)
+            //Mostra o comprovante de entrega
+            if (MostrarComprovanteEntrega | MostrarComprovanteEntregaLivre)
             {
-                //Mostra o comprovante de entrega
-                if (MostrarComprovanteEntrega | MostrarComprovanteEntregaLivre)
+                html.Append(HtmlComprovanteEntrega);
+                //Html da linha pontilhada
+                if (OcultarReciboPagador)
+                    html.Append(GetResourceHypertext("BoletoNetCore.BoletoImpressao.Parts.ReciboPagadorParte8.html"));
+            }
+
+            //Oculta o recibo do sacabo do boleto
+            if (!OcultarReciboPagador)
+            {
+                html.Append(GeraHtmlReciboPagador());
+
+                //Caso mostre o Endereço do Beneficiário
+                if (MostrarEnderecoBeneficiario)
                 {
-                    html.Append(HtmlComprovanteEntrega);
-                    //Html da linha pontilhada
-                    if (OcultarReciboPagador)
-                        html.Append(GetResourceHypertext("BoletoNetCore.BoletoImpressao.Parts.ReciboPagadorParte8.html"));
-                }
+                    if (Boleto.Banco.Beneficiario.Endereco == null)
+                        throw new ArgumentNullException("Endereço do Beneficiário");
 
-                //Oculta o recibo do sacabo do boleto
-                if (!OcultarReciboPagador)
-                {
-                    html.Append(GeraHtmlReciboPagador());
-
-                    //Caso mostre o Endereço do Beneficiário
-                    if (MostrarEnderecoBeneficiario)
-                    {
-                        if (Boleto.Banco.Beneficiario.Endereco == null)
-                            throw new ArgumentNullException("Endereço do Beneficiário");
-
-                        enderecoBeneficiario = string.Format("{0} - {1} - {2}/{3} - CEP: {4}",
-                                                            Boleto.Banco.Beneficiario.Endereco.FormataLogradouro(0),
-                                                            Boleto.Banco.Beneficiario.Endereco.Bairro,
-                                                            Boleto.Banco.Beneficiario.Endereco.Cidade,
-                                                            Boleto.Banco.Beneficiario.Endereco.UF,
-                                                            Utils.FormataCEP(Boleto.Banco.Beneficiario.Endereco.CEP));
-                        enderecoBeneficiarioCompacto = string.Format("{0} - CEP: {1}",
-                                                            Boleto.Banco.Beneficiario.Endereco.FormataLogradouro(25),
-                                                            Utils.FormataCEP(Boleto.Banco.Beneficiario.Endereco.CEP));
-                    }
+                    enderecoBeneficiario = string.Format("{0} - {1} - {2}/{3} - CEP: {4}",
+                                                        Boleto.Banco.Beneficiario.Endereco.FormataLogradouro(0),
+                                                        Boleto.Banco.Beneficiario.Endereco.Bairro,
+                                                        Boleto.Banco.Beneficiario.Endereco.Cidade,
+                                                        Boleto.Banco.Beneficiario.Endereco.UF,
+                                                        Utils.FormataCEP(Boleto.Banco.Beneficiario.Endereco.CEP));
+                    enderecoBeneficiarioCompacto = string.Format("{0} - CEP: {1}",
+                                                        Boleto.Banco.Beneficiario.Endereco.FormataLogradouro(25),
+                                                        Utils.FormataCEP(Boleto.Banco.Beneficiario.Endereco.CEP));
                 }
             }
 
@@ -368,12 +441,7 @@ namespace BoletoNetCore
             }
 
 
-            if (!FormatoCarne)
-                html.Append(GeraHtmlReciboBeneficiario(pixStr));
-            else
-            {
-                html.Append(GeraHtmlCarne("", GeraHtmlReciboBeneficiario(pixStr)));
-            }
+            html.Append(GeraHtmlReciboBeneficiario(pixStr));
 
             var dataVencimento = Boleto.DataVencimento.ToString("dd/MM/yyyy");
 

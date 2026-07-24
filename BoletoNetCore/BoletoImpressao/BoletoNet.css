@@ -25,6 +25,11 @@ img {
     color: #000000;
 }
 
+.cnrCp {
+	font: bold 9px arial;
+	color: black;
+}
+
 .ti {
 	font: 9px arial, helvetica, sans-serif;
 }
@@ -37,6 +42,11 @@ img {
 .ct {
     font: 9px "arial narrow";
     color: #000000;
+}
+
+.cnrCt {
+	font: 8px "arial narrow";
+	color: #000000;
 }
 
 .cn {
@@ -80,7 +90,7 @@ img {
 	vertical-align: bottom;
 }
 
-.ct td, .cp td {
+.ct td, .cp td, .cnrCt td, .cnrCp td {
     padding-left: 3px;
     border-left: solid 1px #000;
     padding-right: 3px;
@@ -92,11 +102,20 @@ img {
     color: #000000;
 }
 
+.cnrCpN {
+	font: bold 8px arial;
+	color: black;
+}
+
 .ctN {
     font: 9px "arial narrow";
     color: #000000;
 }
 
+.cnrPixText {
+    font: 5px "arial narrow";
+    color: #000000;
+}
 .pL0 {
 	padding-left: 0px;
 }
@@ -107,6 +126,10 @@ img {
 
 .pL10 {
 	padding-left: 10px;
+}
+
+.pR6 {
+	padding-right: 6px;
 }
 
 .imgLogo {
@@ -171,6 +194,10 @@ img {
 
 .h12 {
 	height: 12px;
+}
+
+.h11 {
+	height: 11px;
 }
 
 .h13 td {
@@ -376,10 +403,22 @@ img {
 	height: 13px;
 }
 
+.rc6 .cnrT {
+	font: 8px "arial narrow";
+	color: #000033;
+	height: 11px;
+}
+
 .rc6 .c {
 	font: bold 10px arial;
 	color: black;
 	height: 12px;
+}
+
+.rc6 .cnrC {
+	font: bold 9px arial;
+	color: black;
+	height: 11px;
 }
 
 .mt23 {
@@ -395,4 +434,50 @@ img {
 	height: 440px;
 	border-right: dotted 1px #000000;
 	margin-right: 4px;
+}
+
+.crnBox {
+	margin: 8px 0;
+}
+
+.crnCol {
+	vertical-align: top;
+}
+
+.crnDivider {
+	width: 1px;
+	border-left: 1px dashed #000;
+}
+
+.crnLogo {
+	max-width: 92px;
+	max-height: 20px;
+}
+
+.crnCode {
+	font: bold 12px arial;
+}
+
+.crnPixQr {
+	float: right;
+	width: 100px;
+	height: 100px;
+	margin: 0 3px 0px 3px;
+	padding: 2px 0;
+}
+
+.crnCutLine {
+	width: 100%;
+	height: 1px;
+	border-top: dashed 1px #000;
+	margin-top: 6px;
+	margin-bottom: 6px;
+}
+
+.crnTopBorder {
+	border-top: solid 1px #000;
+}
+
+.crnHeadBorder {
+	border-bottom: solid 1px #000;
 }
