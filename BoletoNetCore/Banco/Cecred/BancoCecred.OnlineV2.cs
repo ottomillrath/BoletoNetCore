@@ -1106,12 +1106,32 @@ namespace BoletoNetCore
                             // Ailos ("maldito ailos" no ProcessarRetorno): valor pago vem em ValorPago,
                             // não em ValorPagoCredito, e não gera lançamento de tarifa separado.
                             var dataCredito = b.DataCredito.Year > 1 ? b.DataCredito : b.DataProcessamento;
+                            // Contrato do DownloadArquivoRetornoItem (ver Sicoob V2): ValorTitulo é o
+                            // valor NOMINAL e ValorMora o acréscimo (juros+multa). O consumidor soma os
+                            // dois pra obter o pago e manda a mora como InterestValue pro financeiro —
+                            // sem isso o financeiro recusa a baixa ("valor maior que o pendente").
+                            var valorNominal = b.ValorTitulo;
+                            var valorMora = b.ValorJurosDia + b.ValorOutrosCreditos;
+                            if (valorNominal > 0m)
+                            {
+                                // O nominal (segmento T) é confiável; a mora vem do próprio delta pra
+                                // garantir que nominal + mora == valor pago, mesmo quando o Ailos não
+                                // preenche juros/multa no segmento U.
+                                var delta = b.ValorPago - valorNominal;
+                                valorMora = delta > 0m ? delta : 0m;
+                            }
+                            else
+                            {
+                                // sem segmento T: reconstitui o nominal a partir do pago
+                                valorNominal = b.ValorPago - valorMora;
+                            }
                             items.Add(new DownloadArquivoRetornoItem
                             {
                                 SiglaMovimento = b.CodigoMovimentoRetorno ?? string.Empty,
                                 NossoNumero = b.NossoNumero ?? string.Empty,
                                 SeuNumero = b.NumeroDocumento ?? string.Empty,
-                                ValorTitulo = b.ValorPago,
+                                ValorTitulo = valorNominal,
+                                ValorMora = valorMora,
                                 ValorLiquido = b.ValorPagoCredito,
                                 ValorDesconto = b.ValorDesconto,
                                 ValorAbatimento = b.ValorAbatimento,
