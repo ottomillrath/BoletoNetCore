@@ -34,6 +34,10 @@ img {
 	font: 9px arial, helvetica, sans-serif;
 }
 
+.f18 {
+	font: bold 18px arial !important;
+}
+
 .ld {
 	font: bold 15px arial;
 	color: #000000;
