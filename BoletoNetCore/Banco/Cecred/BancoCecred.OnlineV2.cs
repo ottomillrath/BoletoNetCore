@@ -139,7 +139,11 @@ namespace BoletoNetCore
                 this.TokenWso2 = tokenCache.GetToken($"{Id}-WSO2"); // token da primeira etapa da autenticação
             }
 
-            if (this.Token != null)
+            // Os dois tokens vivem 55min mas expiram em momentos diferentes (o do cooperado
+            // conta do webhook, o do WSO2 da etapa 1). Quando só o do WSO2 vence, as chamadas
+            // saem com um Bearer expirado e o gateway devolve 401 "Invalid Credentials" — e
+            // esse caso se resolve sozinho na etapa 1 (client_credentials), sem login manual.
+            if (this.Token != null && !string.IsNullOrEmpty(this.TokenWso2))
             {
                 return this.Token;
             }
@@ -187,6 +191,7 @@ namespace BoletoNetCore
 
                 using TokenCache tokenCache = new();
                 tokenCache.AddOrUpdateToken($"{Id}-WSO2", accessToken, DateTime.Now.AddMinutes(55));
+                this.TokenWso2 = accessToken;
             }
             catch (Exception ex)
             {
@@ -196,6 +201,15 @@ namespace BoletoNetCore
                 Console.WriteLine($"Erro ao gerar token ailos [1]: {ex.Message}");
                 throw BoletoNetCoreException.ErroAoRegistrarTituloOnline(new Exception("Não foi possível efetuar o login do cooperado!"));
             }
+
+            // Só o token do WSO2 tinha vencido: o login do cooperado segue valendo, então para
+            // aqui em vez de mandar o usuário fazer login de novo.
+            if (this.Token != null)
+            {
+                Console.WriteLine("Token do WSO2 renovado; login do cooperado ainda válido.");
+                return this.Token;
+            }
+
             // ETAPA 2: token jwt
             request = new HttpRequestMessage(HttpMethod.Post, authUrlJwt);
 
@@ -988,6 +1002,13 @@ namespace BoletoNetCore
             public int QuantidadePorPagina { get; set; } = 0;
         }
 
+        // O Ailos recusa novas solicitações de geração de arquivo depois de 100 ("[1001] - Limite
+        // máximo de 100 solicitações para geração de arquivo atingido"), e a conciliação faz uma
+        // por dia do período. Para com folga antes disso, já que o contador é do lado do banco e
+        // outras execuções no mesmo dia também consomem a cota.
+        private const int LimiteSolicitacoesAilos = 100;
+        private const int MaxSolicitacoesArquivoRetorno = 90;
+
         // Fluxo real do Ailos V2 (Manual API de Cobrança, seção 5.8), assíncrono por ticket:
         //   POST /v1/boletos/solicitar/arquivo/retorno/convenios/{convenio}/{dataMovimento} -> { ticketLote }
         //   GET  /v1/boletos/baixar/arquivo/retorno/convenios/{convenio}/{ticket}           -> 400 "em processamento" | 200 .zip (CNAB)
@@ -996,18 +1017,44 @@ namespace BoletoNetCore
         {
             var items = new List<DownloadArquivoRetornoItem>();
             var host = Homologacao ? "https://apiendpointhml.ailos.coop.br" : "https://apiendpoint.ailos.coop.br";
+            var solicitacoes = 0;
             foreach (DateTime day in DateTimeExtensions.EachDay(inicio, fim))
             {
                 var dataMovimento = day.ToString("yyyy-MM-dd");
+                // Fim de semana não tem arquivo de retorno e a solicitação vazia (204) consome
+                // cota igual: nos arquivos de produção de jul/2025 os 13 dias úteis vieram com
+                // arquivo e os 6 sábados/domingos vieram 204.
+                if (day.DayOfWeek == DayOfWeek.Saturday || day.DayOfWeek == DayOfWeek.Sunday)
+                    continue;
+                if (solicitacoes >= MaxSolicitacoesArquivoRetorno)
+                {
+                    Console.WriteLine($"DownloadArquivoMovimentacao Ailos: {solicitacoes} solicitações nesta execução (limite do Ailos é {LimiteSolicitacoesAilos}). Período de {dataMovimento} a {fim:yyyy-MM-dd} NÃO foi processado — rode a baixa novamente para continuar.");
+                    break;
+                }
                 try
                 {
-                    var ticket = await SolicitarArquivoRetornoAilos(host, numeroContrato, dataMovimento);
+                    solicitacoes++;
+                    var (ticket, limiteAtingido) = await SolicitarArquivoRetornoAilos(host, numeroContrato, dataMovimento);
+                    if (limiteAtingido)
+                    {
+                        // "[1001] - Limite máximo de 100 solicitações para geração de arquivo
+                        // atingido." Insistir nos dias seguintes só gera o mesmo erro.
+                        Console.WriteLine($"DownloadArquivoMovimentacao Ailos: limite de solicitações do Ailos atingido em {dataMovimento}. Período de {dataMovimento} a {fim:yyyy-MM-dd} NÃO foi processado — tente novamente mais tarde.");
+                        break;
+                    }
                     if (string.IsNullOrEmpty(ticket))
                         continue;
                     var zipBytes = await BaixarArquivoRetornoAilos(host, numeroContrato, ticket);
                     if (zipBytes == null || zipBytes.Length == 0)
                         continue;
                     items.AddRange(ParseArquivoRetornoZipAilos(zipBytes));
+                }
+                catch (TokenNotFoundException)
+                {
+                    // Login do cooperado venceu: varrer o resto do período só repetiria a
+                    // autenticação em cada dia. Devolve pro chamador mostrar a tela de login.
+                    Console.WriteLine($"DownloadArquivoMovimentacao Ailos: login do cooperado expirado em {dataMovimento}; interrompendo o período.");
+                    throw;
                 }
                 catch (Exception ex)
                 {
@@ -1025,25 +1072,64 @@ namespace BoletoNetCore
             request.Headers.Add("posto", Beneficiario?.ContaBancaria?.DigitoAgencia ?? "");
         }
 
-        private async Task<string?> SolicitarArquivoRetornoAilos(string host, int convenio, string dataMovimento)
+        /// <summary>
+        /// O token do WSO2 vale 55min e a conciliação varre um dia por requisição — num período
+        /// longo o loop passa disso e o gateway começa a devolver 401 "Invalid Credentials".
+        /// Renova (etapa 1, client_credentials) e devolve true se conseguiu um token novo.
+        /// </summary>
+        private async Task<bool> RenovarTokenWso2()
+        {
+            var anterior = this.TokenWso2;
+            using (TokenCache tokenCache = new())
+                tokenCache.RemoveToken($"{Id}-WSO2");
+            this.TokenWso2 = string.Empty;
+            await GerarToken();
+            var renovou = !string.IsNullOrEmpty(this.TokenWso2) && this.TokenWso2 != anterior;
+            Console.WriteLine($"RenovarTokenWso2: {(renovou ? "token renovado" : "não foi possível renovar")}");
+            return renovou;
+        }
+
+        private async Task<(string? Ticket, bool LimiteAtingido)> SolicitarArquivoRetornoAilos(string host, int convenio, string dataMovimento)
         {
             var url = $"{host}/ailos/cobranca/api/v1/boletos/solicitar/arquivo/retorno/convenios/{convenio}/{dataMovimento}";
-            var request = new HttpRequestMessage(HttpMethod.Post, url);
-            AddAilosAuthHeaders(request);
-            request.Headers.Add("Accept", "application/json");
-            var resp = await this.SendWithLoggingAsync(this.httpClient, request, "SolicitarArquivoRetorno");
+            var resp = await EnviarComRenovacaoDeToken(() =>
+            {
+                var request = new HttpRequestMessage(HttpMethod.Post, url);
+                AddAilosAuthHeaders(request);
+                request.Headers.Add("Accept", "application/json");
+                return request;
+            }, "SolicitarArquivoRetorno");
             var body = await resp.Content.ReadAsStringAsync();
             Console.WriteLine($"SolicitarArquivoRetorno {url} -> HTTP {(int)resp.StatusCode}: {body}");
             // 204 (No Content) = sem arquivo de retorno para essa data
             if (!resp.IsSuccessStatusCode || string.IsNullOrWhiteSpace(body))
-                return null;
+            {
+                var limiteAtingido = body != null
+                    && (body.Contains("\"1001\"") || body.Contains("Limite máximo de 100 solicita"));
+                return (null, limiteAtingido);
+            }
             try
             {
                 var j = JObject.Parse(body);
                 // API real retorna "ticket"; o manual documenta "ticketLote" — aceita os dois.
-                return (j["ticket"] ?? j["ticketLote"])?.ToString();
+                return ((j["ticket"] ?? j["ticketLote"])?.ToString(), false);
             }
-            catch { return null; }
+            catch { return (null, false); }
+        }
+
+        /// <summary>
+        /// Envia a requisição e, se o gateway responder 401, renova o token do WSO2 e repete
+        /// uma vez. A fábrica é necessária porque HttpRequestMessage não pode ser reenviado.
+        /// </summary>
+        private async Task<HttpResponseMessage> EnviarComRenovacaoDeToken(Func<HttpRequestMessage> criarRequest, string nomeLog)
+        {
+            var resp = await this.SendWithLoggingAsync(this.httpClient, criarRequest(), nomeLog);
+            if (resp.StatusCode != HttpStatusCode.Unauthorized)
+                return resp;
+            Console.WriteLine($"{nomeLog}: HTTP 401 do gateway; renovando token do WSO2 e repetindo.");
+            if (!await RenovarTokenWso2())
+                return resp;
+            return await this.SendWithLoggingAsync(this.httpClient, criarRequest(), nomeLog);
         }
 
         private async Task<byte[]?> BaixarArquivoRetornoAilos(string host, int convenio, string ticket)
@@ -1051,9 +1137,12 @@ namespace BoletoNetCore
             var url = $"{host}/ailos/cobranca/api/v1/boletos/baixar/arquivo/retorno/convenios/{convenio}/{ticket}";
             for (int tentativa = 0; tentativa < 5; tentativa++)
             {
-                var request = new HttpRequestMessage(HttpMethod.Get, url);
-                AddAilosAuthHeaders(request);
-                var resp = await this.SendWithLoggingAsync(this.httpClient, request, "BaixarArquivoRetorno");
+                var resp = await EnviarComRenovacaoDeToken(() =>
+                {
+                    var request = new HttpRequestMessage(HttpMethod.Get, url);
+                    AddAilosAuthHeaders(request);
+                    return request;
+                }, "BaixarArquivoRetorno");
                 if (resp.StatusCode == HttpStatusCode.OK)
                     return await resp.Content.ReadAsByteArrayAsync();
                 // HTTP 400 = "[99] - Solicitação em processamento." -> aguarda e tenta de novo
