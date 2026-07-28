@@ -1125,11 +1125,21 @@ namespace BoletoNetCore
                                 // sem segmento T: reconstitui o nominal a partir do pago
                                 valorNominal = b.ValorPago - valorMora;
                             }
+                            // O "seu número" do segmento T é alfanumérico de 15 posições alinhado à
+                            // esquerda e completado com espaços — sem o Trim ia pro banco como
+                            // "1234567        " e nenhuma comparação/conversão numérica funcionava.
+                            // No registro V2 esse campo é o numeroDocumento (= Id do título no ERP),
+                            // então também serve de NumeroTitulo.
+                            var seuNumero = (b.NumeroDocumento ?? string.Empty).Trim();
                             items.Add(new DownloadArquivoRetornoItem
                             {
                                 SiglaMovimento = b.CodigoMovimentoRetorno ?? string.Empty,
-                                NossoNumero = b.NossoNumero ?? string.Empty,
-                                SeuNumero = b.NumeroDocumento ?? string.Empty,
+                                NossoNumero = (b.NossoNumero ?? string.Empty).Trim(),
+                                SeuNumero = seuNumero,
+                                NumeroTitulo = long.TryParse(seuNumero, out var numeroTitulo) ? numeroTitulo : 0,
+                                // O CNAB de retorno não traz o código de barras; quem consome
+                                // completa com o do registro (Titulo.CodigoDeBarras).
+                                CodigoBarras = string.Empty,
                                 ValorTitulo = valorNominal,
                                 ValorMora = valorMora,
                                 ValorLiquido = b.ValorPagoCredito,
