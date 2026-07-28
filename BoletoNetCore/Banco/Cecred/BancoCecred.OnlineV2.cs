@@ -1125,21 +1125,46 @@ namespace BoletoNetCore
                                 // sem segmento T: reconstitui o nominal a partir do pago
                                 valorNominal = b.ValorPago - valorMora;
                             }
-                            // O "seu número" do segmento T é alfanumérico de 15 posições alinhado à
-                            // esquerda e completado com espaços — sem o Trim ia pro banco como
-                            // "1234567        " e nenhuma comparação/conversão numérica funcionava.
-                            // No registro V2 esse campo é o numeroDocumento (= Id do título no ERP),
-                            // então também serve de NumeroTitulo.
-                            var seuNumero = (b.NumeroDocumento ?? string.Empty).Trim();
+                            // Seu número: são dois campos do segmento T do CNAB240 (posições 1-based,
+                            // lidas em BancoCecred.CNAB240.LerDetalheRetornoCNAB240SegmentoT):
+                            //   59-73  (Substring(58,15))  nº do documento de cobrança -> NumeroDocumento
+                            //   106-130 (Substring(105,25)) identificação do título na empresa
+                            //                               (uso da empresa) -> NumeroControleParticipante
+                            // Conferido contra arquivos de produção (186 liquidações, jul/2025): o Ailos
+                            // NÃO devolve o seu número. O campo 59-73 vem sempre com a descrição do
+                            // documento alinhada à direita com zeros ("000000000Boleto", o
+                            // descricaoDocumento fixo enviado no registro) e o 106-130 vem em branco.
+                            // Então: usa o que for numérico se algum dia vier, senão o nosso número —
+                            // único identificador do arquivo, e o que mantém o item rastreável quando
+                            // não há vínculo com título.
+                            var nossoNumero = (b.NossoNumero ?? string.Empty).Trim();
+                            var usoEmpresa = (b.NumeroControleParticipante ?? string.Empty).Trim().TrimStart('0');
+                            var documento = (b.NumeroDocumento ?? string.Empty).Trim().TrimStart('0');
+                            var seuNumero = string.Empty;
+                            long numeroTitulo = 0;
+                            if (long.TryParse(usoEmpresa, out var idUsoEmpresa) && idUsoEmpresa > 0)
+                            {
+                                seuNumero = usoEmpresa;
+                                numeroTitulo = idUsoEmpresa;
+                            }
+                            else if (long.TryParse(documento, out var idDocumento) && idDocumento > 0)
+                            {
+                                seuNumero = documento;
+                                numeroTitulo = idDocumento;
+                            }
+                            else
+                            {
+                                seuNumero = nossoNumero;
+                            }
+                            var codigoBarras = MontarCodigoBarrasRetornoAilos(nossoNumero, b.Carteira, b.DataVencimento, valorNominal);
+                            Console.WriteLine($"ArquivoRetorno liquidação: nossoNumero='{nossoNumero}' carteira='{b.Carteira}' documento(59-73)='{b.NumeroDocumento}' usoEmpresa(106-130)='{b.NumeroControleParticipante}' seuNumero='{seuNumero}' codigoBarras='{codigoBarras}'");
                             items.Add(new DownloadArquivoRetornoItem
                             {
                                 SiglaMovimento = b.CodigoMovimentoRetorno ?? string.Empty,
-                                NossoNumero = (b.NossoNumero ?? string.Empty).Trim(),
+                                NossoNumero = nossoNumero,
                                 SeuNumero = seuNumero,
-                                NumeroTitulo = long.TryParse(seuNumero, out var numeroTitulo) ? numeroTitulo : 0,
-                                // O CNAB de retorno não traz o código de barras; quem consome
-                                // completa com o do registro (Titulo.CodigoDeBarras).
-                                CodigoBarras = string.Empty,
+                                NumeroTitulo = numeroTitulo,
+                                CodigoBarras = codigoBarras,
                                 ValorTitulo = valorNominal,
                                 ValorMora = valorMora,
                                 ValorLiquido = b.ValorPagoCredito,
@@ -1161,6 +1186,57 @@ namespace BoletoNetCore
                 }
             }
             return items.ToArray();
+        }
+
+        /// <summary>
+        /// O CNAB de retorno não traz o código de barras, mas traz tudo que ele precisa. Monta a
+        /// partir do registro (segmento T) + dados da conta:
+        ///   01-03 banco (085), 04 moeda (9), 05 DV, 06-09 fator de vencimento, 10-19 valor,
+        ///   20-44 campo livre = beneficiário (6) + conta com dígito (8) + nosso número (9) + carteira (2)
+        /// Composição do campo livre conferida contra os 9 vetores de homologação do Ailos
+        /// (BancoCecredCarteira1Tests.Cecred_1_BoletoOK).
+        /// </summary>
+        private string MontarCodigoBarrasRetornoAilos(string nossoNumero, string carteira, DateTime dataVencimento, decimal valorNominal)
+        {
+            try
+            {
+                var contaBancaria = Beneficiario?.ContaBancaria;
+                if (contaBancaria == null || dataVencimento.Year <= 1 || valorNominal <= 0m)
+                    return string.Empty;
+
+                var codigoBeneficiario = new string((Beneficiario.Codigo ?? string.Empty).Where(char.IsDigit).ToArray());
+                var contaComDigito = new string(((contaBancaria.Conta ?? string.Empty) + (contaBancaria.DigitoConta ?? string.Empty)).Where(char.IsDigit).ToArray());
+                // O nosso número no arquivo vem com a conta na frente (conta+dígito+sequencial) e/ou
+                // zeros à esquerda; o campo livre usa só as 9 posições do sequencial.
+                var sequencial = new string((nossoNumero ?? string.Empty).Where(char.IsDigit).ToArray());
+                if (sequencial.Length > 9)
+                    sequencial = sequencial.Substring(sequencial.Length - 9);
+                var carteiraDigitos = new string((carteira ?? string.Empty).Where(char.IsDigit).ToArray());
+
+                if (codigoBeneficiario.Length == 0 || contaComDigito.Length == 0 || sequencial.Length == 0 || carteiraDigitos.Length == 0)
+                    return string.Empty;
+
+                var campoLivre = codigoBeneficiario.PadLeft(6, '0')
+                    + contaComDigito.PadLeft(8, '0')
+                    + sequencial.PadLeft(9, '0')
+                    + carteiraDigitos.PadLeft(2, '0');
+                if (campoLivre.Length != 25)
+                    return string.Empty;
+
+                return new CodigoBarra
+                {
+                    CodigoBanco = "085",
+                    Moeda = 9,
+                    FatorVencimento = dataVencimento.FatorVencimento(),
+                    ValorDocumento = valorNominal.ToString("N2").Replace(",", "").Replace(".", "").PadLeft(10, '0'),
+                    CampoLivre = campoLivre,
+                }.CodigoDeBarras;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"MontarCodigoBarrasRetornoAilos falhou (nossoNumero={nossoNumero}): {ex.Message}");
+                return string.Empty;
+            }
         }
 
         public void FormataBeneficiario()
