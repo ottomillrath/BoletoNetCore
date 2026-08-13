@@ -162,6 +162,15 @@ namespace BoletoNetCore
             };
         }
 
+        /// <summary>
+        /// O Sicoob recusa datas com ano anterior a 1900 (mensagem 5002). Títulos sem juros/multa gravam
+        /// DataJuros/DataMulta zeradas, e o round-trip pelo banco de dados devolve 0001-01-01T03:00Z
+        /// (DateTime.MinValue convertido de horário local), que não é mais igual a DateTime.MinValue.
+        /// Quando a data de início da cobrança vem degenerada, a cobrança vale a partir do vencimento.
+        /// </summary>
+        public static DateTime AjustaDataCobrancaSicoob(DateTime dataCobranca, DateTime dataVencimento)
+            => dataCobranca.Year < 1900 ? dataVencimento : dataCobranca;
+
         public static int AjustaTipoImpressaoBoletoSicoob(TipoImpressaoBoleto tipo)
         {
             return tipo switch
@@ -233,10 +242,10 @@ namespace BoletoNetCore
                 CodigoCadastrarPIX = boleto.Banco.Beneficiario.ContaBancaria.PixHabilitado ? TipoCadastroPix.ComPix : TipoCadastroPix.SemPix,
                 // NumeroContratoCobranca = ,
             };
-            if (boleto.DataMulta > DateTime.MinValue)
-                emissao.DataMulta = boleto.DataMulta;
-            if (boleto.DataJuros > DateTime.MinValue)
-                emissao.DataJurosMora = boleto.DataJuros;
+            if (boleto.TipoCodigoMulta == TipoCodigoMulta.Valor || boleto.TipoCodigoMulta == TipoCodigoMulta.Percentual)
+                emissao.DataMulta = AjustaDataCobrancaSicoob(boleto.DataMulta, boleto.DataVencimento);
+            if (boleto.TipoJuros != TipoJuros.Isento)
+                emissao.DataJurosMora = AjustaDataCobrancaSicoob(boleto.DataJuros, boleto.DataVencimento);
             if (boleto.MensagemInstrucoesCaixa != "")
                 emissao.MensagensInstrucao = new MensagensInstrucaoSicoobApi()
                 {
