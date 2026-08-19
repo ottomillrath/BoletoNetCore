@@ -1,4 +1,4 @@
-using BoletoNetCore.Enums;
+﻿using BoletoNetCore.Enums;
 using BoletoNetCore.Exceptions;
 using BoletoNetCore.Util;
 using Microsoft.AspNetCore.WebUtilities;
@@ -323,10 +323,10 @@ namespace BoletoNetCore
             if (!string.IsNullOrEmpty(boleto.PixEmv))
             {
                 using (QRCodeGenerator qrGenerator = new QRCodeGenerator())
-                using (QRCodeData qrCodeData = qrGenerator.CreateQrCode(br.Resultado.QrCode, QRCodeGenerator.ECCLevel.H))
+                using (QRCodeData qrCodeData = qrGenerator.CreateQrCode(br.Resultado.QrCode, QRCodeGenerator.ECCLevel.M))
                 using (Base64QRCode qrCode = new Base64QRCode(qrCodeData))
                 {
-                    boleto.PixQrCode = qrCode.GetGraphic(1);
+                    boleto.PixQrCode = qrCode.GetGraphic(Utils.QrCodePixelsPorModulo);
                 }
             }
             boleto.PdfBase64 = br.Resultado?.PdfBoleto;

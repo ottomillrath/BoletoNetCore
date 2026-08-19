@@ -1,4 +1,4 @@
-#nullable enable
+﻿#nullable enable
 
 using System;
 using System.Collections;
@@ -222,10 +222,10 @@ namespace BoletoNetCore
             if (!string.IsNullOrEmpty(boleto.PixEmv))
             {
                 using (QRCodeGenerator qrGenerator = new())
-                using (QRCodeData qrCodeData = qrGenerator.CreateQrCode(boletoEmitido.QrCode, QRCodeGenerator.ECCLevel.H))
+                using (QRCodeData qrCodeData = qrGenerator.CreateQrCode(boletoEmitido.QrCode, QRCodeGenerator.ECCLevel.M))
                 using (Base64QRCode qrCode = new(qrCodeData))
                 {
-                    boleto.PixQrCode = qrCode.GetGraphic(1);
+                    boleto.PixQrCode = qrCode.GetGraphic(Utils.QrCodePixelsPorModulo);
                 }
             }
             boleto.PixTxId = boletoEmitido.TxId;

@@ -1,4 +1,4 @@
-using SkiaSharp;
+﻿using SkiaSharp;
 using System;
 using System.Collections;
 using System.Globalization;
@@ -10,6 +10,17 @@ namespace BoletoNetCore
 {
     public static class Utils
     {
+        /// <summary>
+        /// Pixels por módulo do QR Code do PIX no boleto.
+        ///
+        /// O template de impressão exibe a imagem com width=120px. Gerando 1 pixel por
+        /// módulo, um EMV de bolepix (~190 caracteres) sai com 81x81 px e é ampliado 1,48x:
+        /// escala fracionária de ampliação interpola e borra a borda de cada módulo, gerando
+        /// QR que o app do banco lê errado ou não lê (#868kp8rd4). Gerando maior, a exibição
+        /// apenas reduz, o que mantém os módulos definidos.
+        /// </summary>
+        public const int QrCodePixelsPorModulo = 4;
+
         internal static string FormatCode(string text, int length) => text.PadLeft(length, '0');
 
         internal static bool ToBool(object value)
