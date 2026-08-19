@@ -457,6 +457,11 @@ namespace BoletoNetCore
                         NumeroTitulo = 0,
                         ValorTitulo = decimalFromString(item.ValorTitulo),
                         ValorLiquido = decimalFromString(item.ValorLiquidoLancado),
+                        // valor_acrescimo é o juros/multa pago além do nominal. O campo já vinha na
+                        // resposta e não era lido: sem ele a baixa automática usava só o valor do
+                        // título (pago = titulo + mora - perdoado) e a conta era baixada sem os
+                        // juros, com Valor Juros zerado no movimento (#868jj1kyc).
+                        ValorMora = decimalOrZero(item.ValorAcrescimo),
                         ValorTarifaMovimento = decimalFromString(item.ValorDecrescimo),
                         SeuNumero = item.SeuNumero,
                     };
@@ -464,6 +469,7 @@ namespace BoletoNetCore
                     {
                         ritem.ValorLiquido = ritem.ValorTitulo;
                         ritem.ValorTarifaMovimento = 0;
+                        ritem.ValorMora = 0;
                     }
 
                     items.Add(ritem);
@@ -485,6 +491,13 @@ namespace BoletoNetCore
         private decimal decimalFromString(string value)
         {
             return decimal.Parse(value, System.Globalization.CultureInfo.InvariantCulture);
+        }
+
+        // Campo opcional na resposta do banco: ausente ou vazio vale zero, em vez de estourar
+        // o parse e derrubar a leitura da movimentação inteira.
+        private decimal decimalOrZero(string value)
+        {
+            return string.IsNullOrWhiteSpace(value) ? 0 : decimalFromString(value);
         }
 
         public async Task<DownloadArquivoRetornoItem[]> DownloadArquivoMovimentacao(int numeroContrato, int codigoSolicitacao, int idArquivo, DateTime inicio, DateTime fim)
