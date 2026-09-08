@@ -325,21 +325,6 @@ namespace BoletoNetCore
             return result?.Pdf ?? "";
         }
 
-        // Banrisul exige caracteres alfanuméricos, acentos PT-BR, espaço e um conjunto restrito de pontuação.
-        private static readonly System.Text.RegularExpressions.Regex BanrisulInvalidCharRegex =
-            new(@"[^A-Za-z0-9áàâãéêíóôõúüçÁÀÂÃÉÊÍÓÔÕÚÜÇ\\!#$%'()*+,./:;=?@\[\]\^_`{|}~& -]",
-                System.Text.RegularExpressions.RegexOptions.Compiled);
-
-        private static string SanitizeBanrisul(string? value, int maxLength)
-        {
-            if (string.IsNullOrEmpty(value)) return "";
-            var clean = BanrisulInvalidCharRegex.Replace(value, "");
-            clean = System.Text.RegularExpressions.Regex.Replace(clean, @"\s+", " ").Trim();
-            if (clean.Length > maxLength)
-                clean = clean.Substring(0, maxLength).Trim();
-            return clean;
-        }
-
         private object BuildRegistrarPayload(Boleto boleto)
         {
             var tipoPessoa = boleto.Pagador.CPFCNPJ.Length == 14 ? "J" : "F";
@@ -347,7 +332,7 @@ namespace BoletoNetCore
             var pagador = new BanrisulPagador
             {
                 TipoPessoa = tipoPessoa,
-                Nome = SanitizeBanrisul(boleto.Pagador.Nome, 40),
+                Nome = SanitizeBanrisul(boleto.Pagador.Nome, TamanhoMaximoNomePagador),
                 CpfCnpj = boleto.Pagador.CPFCNPJ,
                 Aceite = "N",
                 Endereco = SanitizeBanrisul(boleto.Pagador.Endereco.LogradouroEndereco, 40),

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Text.RegularExpressions;
 using BoletoNetCore.Exceptions;
 using BoletoNetCore.Extensions;
 
@@ -34,6 +35,39 @@ namespace BoletoNetCore
         public override string FormatarNomeArquivoRemessa(int numeroSequencial)
         {
             return "";
+        }
+
+        /// <summary>
+        /// O Banrisul rejeita nome de pagador com caracteres especiais ou acima de 40 posições.
+        /// Aplica a mesma sanitização usada no registro online para que o boleto impresso, a
+        /// remessa e o cadastro no banco fiquem com o mesmo nome.
+        /// </summary>
+        public override void ValidaBoleto(Boleto boleto)
+        {
+            var nome = SanitizeBanrisul(boleto.Pagador.Nome, TamanhoMaximoNomePagador);
+            if (string.IsNullOrEmpty(nome))
+                throw new Exception("Nome do pagador inválido para o Banrisul: não sobrou nenhum caractere aceito pelo banco.");
+
+            boleto.Pagador.Nome = nome;
+        }
+
+        internal const int TamanhoMaximoNomePagador = 40;
+
+        // Banrisul exige caracteres alfanuméricos, acentos PT-BR, espaço e um conjunto restrito de pontuação.
+        private static readonly Regex BanrisulInvalidCharRegex =
+            new(@"[^A-Za-z0-9áàâãéêíóôõúüçÁÀÂÃÉÊÍÓÔÕÚÜÇ\\!#$%'()*+,./:;=?@\[\]\^_`{|}~& -]",
+                RegexOptions.Compiled);
+
+        private static readonly Regex BanrisulEspacosRegex = new(@"\s+", RegexOptions.Compiled);
+
+        internal static string SanitizeBanrisul(string value, int maxLength)
+        {
+            if (string.IsNullOrEmpty(value)) return "";
+            var clean = BanrisulInvalidCharRegex.Replace(value, "");
+            clean = BanrisulEspacosRegex.Replace(clean, " ").Trim();
+            if (clean.Length > maxLength)
+                clean = clean.Substring(0, maxLength).Trim();
+            return clean;
         }
     }
 }

@@ -19,7 +19,7 @@ namespace BoletoNetCore
         public List<string> IdsRetornoCnab400RegistroDetalhe { get; protected set; }
         public bool RemoveAcentosArquivoRemessa { get; protected set; }
 
-        public void ValidaBoleto(Boleto boleto)
+        public virtual void ValidaBoleto(Boleto boleto)
         {
         }
 
