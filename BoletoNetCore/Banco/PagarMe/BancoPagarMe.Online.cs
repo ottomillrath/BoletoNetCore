@@ -167,17 +167,28 @@ namespace BoletoNetCore
             customer.Address.ZipCode = boleto.Pagador.Endereco.CEP;
             customer.Address.Country = "BR";
 
+            // Pagar.me validates the phone as country_code + area_code + number and accepts
+            // at most 15 digits, so each part must be sent without repeating the others.
+            // 12/13 digits already carry the country code (2 + 2 + 8/9); 10/11 digits are
+            // area code + number only and get the default country code. Anything else
+            // (including an empty phone) falls back to a placeholder.
+            var countryCode = "55";
             var phone = Utils.OnlyNumbers(boleto.Pagador.Telefone);
-            if (phone == "")
+            if (phone.Length == 12 || phone.Length == 12 + 1)
+            {
+                countryCode = phone.Substring(0, 2);
+                phone = phone.Substring(2);
+            }
+            else if (phone.Length != 10 && phone.Length != 11)
             {
                 phone = "00900000000";
             }
 
             customer.Phones = new();
             customer.Phones.MobilePhone = new();
-            customer.Phones.MobilePhone.CountryCode = "55";
+            customer.Phones.MobilePhone.CountryCode = countryCode;
             customer.Phones.MobilePhone.AreaCode = phone.Substring(0, 2);
-            customer.Phones.MobilePhone.Number = phone;
+            customer.Phones.MobilePhone.Number = phone.Substring(2);
 
             CreateBoletoPaymentRequest sBol = new();
             sBol.Instructions = boleto.CodigoInstrucao1;
