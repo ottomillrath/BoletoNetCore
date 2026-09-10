@@ -58,7 +58,7 @@ namespace BoletoNetCore
                 }
                 else
                 {
-                    uri = new Uri("https://api.itau.com.br/cash_management/v2/");
+                    uri = new Uri("https://api.gateway.itau.com.br/cash_management/v2/");
                     X509Certificate2 certificate = new X509Certificate2(Certificado, CertificadoSenha);
                     handler.ClientCertificates.Add(certificate);
                 }
@@ -301,7 +301,7 @@ namespace BoletoNetCore
                     Chave = boleto.Banco.Beneficiario.ContaBancaria.ChavePix,
                     TipoCobranca = "cob",
                 };
-                request = new HttpRequestMessage(HttpMethod.Post, "https://secure.api.itau/pix_recebimentos_conciliacoes/v2/boletos_pix")
+                request = new HttpRequestMessage(HttpMethod.Post, "https://secure.gateway.api.itau/pix_recebimentos_conciliacoes/v2/boletos_pix")
                 {
                     Content = new StringContent(JsonConvert.SerializeObject(emissao, Formatting.None, new JsonSerializerSettings
                     {
