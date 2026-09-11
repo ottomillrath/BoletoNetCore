@@ -179,14 +179,86 @@ namespace BoletoNetCore
             var ret = await response.Content.ReadFromJsonAsync<RetornoConsultaBoletoSicrediApi[]>();
 
             // todo: verificar quais dados necessarios para preencher boleto
-            return ret[0].Situacao.ToString() switch
+            var statusBoleto = ret[0].Situacao.ToString() switch
             {
-                "EM_ABERTO" => new() { Status = StatusBoleto.EmAberto },
-                "EM CARTEIRA" => new() { Status = StatusBoleto.EmAberto },
-                "LIQUIDADO" => new() { Status = StatusBoleto.Liquidado },
-                "BAIXADO" => new() { Status = StatusBoleto.Baixado },
-                _ => new() { Status = StatusBoleto.Nenhum }
+                "EM_ABERTO" => StatusBoleto.EmAberto,
+                "EM CARTEIRA" => StatusBoleto.EmAberto,
+                "LIQUIDADO" => StatusBoleto.Liquidado,
+                "BAIXADO" => StatusBoleto.Baixado,
+                _ => StatusBoleto.Nenhum
             };
+
+            return new()
+            {
+                Status = statusBoleto,
+                // Sem estes dados quem chama so consegue *informar* que o boleto foi pago: a
+                // liquidacao do titulo e a baixa da conta a receber exigem valor e data.
+                DadosLiquidacao = statusBoleto == StatusBoleto.Liquidado ? LerDadosLiquidacao(ret[0]) : null,
+            };
+        }
+
+        /// <summary>
+        /// Monta os dados da liquidacao a partir do que a consulta devolve (valorLiquidado e
+        /// dataLiquidacao). Devolve null quando a resposta nao traz os dois — sem valor e data nao
+        /// ha o que baixar, e quem chama continua apenas reportando "Liquidado".
+        /// </summary>
+        private static DadosLiquidacao LerDadosLiquidacao(RetornoConsultaBoletoSicrediApi consulta)
+        {
+            var valorPago = ParseValor(consulta.ValorLiquidado);
+            var dataLiquidacao = ParseData(consulta.DataLiquidacao);
+            if (valorPago == null || valorPago <= 0 || dataLiquidacao == null)
+                return null;
+
+            var valorNominal = ParseValor(consulta.Valor) ?? valorPago;
+
+            return new DadosLiquidacao
+            {
+                CodigoMovimento = "06",
+                DataProcessamento = dataLiquidacao.Value,
+                // A consulta nao informa a data do credito em conta; o Sicredi credita a
+                // liquidacao no mesmo dia.
+                DataCredito = dataLiquidacao.Value,
+                ValorPago = (double)valorPago.Value,
+                // A consulta nao abre juros/multa/desconto: o que sobrou ou faltou em relacao ao
+                // nominal entra como acrescimo ou desconto, como no Banrisul e no Santander.
+                ValorDesconto = valorNominal > valorPago ? (double)(valorNominal.Value - valorPago.Value) : 0,
+                ValorJurosDia = valorPago > valorNominal ? (double)(valorPago.Value - valorNominal.Value) : 0,
+                ValorAbatimento = 0,
+                ValorPagoCredito = 0,
+                ValorIof = 0,
+                ValorMulta = 0,
+                ValorOutrasDespesas = 0,
+                ValorOutrosCreditos = 0,
+                ValorTarifas = 0,
+            };
+        }
+
+        /// <summary>
+        /// Valores da consulta vem como texto e o separador decimal varia com a configuracao do
+        /// beneficiario no portal: aceita "49.90" e "49,90".
+        /// </summary>
+        private static decimal? ParseValor(string valor)
+        {
+            if (string.IsNullOrWhiteSpace(valor))
+                return null;
+            if (decimal.TryParse(valor, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var invariante))
+                return invariante;
+            if (decimal.TryParse(valor, System.Globalization.NumberStyles.Any, new System.Globalization.CultureInfo("pt-BR"), out var ptBr))
+                return ptBr;
+            return null;
+        }
+
+        private static DateTime? ParseData(string data)
+        {
+            if (string.IsNullOrWhiteSpace(data))
+                return null;
+            // Sem AdjustToUniversal: a data vem sem fuso e quem chama a trata como horario de
+            // Brasilia (DateTimeUtils.SaoPauloToUtc no service_boleto).
+            if (DateTime.TryParse(data, System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out var invariante))
+                return invariante;
+            if (DateTime.TryParse(data, new System.Globalization.CultureInfo("pt-BR"), System.Globalization.DateTimeStyles.None, out var ptBr))
+                return ptBr;
+            return null;
         }
 
         public Task<string> CancelarBoleto(Boleto boleto)

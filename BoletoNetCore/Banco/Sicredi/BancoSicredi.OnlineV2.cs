@@ -278,18 +278,26 @@ namespace BoletoNetCore
             try
             {
                 var status = (string)ret.SelectToken("$.situacao");
-                return status switch
+                var statusBoleto = status switch
                 {
-                    "EM CARTEIRA" => new() { Status = StatusBoleto.EmAberto },
-                    "EM CARTEIRA PIX" => new() { Status = StatusBoleto.EmAberto },
-                    "LIQUIDADO" => new() { Status = StatusBoleto.Liquidado },
-                    "LIQUIDADO CARTORIO" => new() { Status = StatusBoleto.Liquidado },
-                    "LIQUIDADO REDE" => new() { Status = StatusBoleto.Liquidado },
-                    "LIQUIDADO COMPE" => new() { Status = StatusBoleto.Liquidado },
-                    "LIQUIDADO PIX" => new() { Status = StatusBoleto.Liquidado },
-                    "LIQUIDADO CHEQUE" => new() { Status = StatusBoleto.Liquidado },
-                    "BAIXADO POR SOLICITACAO" => new() { Status = StatusBoleto.Baixado },
-                    _ => new() { Status = StatusBoleto.Nenhum },
+                    "EM CARTEIRA" => StatusBoleto.EmAberto,
+                    "EM CARTEIRA PIX" => StatusBoleto.EmAberto,
+                    "LIQUIDADO" => StatusBoleto.Liquidado,
+                    "LIQUIDADO CARTORIO" => StatusBoleto.Liquidado,
+                    "LIQUIDADO REDE" => StatusBoleto.Liquidado,
+                    "LIQUIDADO COMPE" => StatusBoleto.Liquidado,
+                    "LIQUIDADO PIX" => StatusBoleto.Liquidado,
+                    "LIQUIDADO CHEQUE" => StatusBoleto.Liquidado,
+                    "BAIXADO POR SOLICITACAO" => StatusBoleto.Baixado,
+                    _ => StatusBoleto.Nenhum,
+                };
+
+                return new()
+                {
+                    Status = statusBoleto,
+                    // Sem estes dados quem chama so consegue *informar* que o boleto foi pago: a
+                    // liquidacao do titulo e a baixa da conta a receber exigem valor e data.
+                    DadosLiquidacao = statusBoleto == StatusBoleto.Liquidado ? LerDadosLiquidacao(ret) : null,
                 };
             }
 
@@ -298,6 +306,86 @@ namespace BoletoNetCore
                 return new() { Status = StatusBoleto.Nenhum };
             }
 
+        }
+
+        /// <summary>
+        /// Extrai valor e datas da liquidacao da resposta da consulta de boleto.
+        ///
+        /// A consulta devolve a situacao junto com os dados do pagamento (valorLiquidado,
+        /// dataLiquidacao e, com o header data-movimento, a data do lancamento em conta), mas os
+        /// nomes variam entre as versoes da API. Le os candidatos conhecidos e devolve null quando
+        /// nenhum aparece — sem valor e data nao ha o que liquidar, e quem chama continua apenas
+        /// reportando "Liquidado" como antes.
+        /// </summary>
+        private static DadosLiquidacao? LerDadosLiquidacao(JObject ret)
+        {
+            var valorPago = LerDecimal(ret, "valorLiquidado", "valorPago", "valorMovimento");
+            var dataLiquidacao = LerData(ret, "dataLiquidacao", "dataPagamento", "dataMovimento");
+            if (valorPago == null || valorPago <= 0 || dataLiquidacao == null)
+                return null;
+
+            // Data do credito em conta; o Sicredi credita a liquidacao no mesmo dia, mas quando
+            // informa o lancamento separado e ele que vale para a conciliacao bancaria.
+            var dataCredito = LerData(ret, "dataCredito", "dataLancamento") ?? dataLiquidacao;
+            var valorNominal = LerDecimal(ret, "valorNominal", "valor") ?? valorPago;
+
+            return new DadosLiquidacao
+            {
+                CodigoMovimento = "06",
+                DataProcessamento = dataLiquidacao.Value,
+                DataCredito = dataCredito.Value,
+                ValorPago = (double)valorPago.Value,
+                // A consulta nao abre juros/multa/desconto: o que sobrou ou faltou em relacao ao
+                // nominal entra como acrescimo ou desconto, como no Banrisul e no Santander.
+                ValorDesconto = valorNominal > valorPago ? (double)(valorNominal.Value - valorPago.Value) : 0,
+                ValorJurosDia = valorPago > valorNominal ? (double)(valorPago.Value - valorNominal.Value) : 0,
+                ValorAbatimento = 0,
+                ValorPagoCredito = 0,
+                ValorIof = 0,
+                ValorMulta = 0,
+                ValorOutrasDespesas = 0,
+                ValorOutrosCreditos = 0,
+                ValorTarifas = 0,
+            };
+        }
+
+        private static decimal? LerDecimal(JObject ret, params string[] campos)
+        {
+            foreach (var campo in campos)
+            {
+                var token = ret.SelectToken(string.Format("$.{0}", campo));
+                if (token == null || token.Type == JTokenType.Null)
+                    continue;
+                if (decimal.TryParse(
+                        (string?)token,
+                        System.Globalization.NumberStyles.Any,
+                        System.Globalization.CultureInfo.InvariantCulture,
+                        out var valor))
+                    return valor;
+            }
+            return null;
+        }
+
+        private static DateTime? LerData(JObject ret, params string[] campos)
+        {
+            foreach (var campo in campos)
+            {
+                var token = ret.SelectToken(string.Format("$.{0}", campo));
+                if (token == null || token.Type == JTokenType.Null)
+                    continue;
+                var texto = (string?)token;
+                if (string.IsNullOrWhiteSpace(texto))
+                    continue;
+                // Sem AssumeLocal/AdjustToUniversal: a data vem sem fuso e quem chama a trata como
+                // horario de Brasilia (DateTimeUtils.SaoPauloToUtc no service_boleto).
+                if (DateTime.TryParse(
+                        texto,
+                        System.Globalization.CultureInfo.InvariantCulture,
+                        System.Globalization.DateTimeStyles.None,
+                        out var data))
+                    return data;
+            }
+            return null;
         }
 
         public class SicrediV2RegistrarRequest
@@ -476,9 +564,14 @@ namespace BoletoNetCore
                         NumeroTitulo = 0,
                         ValorTitulo = (decimal)item.ValorNominal,
                         ValorLiquido = (decimal)item.ValorMovimento,
-                        ValorMora = (decimal)item.ValorMulta,
-                        ValorDesconto = (decimal)item.ValorDesconto,
-                        ValorTarifaMovimento = (decimal)item.ValorAbatimento,
+                        // Acrescimo do pagador e juros + multa; quem baixa a conta a receber soma
+                        // os dois num unico InterestValue.
+                        ValorMora = item.ValorJuros + item.ValorMulta,
+                        ValorDesconto = item.ValorDesconto,
+                        // Abatimento e valor perdoado, nao tarifa do banco: no campo de tarifa ele
+                        // virava uma conta a pagar de "TARIFAS/CUSTAS COBRANCA" e sumia do desconto.
+                        // A movimentacao do Sicredi nao informa tarifa.
+                        ValorAbatimento = item.ValorAbatimento,
                         SeuNumero = item.SeuNumero,
                     };
 
@@ -535,17 +628,20 @@ namespace BoletoNetCore
             [JsonProperty("valorNominal")]
             public double ValorNominal { get; set; }
 
+            // decimal, nao int: com centavos (juros/multa de um pagamento em atraso) a
+            // desserializacao do int estourava e o catch la em cima descartava a pagina *inteira*
+            // de movimentacoes, entao nenhum boleto daquele dia era baixado.
             [JsonProperty("valorAbatimento")]
-            public int ValorAbatimento { get; set; }
+            public decimal ValorAbatimento { get; set; }
 
             [JsonProperty("valorDesconto")]
-            public int ValorDesconto { get; set; }
+            public decimal ValorDesconto { get; set; }
 
             [JsonProperty("valorJuros")]
-            public int ValorJuros { get; set; }
+            public decimal ValorJuros { get; set; }
 
             [JsonProperty("valorMulta")]
-            public int ValorMulta { get; set; }
+            public decimal ValorMulta { get; set; }
 
             [JsonProperty("valorMovimento")]
             public double ValorMovimento { get; set; }
