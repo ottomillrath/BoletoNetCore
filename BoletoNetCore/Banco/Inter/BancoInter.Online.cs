@@ -149,6 +149,11 @@ namespace BoletoNetCore
                     DataVencimentoTitulo = dueDate,
                     ValorTitulo = valortitulo,
                     ValorLiquido = totalamount, // Valor líquido é o mesmo que o nominal
+                    // A API só informa o total recebido: o que passa do nominal é mora e o que falta é
+                    // desconto. Sem isso a baixa automática usava só o valor do título e a conta saía
+                    // sem os juros (#868f6q0vp).
+                    ValorMora = totalamount > valortitulo ? totalamount - valortitulo : 0,
+                    ValorDesconto = valortitulo > totalamount ? valortitulo - totalamount : 0,
                     ValorTarifaMovimento = 0, // Inter não retorna tarifa de movimento
                     SeuNumero = item.Slip.OurNumber,
 

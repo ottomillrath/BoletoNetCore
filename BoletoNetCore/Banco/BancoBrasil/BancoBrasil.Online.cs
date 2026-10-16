@@ -406,6 +406,11 @@ namespace BoletoNetCore
                     ValorTitulo = item.ValorBoleto,
                     ValorLiquido = item.ValorRecebido,
                     ValorTarifaMovimento = item.ValorTarifa,
+                    // Sem juros/desconto/abatimento a baixa automática usava só o valor do boleto
+                    // (pago = titulo + mora - perdoado) e a conta saía sem os juros (#868f6q0vp).
+                    ValorMora = item.ValorJurosMora + item.ValorOutrosValoresRecebidos,
+                    ValorDesconto = item.ValorDesconto,
+                    ValorAbatimento = item.ValorAbatimento,
                     SeuNumero = item.NumeroTituloCobranca,
                 };
                 if (item.DataLiquidacaoBoleto != null && item.DataLiquidacaoBoleto != "")

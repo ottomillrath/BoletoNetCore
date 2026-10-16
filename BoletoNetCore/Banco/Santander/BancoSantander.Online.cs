@@ -381,6 +381,10 @@ namespace BoletoNetCore
                         DataVencimentoTitulo = dataVenc,
                         ValorTitulo = ParseDecimal(b.NominalValue),
                         ValorLiquido = ParseDecimal(b.Payment?.PaidValue),
+                        // Sem juros/multa a baixa automática usava só o valor do título
+                        // (pago = titulo + mora - perdoado) e a conta saía sem os juros (#868f6q0vp).
+                        ValorMora = ParseDecimal(b.Payment?.InterestValue) + ParseDecimal(b.Payment?.FineValue),
+                        ValorAbatimento = ParseDecimal(b.Payment?.RebateValue),
                         DataLiquidacao = dataLiq,
                         DataMovimentoLiquidacao = dataLiq,
                         DataPrevisaoCredito = dataCredito,

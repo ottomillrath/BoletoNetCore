@@ -879,7 +879,9 @@ namespace BoletoNetCore
                             NumeroTitulo = 0,
                             ValorTitulo = (decimal)item.ValorNominal,
                             ValorLiquido = (decimal)item.ValorMovimento,
-                            ValorMora = (decimal)item.ValorMulta,
+                            // Juros e multa são o acréscimo pago além do nominal. Só a multa era lida,
+                            // e a baixa saía sem os juros (#868f6q0vp).
+                            ValorMora = (decimal)item.ValorJuros + (decimal)item.ValorMulta,
                             ValorDesconto = (decimal)item.ValorDesconto,
                             ValorTarifaMovimento = (decimal)item.ValorAbatimento,
                             SeuNumero = item.SeuNumero ?? string.Empty,
@@ -940,16 +942,16 @@ namespace BoletoNetCore
             public double ValorNominal { get; set; }
 
             [JsonProperty("valorAbatimento")]
-            public int ValorAbatimento { get; set; }
+            public double ValorAbatimento { get; set; }
 
             [JsonProperty("valorDesconto")]
-            public int ValorDesconto { get; set; }
+            public double ValorDesconto { get; set; }
 
             [JsonProperty("valorJuros")]
-            public int ValorJuros { get; set; }
+            public double ValorJuros { get; set; }
 
             [JsonProperty("valorMulta")]
-            public int ValorMulta { get; set; }
+            public double ValorMulta { get; set; }
 
             [JsonProperty("valorMovimento")]
             public double ValorMovimento { get; set; }

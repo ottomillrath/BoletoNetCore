@@ -287,6 +287,10 @@ namespace BoletoNetCore
                         : DateTime.MinValue;
                     if (b.SituacaoBanrisul == "L")
                     {
+                        // A API só informa o valor pago: o que passa do nominal é mora e o que falta é
+                        // desconto, como na consulta de status. Sem isso a baixa automática usava só o
+                        // valor do título e a conta saía sem os juros (#868f6q0vp).
+                        var valorPago = b.Operacoes?.ValorPagamento ?? 0;
                         items.Add(new DownloadArquivoRetornoItem
                         {
                             NossoNumero = b.NossoNumero ?? "",
@@ -294,7 +298,9 @@ namespace BoletoNetCore
                             CodigoBarras = b.CodigoBarras ?? "",
                             DataVencimentoTitulo = dataVenc,
                             ValorTitulo = b.ValorNominal,
-                            ValorLiquido = b.Operacoes?.ValorPagamento ?? 0,
+                            ValorLiquido = valorPago,
+                            ValorMora = valorPago > b.ValorNominal ? valorPago - b.ValorNominal : 0,
+                            ValorDesconto = valorPago > 0 && b.ValorNominal > valorPago ? b.ValorNominal - valorPago : 0,
                             DataLiquidacao = dataLiq,
                             DataMovimentoLiquidacao = dataLiq,
                             DataPrevisaoCredito = dataLiq,
