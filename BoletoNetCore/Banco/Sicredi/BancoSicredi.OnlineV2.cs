@@ -311,23 +311,43 @@ namespace BoletoNetCore
         /// <summary>
         /// Extrai valor e datas da liquidacao da resposta da consulta de boleto.
         ///
-        /// A consulta devolve a situacao junto com os dados do pagamento (valorLiquidado,
-        /// dataLiquidacao e, com o header data-movimento, a data do lancamento em conta), mas os
-        /// nomes variam entre as versoes da API. Le os candidatos conhecidos e devolve null quando
-        /// nenhum aparece — sem valor e data nao ha o que liquidar, e quem chama continua apenas
-        /// reportando "Liquidado" como antes.
+        /// O pagamento vem no objeto `dadosLiquidacao` (data, valor, juros, multa, desconto,
+        /// abatimento); a previsao do credito em conta vem em `dataPrevisaoPagamento`, no nivel
+        /// de cima. Os nomes de primeiro nivel ficam como fallback — eram os unicos lidos ate
+        /// aqui e nenhum deles traz o valor pago, entao a consulta respondia "Liquidado" sem
+        /// nunca liquidar (#868kx15da). Devolve null quando falta valor ou data.
         /// </summary>
         private static DadosLiquidacao? LerDadosLiquidacao(JObject ret)
         {
-            var valorPago = LerDecimal(ret, "valorLiquidado", "valorPago", "valorMovimento");
-            var dataLiquidacao = LerData(ret, "dataLiquidacao", "dataPagamento", "dataMovimento");
+            var liq = ret["dadosLiquidacao"] as JObject;
+
+            var valorPago = LerDecimal(liq, "valor") ?? LerDecimal(ret, "valorLiquidado", "valorPago", "valorMovimento");
+            var dataLiquidacao = LerData(liq, "data") ?? LerData(ret, "dataLiquidacao", "dataPagamento", "dataMovimento");
             if (valorPago == null || valorPago <= 0 || dataLiquidacao == null)
                 return null;
 
-            // Data do credito em conta; o Sicredi credita a liquidacao no mesmo dia, mas quando
-            // informa o lancamento separado e ele que vale para a conciliacao bancaria.
-            var dataCredito = LerData(ret, "dataCredito", "dataLancamento") ?? dataLiquidacao;
+            // Previsao do credito em conta: e ela que vale para a conciliacao bancaria. Sem ela,
+            // quem chama projeta pelo prazo da conta.
+            var dataCredito = LerData(ret, "dataCredito", "dataLancamento", "dataPrevisaoPagamento") ?? dataLiquidacao;
             var valorNominal = LerDecimal(ret, "valorNominal", "valor") ?? valorPago;
+
+            decimal juros, multa, desconto, abatimento;
+            if (liq != null)
+            {
+                juros = LerDecimal(liq, "juros") ?? 0;
+                multa = LerDecimal(liq, "multa") ?? 0;
+                desconto = LerDecimal(liq, "desconto") ?? 0;
+                abatimento = LerDecimal(liq, "abatimento") ?? 0;
+            }
+            else
+            {
+                // Sem o detalhamento, o que sobrou ou faltou em relacao ao nominal entra como
+                // acrescimo ou desconto, como no Banrisul e no Santander.
+                juros = valorPago > valorNominal ? valorPago.Value - valorNominal.Value : 0;
+                multa = 0;
+                desconto = valorNominal > valorPago ? valorNominal.Value - valorPago.Value : 0;
+                abatimento = 0;
+            }
 
             return new DadosLiquidacao
             {
@@ -335,22 +355,22 @@ namespace BoletoNetCore
                 DataProcessamento = dataLiquidacao.Value,
                 DataCredito = dataCredito.Value,
                 ValorPago = (double)valorPago.Value,
-                // A consulta nao abre juros/multa/desconto: o que sobrou ou faltou em relacao ao
-                // nominal entra como acrescimo ou desconto, como no Banrisul e no Santander.
-                ValorDesconto = valorNominal > valorPago ? (double)(valorNominal.Value - valorPago.Value) : 0,
-                ValorJurosDia = valorPago > valorNominal ? (double)(valorPago.Value - valorNominal.Value) : 0,
-                ValorAbatimento = 0,
+                ValorDesconto = (double)desconto,
+                ValorJurosDia = (double)juros,
+                ValorAbatimento = (double)abatimento,
                 ValorPagoCredito = 0,
                 ValorIof = 0,
-                ValorMulta = 0,
+                ValorMulta = (double)multa,
                 ValorOutrasDespesas = 0,
                 ValorOutrosCreditos = 0,
                 ValorTarifas = 0,
             };
         }
 
-        private static decimal? LerDecimal(JObject ret, params string[] campos)
+        private static decimal? LerDecimal(JObject? ret, params string[] campos)
         {
+            if (ret == null)
+                return null;
             foreach (var campo in campos)
             {
                 var token = ret.SelectToken(string.Format("$.{0}", campo));
@@ -366,18 +386,37 @@ namespace BoletoNetCore
             return null;
         }
 
-        private static DateTime? LerData(JObject ret, params string[] campos)
+        private static DateTime? LerData(JObject? ret, params string[] campos)
         {
+            if (ret == null)
+                return null;
             foreach (var campo in campos)
             {
                 var token = ret.SelectToken(string.Format("$.{0}", campo));
                 if (token == null || token.Type == JTokenType.Null)
                     continue;
+                // dadosLiquidacao.data vem com fuso ("2026-09-25T15:40:51-03:00") e o Json.NET ja
+                // a converteu para o horario da maquina (UTC no container). Volta para o horario
+                // de Brasilia, que e como quem chama trata a data (DateTimeUtils.SaoPauloToUtc no
+                // service_boleto) — senao a hora era deslocada duas vezes.
+                if (token.Type == JTokenType.Date)
+                {
+                    var valor = token.ToObject<DateTime>();
+                    if (valor.Kind == DateTimeKind.Unspecified)
+                        return valor;
+                    return new DateTimeOffset(valor.ToUniversalTime()).ToOffset(TimeSpan.FromHours(-3)).DateTime;
+                }
                 var texto = (string?)token;
                 if (string.IsNullOrWhiteSpace(texto))
                     continue;
-                // Sem AssumeLocal/AdjustToUniversal: a data vem sem fuso e quem chama a trata como
-                // horario de Brasilia (DateTimeUtils.SaoPauloToUtc no service_boleto).
+                if (System.Text.RegularExpressions.Regex.IsMatch(texto, @"T.*(Z|[+-]\d{2}:?\d{2})$") &&
+                    DateTimeOffset.TryParse(
+                        texto,
+                        System.Globalization.CultureInfo.InvariantCulture,
+                        System.Globalization.DateTimeStyles.None,
+                        out var comFuso))
+                    return comFuso.ToOffset(TimeSpan.FromHours(-3)).DateTime;
+                // Data sem fuso: fica como veio, quem chama a trata como horario de Brasilia.
                 if (DateTime.TryParse(
                         texto,
                         System.Globalization.CultureInfo.InvariantCulture,
