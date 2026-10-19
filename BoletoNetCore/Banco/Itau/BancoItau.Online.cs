@@ -93,7 +93,10 @@ namespace BoletoNetCore
                 ["nosso_numero"] = boleto.NossoNumero,
                 ["page_size"] = "1",
                 ["order_by"] = "data_vencimento",
-                ["order"] = "ASC"
+                ["order"] = "ASC",
+                // Só a visão "specific" traz o bloco pagamentos_cobranca (data e valor do pagamento);
+                // sem ele a consulta só informa "Paga" e não há com o que liquidar o título.
+                ["view"] = "specific",
             };
             var correlation = System.Guid.NewGuid().ToString();
             var uri = QueryHelpers.AddQueryString("https://secure.api.cloud.itau.com.br/boletoscash/v2/boletos", query);
@@ -116,7 +119,13 @@ namespace BoletoNetCore
                     case "Em Aberto":
                         return new() { Status = StatusBoleto.EmAberto };
                     case "Paga":
-                        return new() { Status = StatusBoleto.Liquidado };
+                        return new()
+                        {
+                            Status = StatusBoleto.Liquidado,
+                            // Sem estes dados quem chama só consegue *informar* que o boleto foi pago:
+                            // a liquidação do título e a baixa da conta a receber exigem valor e data.
+                            DadosLiquidacao = LerDadosLiquidacao(ret, boleto.ValorTitulo),
+                        };
                     default:
                         return new() { Status = StatusBoleto.Nenhum };
                 }
@@ -125,6 +134,82 @@ namespace BoletoNetCore
             {
                 return new() { Status = StatusBoleto.Nenhum };
             }
+        }
+
+        /// <summary>
+        /// Extrai valor e data do pagamento do bloco pagamentos_cobranca da consulta.
+        ///
+        /// Devolve null quando o bloco não vem ou não tem valor e data — o Itaú não o devolve em
+        /// boleto pago por PIX, por exemplo. Nesse caso quem chama continua apenas reportando
+        /// "Liquidado" e a baixa fica com a movimentação (francesinha), como antes.
+        ///
+        /// O nominal vem do título e não da resposta: o Itaú trafega valor_titulo em centavos
+        /// com zeros à esquerda, formato diferente dos valores do pagamento.
+        /// </summary>
+        private static DadosLiquidacao LerDadosLiquidacao(JObject ret, decimal valorNominal)
+        {
+            var boleto = ret.SelectToken("$.data[0]");
+            var pagamento = boleto?.SelectToken("$..pagamentos_cobranca[0]");
+            if (pagamento == null)
+                return null;
+
+            var valorPago = lerDecimal(pagamento, "valor_pago_total_cobranca");
+            var dataPagamento = lerData(pagamento, "data_inclusao_pagamento");
+            if (valorPago == null || valorPago <= 0 || dataPagamento == null)
+                return null;
+
+            var valorDesconto = (lerDecimal(pagamento, "valor_pago_desconto_cobranca") ?? 0)
+                + (lerDecimal(pagamento, "valor_pago_abatimento_cobranca") ?? 0);
+            // Juros e multa vão juntos em ValorJurosDia: é o único acréscimo que o ProcessarTitulo
+            // repassa como InterestValue à conta a receber. Sem a abertura, o que passou do nominal.
+            var valorAcrescimo = (lerDecimal(pagamento, "valor_pago_juro_cobranca") ?? 0)
+                + (lerDecimal(pagamento, "valor_pago_multa_cobranca") ?? 0);
+            if (valorAcrescimo == 0 && valorPago > valorNominal)
+                valorAcrescimo = valorPago.Value - valorNominal;
+            if (valorDesconto == 0 && valorNominal > valorPago)
+                valorDesconto = valorNominal - valorPago.Value;
+
+            return new DadosLiquidacao
+            {
+                CodigoMovimento = "06",
+                DataProcessamento = dataPagamento.Value,
+                // A consulta não informa o crédito em conta; o service_boleto projeta pelo prazo
+                // de crédito da conta, como na movimentação (#868m2z7jn).
+                DataCredito = dataPagamento.Value,
+                ValorPago = (double)valorPago.Value,
+                ValorDesconto = (double)valorDesconto,
+                ValorJurosDia = (double)valorAcrescimo,
+                ValorAbatimento = 0,
+                ValorPagoCredito = 0,
+                ValorIof = 0,
+                ValorMulta = 0,
+                ValorOutrasDespesas = 0,
+                ValorOutrosCreditos = 0,
+                ValorTarifas = 0,
+            };
+        }
+
+        private static decimal? lerDecimal(JToken token, string caminho)
+        {
+            var valor = token.SelectToken(caminho);
+            if (valor == null || valor.Type == JTokenType.Null)
+                return null;
+            if (decimal.TryParse((string)valor, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var d))
+                return d;
+            return null;
+        }
+
+        private static DateTime? lerData(JToken token, string caminho)
+        {
+            var valor = token.SelectToken(caminho);
+            if (valor == null || valor.Type == JTokenType.Null)
+                return null;
+            // Vem como "yyyy-MM-dd" ou com hora; só o dia interessa, em horário de Brasília.
+            if (valor.Type == JTokenType.Date)
+                return ((DateTime)valor).Date;
+            if (DateTime.TryParse((string)valor, System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out var d))
+                return d.Date;
+            return null;
         }
 
         private string GetV3Url(string path)
