@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
@@ -111,11 +112,17 @@ namespace BoletoNetCore
             emissao.CodigoPagador = string.Empty;
 
             // manual: "Opcional. Será obrigatório se o código do pagador não for informado"
-            emissao.Telefone = boleto.Pagador.Telefone;
+            // #868dwkbgv: só os dígitos (sem máscara), sem o 0 de prefixo e sem o DDI 55 — fica DDD + número
+            var telefone = new string((boleto.Pagador.Telefone ?? "").Where(char.IsDigit).ToArray()).TrimStart('0');
+            if ((telefone.Length == 12 || telefone.Length == 13) && telefone.StartsWith("55"))
+                telefone = telefone.Substring(2);
+            emissao.Telefone = telefone;
 
             emissao.Email = "";
             emissao.EspecieDocumento = "A";// this.EspecieDocumentoSicrediCNAB400(boleto.EspecieDocumento);
-            emissao.SeuNumero = boleto.NumeroDocumento;
+            // #868dwkbgv: o Sicredi aceita até 10 caracteres no seuNumero, e o número do documento (campo
+            // Documento da conta a receber ou id da conta) passava disso. Vai o id do título, como na API v2.
+            emissao.SeuNumero = boleto.Id;
             emissao.DataVencimento = boleto.DataVencimento.ToString("dd/MM/yyyy");
             emissao.Valor = boleto.ValorTitulo;
             emissao.TipoDesconto = "A"; // todo:
