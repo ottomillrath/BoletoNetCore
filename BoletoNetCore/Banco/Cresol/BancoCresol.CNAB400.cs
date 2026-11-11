@@ -254,8 +254,9 @@ namespace BoletoNetCore
                 
                 boleto.ValorPagoCredito = boleto.ValorPago - boleto.ValorTarifas;
 
-                // Data do Crédito
-                boleto.DataCredito = Utils.ToDateTime(Utils.ToInt32(registro.Substring(328, 8)).ToString("####-##-##"));
+                // Data do Crédito: DDMMAA nas posições 296 a 301 (layout derivado do Bradesco).
+                // Em branco ou zerada vira DateTime(1,1,1), que o consumidor trata como "não informada".
+                boleto.DataCredito = Utils.ToDateTime(Utils.ToInt32(registro.Substring(295, 6)).ToString("##-##-##"));
 
                 // Identificação de Ocorrência - Código Auxiliar
                 boleto.CodigoMotivoOcorrencia = registro.Substring(318, 10);
