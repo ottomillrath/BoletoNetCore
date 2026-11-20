@@ -449,6 +449,10 @@ namespace BoletoNetCore
                 // }
                 throw BoletoNetCoreException.ErroAoRegistrarTituloOnline(new Exception(string.Format("{0} {1} - {2}", bad.Codigo, bad.Mensagem, String.Join("|", bad.Campos.Select(c => string.Format("{0} - {1}", c.Campo, c.Mensagem)))).Trim()));
             }
+            else if (response.StatusCode == HttpStatusCode.Unauthorized || response.StatusCode == HttpStatusCode.Forbidden)
+                // o corpo diz o motivo (credencial, certificado, permissão da aplicação); sem ele o
+                // usuário só via "Erro desconhecido: Unauthorized"
+                throw BoletoNetCoreException.ErroAoRegistrarTituloOnline(new Exception(Util.HttpErroBanco.Mensagem(response.StatusCode, await response.Content.ReadAsStringAsync())));
             else
                 throw BoletoNetCoreException.ErroAoRegistrarTituloOnline(new Exception(string.Format("Erro desconhecido: {0}", response.StatusCode)));
         }
